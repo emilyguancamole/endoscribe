@@ -20,5 +20,5 @@ llama_vllm.py
 structure.txt
 
 # unrelated
-nostalg-ai/
-nostalg-ai*
+nostalg-ai
+lang_rag_tutorial_2

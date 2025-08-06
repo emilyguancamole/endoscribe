@@ -1,0 +1,18 @@
+I am giving you a transcript and associated findings for a colonoscopy procedure. The task is to extract information about all of the polyps for the procedure. Make sure you are accurate (no mistakes) and complete (do not miss any polyps). 
+
+If there are discrepancies between the transcript and findings, use the transcript as the ground truth.
+
+Record each polyp as a separate JSON object, and return the full output as a JSON array. Each JSON object must contain the fields defined below. Follow the instructions. Do not guess.
+
+size_min_mm: Minimum size of polyp in millimeters, as a float.
+size_max_mm: Maximum size of polyp in millimeters, as a float. If no size range for the polyp is mentioned, record the same as size_min_mm.
+location: Location of polyp.
+resection_performed: "True" if resection is performed, otherwise "False".
+resection_method: resection method used. Record "NA" if resection was not performed.
+nice_class: NICE classification as an integer: 1, 2, or 0 (if not mentioned).
+jnet_class: JNET classification as a string: "1", "2A", "2B", "3", or "0" (if not mentioned).
+paris_class: Paris classification as a string: 0-Is, 0-Ip, 0-IIa, etc. Include combined morphology (0-IIa+Is) if applicable. Record "NA" if not mentioned.
+
+If no polyps were found during the procedure, return a single empty object inside an array: [{}].
+The number of JSON objects in the array should match the total number of polyps found in the procedure.
+Format your entire response as a valid JSON array of polyp objects. Do not return any additional comments or explanation.

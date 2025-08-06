@@ -1,0 +1,22 @@
+[
+    {
+        "size_min_mm": 6,
+        "size_max_mm": 6,
+        "location": "transverse colon",
+        "resection_performed": "True",
+        "resection_method": "cold snare",
+        "nice_class": 2,
+        "jnet_class": "2A",
+        "paris_class": "0-Is"
+    },
+    {
+        "size_min_mm": 20,
+        "size_max_mm": 20,
+        "location": "descending colon",
+        "resection_performed": "True",
+        "resection_method": "CAP EMR",
+        "nice_class": 0,
+        "jnet_class": "0",
+        "paris_class": "NA"
+    }
+]

@@ -1,0 +1,11 @@
+{
+    "indications": "63 year old female here for an upper endoscopic ultrasound for evaluation of pancreatic head mass and dilated pancreatic duct. She had two prior EUS with FNA, one on 8/16/23 and the other on 11/13/23, with outside provider showing nondiagnostic cytology.",
+    "eus_findings": "PANCREAS: A 8x16 mm partially circumscribed isoechoic mass with papillary projections was seen obstructing the pancreatic duct at the ampulla with upstream dilation of the duct to 10 mm. Fine needle biopsy of the mass at the ampulla was performed using 22 gauge SharkCore needle. A total of 2 passes were obtained with cytotechnologist declaring adequate cellularity.  This was concerning for main duct intraductal papillary mucinous neoplasm (IPMN). The pancreatic duct tapers in the body to 4.4 mm and we were unable to visualize the duct in the tail. There was a small 3x4 mm cyst communicating with the pancreatic duct in the body with no concerning features, likely side branch IPMN. There was another intraductal filling defect noted in the upstream duct in the head but this was not biopsied.\\n\\nBILE DUCT: The common bile duct was normal and measured 4.1-4.6 mm at the ampulla. There was no involvement of the bile duct by the intraductal pancreatic mass.",
+    "egd_findings": "EGD not performed. Limited views of the esophagus, stomach and duodenum were normal.",
+    "impressions":[
+        "Isoechoic intraductal pancreatic mass at the ampulla with marked upstream dilation of the duct, s/p FNB x2. Concern for main duct IPMN",
+        "Small branch duct IPMN in the body",
+        "Separate intraductal filling defect in the head, not biopsied",
+        "Normal EUS examination of the bile duct and liver"
+    ]
+}

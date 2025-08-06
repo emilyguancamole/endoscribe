@@ -1,0 +1,17 @@
+{
+    "indications": "44 year old female here for screening of average risk of colorectal cancer. History of recurrent acute diverticulitis.",
+    "last_colonoscopy": "No prior colonoscopy.",
+    "bbps_simple": "adequate",
+    "bbps_right": "2",
+    "bbps_transverse": "3",
+    "bbps_left": "3",
+    "bbps_total": "8",
+    "extent": "cecum",
+    "findings": "A 6 mm sessile polyp (Paris Is, NICE 2, JNET 2A) was found in the transverse colon. Polypectomy was performed with a cold snare. The resection was complete and the tissue was completely retrieved.\\nA granular, homogenous type, laterally spreading tumor polyp measuring 20 mm in size was found in the descending colon. Endoscopic mucosal resection was performed in a piecemeal fashion by injecting a mixture of saline and methylene blue into the submucosa to raise the lesion. Resection was then performed using CAP EMR technique, and the polyp tissue was completely retrieved. The polypectomy site was treated using hemostasis clips. Prophylactic margins ablation using soft coag and hot forceps was performed.\\nThere was mild diverticulosis noted in the sigmoid colon. The colon mucosa was otherwise normal. The scope was then withdrawn from the patient and the procedure completed.",
+    "polyp_count": "2",
+    "impressions":[
+        "A 6 mm sessile polyp (Paris Is, NICE 2) was found in the transverse colon; cold forceps polypectomy performed.",
+        "A 20 mm granular, homogenous type, laterally spreading tumor polyp was found at the cecum. Resection by CAP EMR.",
+        "Mild diverticulosis noted in the sigmoid colon. Normal colon mucosa otherwise."
+    ]
+}

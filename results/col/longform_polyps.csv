@@ -1,0 +1,13 @@
+col_id,size_min_mm,size_max_mm,location,resection_performed,resection_method,nice_class,jnet_class,paris_class
+11,20,20,cecum,True,EMR,0,2A,0-Is
+11,5,5,sigmoid colon,True,cold snare,2,0,0-Is
+11_long,20,20,cecum,True,EMR,0,2A,LST-G
+11_long,5,5,sigmoid colon,False,,2,0,0-Is
+11_long,20,20,rectosigmoid junction,False,,0,0,
+16,3,13,cecum,True,hot EMR,2,0,0-Is
+16,3,3,cecum,True,cold snare,2,0,0-Is
+16,3,3,cecum,True,cold snare,2,0,0-Is
+16,3,3,cecum,True,cold snare,2,0,0-Is
+16,3,3,cecum,True,cold snare,2,0,0-Is
+16,5,10,ascending colon,True,cold snare,2,0,0-Is
+16,5,10,sigmoid colon,True,cold snare,0,0,0-Is

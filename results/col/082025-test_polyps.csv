@@ -1,0 +1,13 @@
+col_id,size_min_mm,size_max_mm,location,resection_performed,resection_method,nice_class,jnet_class,paris_class
+115,10,10,transverse colon,True,cold EMR,0,0,NA
+115,5,5,transverse colon,True,cold snare,0,0,NA
+115,8,8,transverse colon,True,cold snare,0,0,NA
+115,6,6,transverse colon,True,cold EMR,0,0,NA
+115,25,25,transverse colon,True,hot EMR,0,0,NA
+115,20,20,transverse colon,True,hot EMR,0,0,NA
+115,20,20,transverse colon,True,hot EMR,0,0,NA
+115,12,12,across anastomosis,True,hot EMR,0,0,NA
+115,10,10,across anastomosis,True,hot EMR,0,0,NA
+95,6,6,cecum,True,cold snare,0,0,0-Is
+180,5,5,transverse colon,True,hot forceps avulsion,0,0,NA
+180,5,5,transverse colon,True,hot forceps avulsion,0,0,NA

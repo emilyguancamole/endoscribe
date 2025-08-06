@@ -1,0 +1,24 @@
+.env
+.DS_Store
+.gradio
+environment.yml
+__pycache__
+
+transcription/*.txt
+transcription/finetune_data
+transcription/recordings
+transcription/fine_tune_whisper.ipynb
+
+# old files/folders
+05_col_experiments
+05_ercp_experiments
+05_eus_experiments
+11_long*
+llama_testjob.sh
+llama_extraction.py
+llama_vllm.py
+structure.txt
+
+# unrelated
+nostalg-ai/
+nostalg-ai*

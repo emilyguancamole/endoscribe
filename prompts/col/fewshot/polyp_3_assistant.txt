@@ -1,0 +1,32 @@
+[
+    {
+        "size_min_mm": 5,
+        "size_max_mm": 5,
+        "location": "ileocecal valve",
+        "resection_performed": "True",
+        "resection_method": "hot snare",
+        "nice_class": 0,
+        "jnet_class": "0",
+        "paris_class": "0-Is"
+    },
+    {
+        "size_min_mm": 3,
+        "size_max_mm": 4,
+        "location": "cecum",
+        "resection_performed": "False",
+        "resection_method": "NA",
+        "nice_class": 0,
+        "jnet_class": "0",
+        "paris_class": "NA"
+    },
+    {
+        "size_min_mm": 3,
+        "size_max_mm": 3,
+        "location": "ascending colon",
+        "resection_performed": "True",
+        "resection_method": "cold snare",
+        "nice_class": 2,
+        "jnet_class": "2A",
+        "paris_class": "0-Is"
+    },
+]

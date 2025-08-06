@@ -1,0 +1,17 @@
+{
+    "indications": "80 year old female here for colonoscopy for evaluation of unintentional weight loss. History of malignant neoplasm cancer at the rectosigmoid junction, which was resected.",
+    "last_colonoscopy": "Last procedure was 5 years prior.",
+    "bbps_simple": "adequate",
+    "bbps_right": "1",
+    "bbps_transverse": "2",
+    "bbps_left": "2",
+    "bbps_total": "5",
+    "extent": "cecum",
+    "findings": "The colon was severely tortuous with suboptimal prep in some segments. Examination revealed severe diverticulosis in the sigmoid, transverse and ascending colon. No large lesions observed throughout the colon, but small lesions could be missed due to suboptimal prep.\\nRetroflexed views revealed Grade 2 hemorrhoids.",
+    "polyp_count": "0",
+    "impressions":[
+        "Severely tortuous colon.",
+        "Diverticulosis observed in the sigmoid, transverse and ascending colon.",
+        "Grade 2 hemorrhoids observed in retroflexed views."
+    ]
+}

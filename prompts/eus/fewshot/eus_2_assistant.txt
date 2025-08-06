@@ -1,0 +1,11 @@
+{
+    "indications": "60 year old female here for an endoscopic ultrasound for pancreatic cancer surveillance. She has a strong family history of pancreatic cancer.",
+    "eus_findings": "PANCREAS: The pancreas exhibited diffuse hyperechoic foci and strands but no discrete masses were seen. There was diffuse lobularity throughout the pancreas, but it did not meet the criteria for chronic pancreatitis. The tail appeared fatty with consistent focal fat infiltration. The main pancreatic duct was normal in caliber with no echogenic duct wall thickening, no strictures, stones, or mural nodules.\\n\\nBILE DUCT: The common bile duct appeared normal, measuring 4.5 mm, with no dilation, stones, or wall thickening.\\n\\nLIVER: The liver appeared normal with no focal lesions or suspicious findings.\\n\\nLYMPH NODES: No peripancreatic, perigastric, or celiac axis lymph nodes were visualized.",
+    "egd_findings": "EGD not performed. Limited views of the esophagus, stomach, and duodenum were obtained.\\n\\nESOPHAGUS: The mucosa appeared normal with no erosions, strictures, or masses.\\n\\nSTOMACH: A moderate amount of retained thick liquid with particulate material was seen, despite overnight fasting. The gastric mucosa otherwise appeared normal with no ulcers, nodularities, or visible lesions.\\n\\nDUODENUM: The mucosa appeared normal with no erythema, villous blunting, or mass lesions.",
+    "impressions":[
+        "Diffuse pancreatic changes with hyperechoic foci and strands without discrete masses",
+        "Diffuse pancreatic lobularity not meeting criteria for chronic pancreatitis",
+        "Fatty infiltration of the pancreatic tail",
+        "Normal limited views of the gastric and duodenal mucosa with retained gastric secretions"
+    ]
+}

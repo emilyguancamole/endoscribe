@@ -1,0 +1,47 @@
+col_id,size_min_mm,size_max_mm,location,resection_performed,nice_class
+11,20,20,cecum,true,2
+11,5,5,sigmoid colon,true,2
+11,20,20,recto-sigmoid colon,true,2
+16,13,13,cecum,true,2
+16,10,10,ascending colon,true,2
+16,5,5,ascending colon,true,2
+16,10,10,transverse colon,true,2
+16,5,5,sigmoide colon,true,2
+16,10,10,sigmoide colon,true,2
+24,6,6,ascending colon,true,1
+27,6,6,ascending colon,true,2
+27,3,3,proximal transverse colon,true,2
+34,7,7,ascending colon,true,0
+36,5,7,ileocecal valve,false,0
+36,7,9.9,proximal ascending colon,false,0
+36,3.5,3.5,proximal transverse colon,false,0
+36,3.5,3.5,proximal transverse colon,false,0
+36,5,7,distal transverse colon,false,0
+36,3,5,descending colon,false,0
+36,3,5,descending colon,false,0
+36,7,7,sigmoid colon,false,0
+36,7,9,rectum,false,0
+92,12,12,transverse colon,true,0
+92,7,7,transverse colon,true,0
+92,5,5,transverse colon,true,0
+95,6,6,cecum,true,0
+104,5,5,ascending colon,true,2
+104,25,25,transverse colon,true,2
+114,11,11,sigmoid colon,true,0
+114,30,30,sigmoid colon,true,0
+115,10,10,transverse colon,true,0
+115,5,5,transverse colon,true,0
+115,8,8,transverse colon,true,0
+115,6,6,transverse colon,true,0
+115,25,25,transverse colon,true,0
+115,20,20,transverse colon,true,0
+115,12,12,across anastomosis,true,0
+115,10,10,across anastomosis,true,0
+159,3,3,transverse colon,true,0
+159,3,3,right sigmoid colon,true,0
+180,5,5,transverse colon,true,0
+180,5,5,transverse colon,true,0
+186,20,20,ascending colon,true,1
+186,15,15,ascending colon,true,1
+186,15,15,transverse colon,true,1
+186,2,2,transverse colon,true,1

@@ -1,0 +1,10 @@
+I am giving you a transcript from an ERCP procedure. The task is to extract procedure entities. Make sure you are accurate (no mistakes), complete (do not miss any relevant information), and organized (record information in a manner that matches clinical standards).
+
+The entities you must extract are listed below. Follow the instructions. Do not guess.
+
+indications: Reasons for performing the procedure. Include patient history if mentioned. Do NOT include date of birth.
+egd_findings: An EGD was performed if and ony if there is mention of EGD performed, or the use of a second endoscope. If EGD was performed, report findings by EGD. If there are any abnormal findings, organize findings by subheadings: ESOPHAGUS, STOMACH, DUODENUM. If all areas were normal, combine into one sentence. 
+If EGD is not performed, record "EGD not performed", and any findings in the esophagus, stomach, and duodenum must include a note that findings were “limited views”.
+ercp_findings: Findings by ERCP as free text. This should be one string. 
+If CRE balloon is mentioned, it should be referred to as "CRE balloon". Stomach findings should not be included under ercp_findings.
+impressions: Summarizes the most important findings, procedures, and biopsies as a list. If there are multiple normal findings, combine them in one list item for EGD and another list item for ERCP, such as "Normal ERCP examination of x, y, z" where x y z are different areas with normal ERCP findings. Normal findings do not need to be in order of examination. "Scout film" results should not be mentioned in impressions.

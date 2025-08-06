@@ -1,0 +1,38 @@
+col_id,size_min_mm,size_max_mm,location,resection_performed,resection_method,nice_class,jnet_class,paris_class
+16,3.0,13.0,cecum,True,hot EMR,2,0,0-Is
+16,3.0,3.0,cecum,True,cold snare,2,0,0-Is
+16,3.0,3.0,cecum,True,cold snare,2,0,0-Is
+16,3.0,3.0,cecum,True,cold snare,2,0,0-Is
+16,3.0,3.0,cecum,True,cold snare,2,0,0-Is
+16,10.0,10.0,ascending colon,True,cold snare,2,0,0-Is
+16,5.0,5.0,ascending colon,True,cold snare,2,0,0-Is
+16,10.0,10.0,transverse colon,True,cold snare,0,0,NA
+16,5.0,10.0,sigmoid colon,True,cold snare,0,0,NA
+115,10.0,10.0,transverse colon,True,cold EMR,0,0,NA
+115,5.0,5.0,transverse colon,True,cold snare,0,0,NA
+115,8.0,8.0,transverse colon,True,cold snare,0,0,NA
+115,6.0,6.0,transverse colon,True,cold EMR,0,0,NA
+115,25.0,25.0,transverse colon,True,hot EMR,0,0,NA
+115,20.0,20.0,transverse colon,True,hot EMR,0,0,NA
+115,20.0,20.0,transverse colon,True,hot EMR,0,0,NA
+115,12.0,12.0,across anastomosis,True,hot EMR,0,0,NA
+115,10.0,10.0,across anastomosis,True,hot EMR,0,0,NA
+95,6.0,6.0,cecum,True,cold snare,0,0,0-Is
+180,5.0,5.0,transverse colon,True,hot forceps avulsion,0,0,NA
+180,5.0,5.0,transverse colon,True,hot forceps avulsion,0,0,NA
+92,12.0,12.0,transverse colon,True,cold EMR,0,0,NA
+92,7.0,7.0,transverse colon,True,cold snare,0,0,NA
+92,5.0,5.0,transverse colon,True,cold snare,0,0,NA
+186,20.0,20.0,ascending colon,True,piecemeal cold EMR,1,1,0
+186,15.0,15.0,ascending colon,True,piecemeal cold EMR,1,1,0
+186,15.0,15.0,transverse colon,True,piecemeal cold EMR,1,1,0
+186,2.0,2.0,transverse colon,True,cold snare,1,1,0-Is
+36,50.0,70.0,ileocecal valve,False,NA,0,0,0-1SP
+36,7.0,9.9,proximal ascending colon,False,NA,0,0,0-1p
+36,3.5,3.5,proximal transverse colon,False,NA,0,0,0-1S
+36,3.5,3.5,proximal transverse colon,False,NA,0,0,0-1S
+36,57.0,57.0,distal transverse colon,False,NA,0,0,0-1S
+36,3.0,5.0,descending colon,False,NA,0,0,0-1S
+36,3.0,5.0,descending colon,False,NA,0,0,0-1S
+36,7.0,7.0,sigmoid colon,False,NA,0,0,0-1S
+36,7.0,9.0,rectum,False,NA,0,0,0-1SP

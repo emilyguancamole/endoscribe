@@ -1,0 +1,11 @@
+I am giving you a transcript from an Endoscopic Ultrasound (EUS) and/or EGD procedure. The task is to extract procedure entities. Make sure you are accurate (no mistakes), complete (do not miss any relevant information), and organized (record information in a manner that matches clinical standards).
+
+The entities you must extract are listed below. Follow the instructions. Do not guess.
+
+indications: Reasons for performing the procedure. Include patient history if mentioned. Do not include date of birth.
+eus_findings: All findings of EUS as free text. This should be one string. If there was an aspiration or needle aspiration, describe the FNA performed. If biopsy was done with a needle, describe the biopsy performed. 
+Organize findings by these subheadings, separated by "\\n\\n", if they are examined: PANCREAS, BILE DUCT, GALLBLADDER, LIVER, LYMPH NODES, SPLEEN, PERITONEUM, ADRENAL GLANDS, AMPULLA, AORTA AND CELIAC AXIS, MEDIASTINUM. If they were not examined, omit. Include findings in VASCULATURE (vascular abnormalities) only if abnormalities are found.
+Findings should always be reported in mm. If they are stated in cm, change them to mm in your report.
+egd_findings: An EGD was performed if and only if there is mention of EGD performed, or if a gastroscope or other endoscope was used other than the echo endoscope. If EGD was performed, report findings by EGD. If there are any abnormal findings, organize findings by subheadings: ESOPHAGUS, STOMACH, DUODENUM. If all areas were normal, combine into one sentence. 
+If EGD is not performed, record "EGD not performed", and any findings in the esophagus, stomach, and duodenum must include a note that findings were “limited views”
+impressions: Summarizes the most important findings, procedures, and biopsies as a list. If there are multiple normal findings, combine them in one list item, such as "Normal EUS examination of x, y, z" where x, y, z are different areas with normal EUS findings. Normal findings do not need to be in order of examination.

@@ -1,0 +1,19 @@
+
+{
+    "indications": "55 year old male here for a colonoscopy for evaluation of ICV polyps.",
+    "last_colonoscopy": "N/A",
+    "bbps_simple": "adequate",
+    "bbps_right": "2",
+    "bbps_transverse": "2",
+    "bbps_left": "2",
+    "bbps_total": "6",
+    "extent": "terminal ileum",
+    "findings": "The colonoscope was advanced to the terminal ileum. The colon was tortuous and required abdominal pressure and right lateral positioning of the patient to achieve cecal intubation. A fibrotic stricture at the ileocecal valve was unable to be traversed. A guidewire and 12-15 mm CRE balloon was used to dilate the ileocecal valve stricture to 15 mm, with no evidence of deep injury.\\nA 5 mm sessile polyp (Paris Is) was identified at the ileocecal valve extending into the terminal ileum, with associated scar. This polyp was removed en bloc with hot snare polypectomy.\\nA 3-4 mm sessile polyp was identified in the cecum, adjacent but not involving the ileocecal valve. This was not removed due to scope positioning.\\nAt the ascending colon, a 3 mm sessile polyp (Paris Is, NICE 2, JNET 2A) was identified and removed by cold snare.\\nThe colon mucosa was otherwise normal. The colonoscope was removed and the procedure completed.",
+    "polyp_count": "3",
+    "impressions":[
+        "Fibrotic stricture present at the ileocecal valve; dilated to 15mm with CRE balloon.",
+        "A 5mm sessile polyp (Paris Is) at the ileocecal valve, resected en bloc with hot snare.",
+        "A 3-4mm sessile polyp present at the cecum, adjacent to the ileocecal valve; not resected.",
+        "A 3 mm sessile polyp (Paris Is, NICE 2, JNET 2A) at the ascending colon; resected with cold snare."
+    ]
+}

@@ -1,0 +1,28 @@
+I am giving you a transcript from a colonoscopy procedure. The task is to extract procedure entities. Make sure you are accurate (no mistakes), complete (do not miss any relevant information), and organized (record information in a manner that matches clinical standards).
+
+The target entities you must extract are listed below with descriptions or instructions. Follow the instructions. Do not guess.
+
+indications: Reasons for performing the procedure. Include patient history if mentioned, but NOT including when last colonoscopy done.
+last_colonoscopy: When last colonoscopy was performed if mentioned, otherwise "N/A".
+bbps_simple: Overall Boston Bowel Prep score as [adequate/inadequate].
+bbps_right: BBPS in right colon as [number].
+bbps_transverse: BBPS in right colon as [number].
+bbps_left: BBPS in left colon as [number].
+bbps_total: sum of BBPS in right, transverse, and left colons
+extent: Furthest location where the colonoscope reached. Terminal ileum is further than cecum.
+findings: All findings of the procedure as free text. This must begin with the extent of exam: "The colonoscope was advanced to {extent}." Then, record other findings, including:
+- polyps/masses and their location, quantity, type (in parentheses),
+- maneuvers performed or attempted,
+- biopsies,
+- technical challenges,
+- state of colon mucosa,
+- Findings should end with retroflexion: "Upon retroflexion, {findings by retroflexion}, or "Retroflexion not performed" if not performed or mentioned.
+Any other findings not listed above should also be included. Be very thorough and include all important findings. The order of findings generally should follow the order of the transcript. 
+Report findings in an organized, concise way.
+
+polyp_count: If no polyps were found, record "0". This must be consistent with the Findings section.
+impressions: Summarizes the most important findings, briefly as a list.
+
+Do NOT include bowel prep SCORE in free-text findings. The scores as numbers should ONLY appear in the appropriate bbps fields.
+
+Return the result as a valid JSON object. Do not return any additional comments or explanation.

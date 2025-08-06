@@ -4,11 +4,12 @@ from typing import Dict, List
 import pandas as pd
 
 class BaseProcessor:
-    def __init__(self, procedure_type, system_prompt_fp, output_fp, llm_handler):
+    def __init__(self, procedure_type, system_prompt_fp, output_fp, llm_handler, to_postgres):
         self.procedure_type = procedure_type
         self.system_prompt_fp = system_prompt_fp
         self.output_fp = output_fp
         self.llm_handler = llm_handler
+        self.to_postgres = to_postgres
 
     def load_transcripts_to_df(self, filepath):
         transcripts_df = pd.read_csv(filepath)

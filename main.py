@@ -13,17 +13,18 @@ import argparse
 
 def main():
     ''' 
-    python main.py --procedure_type=col --transcripts_fp=first_datasets/abstract_transcribe_fall24.csv --output_filename=082025-test --files_to_process 16 
-    
-    python main.py --procedure_type=ercp --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process bdstone01 bdstricture01
+    python main.py --procedure_type=col --transcripts_fp=first_datasets/abstract_transcribe_fall24.csv --output_filename=082025-test --to_postgres --files_to_process 16 11
 
     python main.py --procedure_type=eus --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process cancer01 mass01
+
+    python main.py --procedure_type=ercp --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process bdstone01 bdstricture01
     '''
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--procedure_type', choices=['col', 'eus', 'ercp'], required=True, help="Type of procedure to process")
     parser.add_argument('--transcripts_fp', required=True, help="Relative path to transcripts CSV file within transcription/{args.procedure_type}_results folder")
     parser.add_argument('--output_filename', required=True, help="File name to save the extracted outputs, e.g. '1_outputs'. Will be saved as a .csv in ./results/{args.procedure_type}")
+    parser.add_argument('--to_postgres', action='store_true', help="If set, write extracted outputs directly to Postgres")
     parser.add_argument('--files_to_process', nargs='*', help="List of filenames to process; 'all' to process all files")
     args = parser.parse_args()
 
@@ -60,7 +61,7 @@ def main():
     processor_class, transcript_path = processor_map[args.procedure_type]
     transcripts_df = pd.read_csv(transcript_path)
     transcripts_df["file"] = transcripts_df["file"].astype(str)
-    processor = processor_class(args.procedure_type, system_prompt_fp, output_fp, llm_handler)
+    processor = processor_class(args.procedure_type, system_prompt_fp, output_fp, llm_handler, args.to_postgres)
     processor.process_transcripts(args.files_to_process, transcripts_df)
 
     print(f"Processing complete for {args.procedure_type}. Outputs saved to {output_fp}")

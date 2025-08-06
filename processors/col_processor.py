@@ -6,7 +6,8 @@ import pandas as pd
 class ColProcessor(BaseProcessor):
     def build_polyp_messages(self, transcript: str, findings: str, polyp_count: str, system_prompt_fp: str) -> List[Dict[str, str]]:
         ''' Special function for polyp extraction, since it requires findings from colonoscopy 
-        Currently hardcoding the files for system prompt and fewshot examples'''
+        Currently hardcoding the files for system prompt and fewshot examples
+        '''
         system_prompt = open(system_prompt_fp).read().replace(
             '{{prompt_field_definitions}}',
             open('./prompts/col/polyps.txt').read() #05_col_experiments/prompts/polyps.txt
@@ -103,9 +104,52 @@ class ColProcessor(BaseProcessor):
             }
             for polyp in polyps_json
         ]
+    
+    def convert_data_types(self, col_df, polyp_df):
+        """Convert data types for PostgreSQL insertion"""
+        # Convert colonoscopy data types
+        col_df = col_df.copy()
+        col_df['bbps_right'] = pd.to_numeric(col_df['bbps_right'], errors='coerce')
+        col_df['bbps_transverse'] = pd.to_numeric(col_df['bbps_transverse'], errors='coerce')
+        col_df['bbps_left'] = pd.to_numeric(col_df['bbps_left'], errors='coerce')
+        col_df['bbps_total'] = pd.to_numeric(col_df['bbps_total'], errors='coerce')
+        col_df['polyp_count'] = pd.to_numeric(col_df['polyp_count'], errors='coerce')
+        
+        # Convert impressions list to string if needed
+        if 'impressions' in col_df.columns:
+            col_df['impressions'] = col_df['impressions'].apply(
+                lambda x: str(x) if isinstance(x, list) else x
+            )
+        
+        # Convert polyp data types
+        polyp_df = polyp_df.copy()
+        polyp_df['size_min_mm'] = pd.to_numeric(polyp_df['size_min_mm'], errors='coerce')
+        polyp_df['size_max_mm'] = pd.to_numeric(polyp_df['size_max_mm'], errors='coerce')
+        polyp_df['nice_class'] = pd.to_numeric(polyp_df['nice_class'], errors='coerce')
+        
+        #? Convert boolean fields
+        polyp_df['resection_performed'] = polyp_df['resection_performed'].apply(
+            lambda x: True if str(x).lower() in ['true', 'yes'] else False if str(x).lower() in ['false', 'no'] else None
+        )
+        
+        return col_df, polyp_df
 
     def save_outputs(self, col_outputs, polyp_outputs):
         col_df = pd.DataFrame(col_outputs)
         polyp_df = pd.DataFrame(polyp_outputs)
+        # Save to csv
         col_df.to_csv(self.output_fp.replace(".csv", "_colonoscopies.csv"), index=False)
         polyp_df.to_csv(self.output_fp.replace(".csv", "_polyps.csv"), index=False)
+
+        # Save to postgres if needed
+        if self.to_postgres:
+            from db.postgres_writer import create_tables_if_not_exist, upsert_extracted_outputs
+            create_tables_if_not_exist()
+            
+            # Convert data types before inserting
+            col_df, polyp_df = self.convert_data_types(col_df, polyp_df)
+            
+            if not col_df.empty:
+                upsert_extracted_outputs(col_df, "colonoscopy_procedures")
+            if not polyp_df.empty:
+                upsert_extracted_outputs(polyp_df, "polyps")

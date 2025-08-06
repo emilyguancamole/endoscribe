@@ -67,7 +67,3 @@ def write_predictions_to_postgres(col_df, polyp_df):
         print(f"Successfully uploaded colonoscopy and polyp data to Postgres")
     except Exception as e:
         print("Failed to write to Postgres:", e)
-
-if __name__ == '__main__':
-
-    print("Converting")

@@ -41,4 +41,16 @@ class ERCPProcessor(BaseProcessor):
             })
 
         # Save outputs to csv
-        pd.DataFrame(outputs).to_csv(self.output_fp, index=False)
+        self.save_outputs(outputs)
+
+    def save_outputs(self, outputs):
+        ercp_df = pd.DataFrame(outputs)
+        ercp_df.to_csv(self.output_fp, index=False)
+        
+        if self.to_postgres:
+            from db.postgres_writer import create_tables_if_not_exist, upsert_extracted_outputs
+            create_tables_if_not_exist()
+            
+            # ercp_df = self.convert_data_types(ercp_df) # Currently, ERCP has only text data; add if number/typed data is added later
+            if not ercp_df.empty:
+                upsert_extracted_outputs(ercp_df, "ercp_procedures")

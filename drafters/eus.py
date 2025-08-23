@@ -2,7 +2,7 @@ from drafters.base import EndoscopyDrafter
 from docx import Document
 from docx.shared import Pt
 import re
-from drafters.utils import add_bold_text
+from drafters.utils import add_bold_subheading
 
 
 class EUSDrafter(EndoscopyDrafter):
@@ -33,11 +33,11 @@ class EUSDrafter(EndoscopyDrafter):
         paragraph = doc.add_paragraph()
         # print("SAMPLE DF\n", self.sample_df)
         text = self.sample_df['eus_findings'].replace('\\n', '\n')
-        add_bold_text(paragraph, text)
+        add_bold_subheading(paragraph, text)
         doc.add_heading('EGD Findings', level=2)
         paragraph = doc.add_paragraph()
         text = self.sample_df['egd_findings'].replace('\\n', '\n')
-        add_bold_text(paragraph, text)
+        add_bold_subheading(paragraph, text)
 
         doc.add_heading('Impressions', level=2)
         impressions_text = self.sample_df['impressions'].strip("[]") 

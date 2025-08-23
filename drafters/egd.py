@@ -2,10 +2,8 @@ from drafters.base import EndoscopyDrafter
 from docx import Document
 from docx.shared import Pt
 import re
-from drafters.utils import add_bold_subheading
 
-
-class ERCPDrafter(EndoscopyDrafter):
+class EGDDrafter(EndoscopyDrafter):
     def construct_recommendations(self):
         pass
 
@@ -15,7 +13,7 @@ class ERCPDrafter(EndoscopyDrafter):
     def draft_doc(self):
         # Find sample, if multiple, use the first one
         
-        print(f"Creating ERCP report for '{self.sample}'") 
+        print(f"Creating EGD report for '{self.sample}'") 
 
         doc = Document()
         doc.add_heading(f'Report {self.sample}', level=1)
@@ -25,13 +23,14 @@ class ERCPDrafter(EndoscopyDrafter):
         doc.add_paragraph(indications)
 
         doc.add_heading('EGD Findings', level=2)
-        paragraph = doc.add_paragraph()
-        text = self.sample_df['egd_findings'].replace('\\n', '\n')
-        add_bold_subheading(paragraph, text)
-        doc.add_heading('ERCP Findings', level=2)
-        paragraph = doc.add_paragraph()
-        text = self.sample_df['ercp_findings'].replace('\\n', '\n')
-        add_bold_subheading(paragraph, text)
+        doc.add_paragraph(self.sample_df['extent'].replace('\\n', '\n'))
+        doc.add_paragraph('Esophagus:', bold=True)
+        doc.add_paragraph(self.sample_df['esophagus'].replace('\\n', '\n'))
+        doc.add_paragraph('Stomach:', bold=True)
+        doc.add_paragraph(self.sample_df['stomach'].replace('\\n', '\n'))
+        doc.add_paragraph('Duodenum:', bold=True)
+        doc.add_paragraph(self.sample_df['duodenum'].replace('\\n', '\n'))
+        doc.add_paragraph(self.sample_df['egd_findings'].replace('\\n', '\n'))
 
         doc.add_heading('Impressions', level=2)
         impressions_text = self.sample_df['impressions'].strip("[]") 

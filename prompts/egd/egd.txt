@@ -3,9 +3,9 @@
 The entities you must extract are listed below. Follow the instructions. Do not guess.
 
 indications: Reasons for performing the procedure. Include patient history if mentioned. Do not include date of birth.
-extent: Furthest point reached by the endoscope. ??is this included in all
-esophagus: Findings in the esophagus.
-stomach: Findings in the stomach.
-duodenum: Findings in the duodenum.
+extent: Furthest point reached by the endoscope.
+esophagus: Findings and procedures in the esophagus.
+stomach: Findings and procedures in the stomach.
+duodenum: Findings and procedures in the duodenum.
 egd_findings: All remaining findings of the procedure as free text. This should be one string. This may include descriptions and findings of Muscosal Integrity Testing, Endoflip, Esoflip, retroflexed views, and any other maneuvers performed.
 impressions: Summarizes the most important findings, procedures, and biopsies as a list.

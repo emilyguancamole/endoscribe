@@ -1,8 +1,16 @@
 {
-    "indications": "",
-    "ercp_findings": "",
-    "egd_findings": "",
+    "indications": "68 year old female here for an EGD for the evaluation of recurrence of heartburn following remote history of fundoplication.",
+    "extent": "A high-definition endoscope was advanced to the descending duodenum.",
+    "esophagus": "There was a small proximal inlet patch noted. Biopsies of the mid/proximal esophagus were taken to rule out eosinophilic esophagitis. The GE junction was at 35cm from the incisors and the distal margin of the fundoplication wrap was located at 38cm. There was no hiatal hernia. There was evidence of LA B esophagitis without overt evidence of Barrett's esophagus seen.",
+    "stomach": "Retroflexed views of the GEJ revealed an intact fundoplication wrap spanning over 330 degrees. The gastric mucosa was mostly normal. There was mild erythema in the gastric antrum. Random biopsies were taken to rule out H. pylori.",
+    "duodenum": "The duodenal mucosa was normal.",
+    "egd_findings": "The 16 cm Endoflip catheter was advanced and the following measurements performed:\\n50 mL: Pressure 30.4, DI 5.4, compliance 333, diameter 14.5, area 165.\\n60 mL: Pressure 45.9, DI 5.6, compliance 293, diameter 18, area 255.\\nThere were normal antegrade repetitive contractions noted throughout every balloon volume. There was no EGJ outflow obstruction Mucosal Integrity Testing (MI) completed utilizing the MiVu EndoCap device. SCJ measured at 35cm; MiVu device advanced to 33cm, 2cm above the SCJ. Mucosal Integrity Testing measurement recorded over a 10cm segment of the esophagus. MiVu EndoCap device was removed. Mucosal integrity was measured by mucosal impedance; non-GERD probability was recorded as 85.8%, which does not support a diagnosis of GERD.\\nRetroflexion was performed in the stomach and revealed an intact Nissen wrap. The scope was then completely withdrawn from the patient and the procedure completed.",
     "impressions":[
-        
+        "Evidence of LA B esophagitis with otherwise normal esophageal mucosa status post biopsies to rule out eosinophilic esophagitis",
+        "No hiatal hernia with evidence of eosinophilic esophagitis intact 330 degree fundoplication wrap",
+        "Mild gastric antral erythema status post biopsies to rule out H. pylori",
+        "Normal duodenum",
+        "Successful Endoflip showing no EGJ outflow obstruction and normal contractile response",
+        "Successful MiVu mucosal impedance testing conferring 85.8% chance of non-GERD diagnosis"
     ]
 }

@@ -1,7 +1,7 @@
 ###################### https://huggingface.co/docs/transformers/en/model_doc/whisper#transformers.WhisperForConditionalGeneration.generate
 import argparse
 import os
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "6,7,8,9"
 import subprocess as sp
 import io
 from typing import Dict, Tuple, Optional, IO
@@ -9,17 +9,11 @@ from pathlib import Path
 import sys
 import shutil
 import select
-import re
 import pandas as pd
-import torch
 import librosa
-from datasets import load_dataset
 from transformers import WhisperProcessor, WhisperForConditionalGeneration, WhisperFeatureExtractor, WhisperTokenizer
-import evaluate
-from word2number import w2n
-import roman
-import contractions
 from convert_to_mono import batch_convert
+from utils import process_predictions, compute_metrics
 
 
 def copy_process_streams(process: sp.Popen):
@@ -92,9 +86,9 @@ def move_vocals_files(vocals_dir):
 
 def transcribe(audio_file, whisper_model, prompt=None) -> str:
     """Given a (optional) prompt, transcribe the given audio file."""
-    
-    # model = WhisperForConditionalGeneration.from_pretrained(whisper_model)
-    model = whisperx.load_model(whisper_model, device="cuda")
+     
+    model = WhisperForConditionalGeneration.from_pretrained(whisper_model)
+    # model = whisperx.load_model(whisper_model, device="cuda")
 
     # Using pre-trained tokenizer# tokenizer = WhisperTokenizer.from_pretrained(whisper_model, language='English', task="transcribe")
     processor = WhisperProcessor.from_pretrained(whisper_model)
@@ -115,14 +109,6 @@ def transcribe(audio_file, whisper_model, prompt=None) -> str:
             audio, sampling_rate=sr,
             return_tensors="pt",
         ).input_features
-
-# abstract code
-# if prompt:
-#     predicted_ids = model.generate(inputs, prompt_ids=prompt_ids)
-#     transcription = processor.batch_decode(predicted_ids, prompt_ids=prompt_ids, skip_special_tokens=True)[0]
-# else:
-#     predicted_ids = model.generate(inputs)
-#     transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
 
     decode_options = dict(language="en", 
                         num_beams=5, 
@@ -154,78 +140,6 @@ def transcribe(audio_file, whisper_model, prompt=None) -> str:
     return transcription
 
 
-def numbers_to_digits(input_string):
-    number_words = {
-        "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
-        "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17,
-        "eighteen": 18, "nineteen": 19, "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70,
-        "eighty": 80, "ninety": 90, "hundred": 100
-    }
-
-    words = input_string.split()
-    result = [] 
-    current_number = 0 
-    for word in words:
-        if word in number_words:
-            if word=="hundred" or word=="thousand":
-                if current_number == 0:
-                    current_number = 1  # Handle cases like one hundred by multiplying by scale
-                current_number *= number_words[word] 
-            else:
-                current_number += number_words[word]  # Add value of number word
-        # For some reason parakeet randomly outputs some numbers in roman numerals, so check for those
-        elif word!='i' and all(char in "ivxlcdm" for char in word):  # If all characters in word are Roman chars #! would there ever be an individual x that isn't a number?
-            try:
-                roman_value = roman.fromRoman(word.upper())
-                current_number += roman_value
-            except roman.InvalidRomanNumeralError:
-                result.append(word)  # Append unrecognized Roman numeral
-        else:
-            # Reach a word that isn't a number, so finalize current number
-            if current_number > 0:
-                result.append(str(current_number))
-                current_number = 0  
-            result.append(word)
-    if current_number > 0:
-        result.append(str(current_number))
-
-    return ' '.join(result)
-
-def process_predictions(pred_file, transcript_col_name="pred_transcript"):
-    ''' Process predictions to be lowercase, remove punctuation, expand contractions, make numbers digits.
-        For evaluation of WER only.
-    '''
-    pred_df = pd.read_csv(pred_file)
-    pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: x.lower()) # lowercase
-    pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: contractions.fix(x)) # contractions
-    # pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: x.strip("[]()'")) # especially parakeet seems to keep these characters as part of the transciption
-    # Convert numbers to digits
-    pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: numbers_to_digits(x))
-
-    pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: re.sub(r"[^\w\s]", "", str(x))) # punctuation
-    # pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: x.translate(str.maketrans('', '', string.punctuation)))
-
-    # for x in pred_df[transcript_col_name]: print(x)
-    
-    return pred_df
-
-def compute_metrics(predictions, labels):
-    ''' Compute average WER (Word Error Rate) across all samples.
-    Adapted from: https://huggingface.co/blog/fine-tune-whisper#training-and-evaluation
-    pred_file: path to csv file with transcriptions, OR dataframe
-    label_file: path to csv file with ground truth transcriptions OR dataframe
-    '''
-    metric = evaluate.load("wer")
-    # if pandas df, use directly, else read csv
-    pred_df = predictions if isinstance(predictions, pd.DataFrame) else pd.read_csv(predictions)
-    # pred_df = pd.read_csv('transcription/results/finetune_results_distil.csv')
-
-    label_df = labels if isinstance(labels, pd.DataFrame) else pd.read_csv(labels)
-    
-    merged_df = pred_df.merge(label_df, on='file', how='left')
-    wer = 100 * metric.compute(predictions=merged_df["pred_transcript"], references=merged_df["transcript"])
-    return {"wer": wer}
-
 def move_to_datasheet(transcriptions_df, datasheet_fp):
     # move transcriptions to /Users/emilyguan/Downloads/EndoScribe/datasheets/Sample_1_test_datasheet_finetune.csv. match by column 'file'
     datasheet_df = pd.read_csv(datasheet_fp) #, encoding='ISO-8859-1'
@@ -241,27 +155,33 @@ if __name__ == "__main__":
     Run from endoscribe!!
     
     python transcription/whisper_transcribe.py \
-    --save_dir=transcription/colonoscopy_results --save_filename=lg_45 \
+    --save_dir=transcription/results/col --save_filename=lg_45 \
     --model=/scratch/eguan2/whisper_lg_45 \
     --audio_dir=transcription/recordings/finetune_testset
 
     Colonoscopy with Errors:
     python transcription/whisper_transcribe.py \
-    --save_dir=transcription/colonoscopy_results/with_errorsconvo --save_filename=whisper_lg_v3 \
+    --save_dir=transcription/results/col/with_errorsconvo --save_filename=whisper_lg_v3 \
     --model=openai/whisper-large-v3 \
     --audio_dir=transcription/recordings/colonoscopy/with_errorsconvo
 
     EUS (cyst):
     python transcription/whisper_transcribe.py \
-    --save_dir=transcription/eus_results --save_filename=whisper_lg_v3_clean_noprompt \
+    --save_dir=transcription/results/eus --save_filename=whisper_lg_v3_clean_noprompt \
     --model=openai/whisper-large-v3 \
     --audio_dir=transcription/recordings/eus/cyst
 
     ERCP
     python transcription/whisper_transcribe.py \
-    --save_dir=transcription/ercp_results --save_filename=whisper_lg_v3 \
+    --save_dir=transcription/results/ercp --save_filename=whisper_lg_v3 \
     --model=openai/whisper-large-v3 \
     --audio_dir=transcription/recordings/ercp/bdstone
+
+    EGD
+    python transcription/whisper_transcribe.py \
+    --save_dir=transcription/results/egd --save_filename=whisper_lg_v3 \
+    --model=openai/whisper-large-v3 \
+    --audio_dir=transcription/recordings/egd
 
     '''
     argparser = argparse.ArgumentParser()
@@ -279,15 +199,13 @@ if __name__ == "__main__":
     output_fp = f"{args.save_dir}/{args.save_filename}.csv"
 
     # Colonoscopy prompt
-    prompt = "Boston Bowel Prep, colonoscopy, polyp, transverse colon, cold snare, Roth net, 2 mm, sessile, NICE classification, Paris classification IIa, JNET, cecum, LST-G, endoclips, swift coagulation, submucosal fibrosis, tattoo, retroflexion, diverticulosis"
+    # prompt = "Boston Bowel Prep, colonoscopy, polyp, transverse colon, cold snare, Roth net, 2 mm, sessile, NICE classification, Paris classification IIa, JNET, cecum, LST-G, endoclips, swift coagulation, submucosal fibrosis, tattoo, retroflexion, diverticulosis"
     # EUS prompt
     # prompt = "SharkCore, Dr. Venkat Akshintala, Bayview Medical Center, endoscopic, portal confluence, duodenum, mucosa, pancreas, parenchyma, FNA, FNB, LA Grade esophagitis, focal lobularity, nodular deposits, major papilla, strictures, echogenic foci, duodenal secretion"
     # ERCP prompt
     # prompt = "Dr. Venkat Akshintala, Bayview Medical Center, ERCP, timeout, duodenum, duodenoscope, scout film, biliary cannulation, cannulate, SpyBite biopsy, rat tooth forceps, esophagus, bile duct stricture, sphincterotome, stone retrieval balloon, stent, French, Visiglide wire, cholangiogram, cholangioscopy, papilla, pancreatic genu, Soehendra stent, Cook Zimmon double pigtail"
-        # stone retrieval balloon for stone09
 
-    do_transcribe = True # I can toggle these
-    do_evaluate_results = False
+    do_transcribe, do_evaluate_results = True, False # I can toggle these
 
     ############ TRANSCRIBE ##############
     if do_transcribe:
@@ -302,25 +220,23 @@ if __name__ == "__main__":
         transcribed_filenames = set(transcribed_df['file']) 
         print("with already transcribed files:", transcribed_filenames)
 
-        # Separate vocals or not
-        if args.do_separate_vocals: # if not os.path.exists(f"{args.audio_dir}/htdemucs"):
-            separate_vocals(args.audio_dir, output_audio_path=args.audio_dir) # creates a subfolder `htdemucs` in the output path
-            vocals_dir = f"{args.audio_dir}/vocals"
-            print("vocals_dir", vocals_dir) # folder with the actual files to transcribe
-                # move_vocals_files(vocals_dir)
+        #!outdated, return later. Separate vocals or not
+        if args.do_separate_vocals: 
+            # separate_vocals(args.audio_dir, output_audio_path=args.audio_dir) # creates a subfolder `htdemucs` in the output path
+            # vocals_dir = f"{args.audio_dir}/vocals"
+            # print("vocals_dir", vocals_dir) # folder with the actual files to transcribe
+            # move_vocals_files(vocals_dir)
+            print("separate_vocals not implemented fully")
         else:
             vocals_dir = args.audio_dir
 
         print("Model: ", args.model)
 
-        # Transcribe each audio vocal file in v directory. filename is base filename, ex test01.wav. case_name is without .wav, ex. test01. audio_fp is whole path to audio
+        # Transcribe each audio vocal file in vocals_dir. filename is base filename, ex test01.wav. case_name is without .wav, ex. test01. audio_fp is whole path to audio
         for filename in os.listdir(vocals_dir):
-            if filename == ".DS_Store":
-                continue
+            if filename == ".DS_Store": continue
 
             case_name = str(filename.split(".")[0])
-
-            # if file already transcribed, skip
             if case_name in transcribed_filenames:
                 print(f"Skipping {case_name}, already transcribed")
                 continue
@@ -335,12 +251,14 @@ if __name__ == "__main__":
 
             
             transcribed_df.to_csv(output_fp, index=False) # Save intermediate results
+            print(f"Transcribed {case_name}, saved to {output_fp}")
 
         print(f"Saved transcriptions to {args.save_dir}")
 
         
 
-    ############# Evaluation ###################
+
+    ############# Evaluation - !outdated ###################
     if do_evaluate_results:
         print("Evaluation of resulting transcript:")
         processed_pred_df = process_predictions(output_fp)

@@ -1,6 +1,28 @@
 from word2number import w2n
 import roman
 import contractions
+import re
+import pandas as pd
+import evaluate
+
+def process_predictions(pred_file, transcript_col_name="pred_transcript"):
+    ''' Process predictions to be lowercase, remove punctuation, expand contractions, make numbers digits.
+        For evaluation of WER only.
+    '''
+    pred_df = pd.read_csv(pred_file)
+    pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: x.lower()) # lowercase
+    pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: contractions.fix(x)) # contractions
+    # pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: x.strip("[]()'")) # especially parakeet seems to keep these characters as part of the transciption
+    # Convert numbers to digits
+    pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: numbers_to_digits(x))
+
+    pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: re.sub(r"[^\w\s]", "", str(x))) # punctuation
+    # pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: x.translate(str.maketrans('', '', string.punctuation)))
+
+    # for x in pred_df[transcript_col_name]: print(x)
+    
+    return pred_df
+
 
 def numbers_to_digits(input_string):
     number_words = {
@@ -39,20 +61,18 @@ def numbers_to_digits(input_string):
 
     return ' '.join(result)
 
-def process_predictions(pred_file, transcript_col_name="pred_transcript"):
-    ''' Process predictions to be lowercase, remove punctuation, expand contractions, make numbers digits.
-        For evaluation of WER only.
+def compute_metrics(predictions, labels):
+    ''' Compute average WER (Word Error Rate) across all samples.
+    Adapted from: https://huggingface.co/blog/fine-tune-whisper#training-and-evaluation
+    pred_file: path to csv file with transcriptions, OR dataframe
+    label_file: path to csv file with ground truth transcriptions OR dataframe
     '''
-    pred_df = pd.read_csv(pred_file)
-    pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: x.lower()) # lowercase
-    pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: contractions.fix(x)) # contractions
-    # pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: x.strip("[]()'")) # especially parakeet seems to keep these characters as part of the transciption
-    # Convert numbers to digits
-    pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: numbers_to_digits(x))
+    metric = evaluate.load("wer")
+    # if pandas df, use directly, else read csv
+    pred_df = predictions if isinstance(predictions, pd.DataFrame) else pd.read_csv(predictions)
 
-    pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: re.sub(r"[^\w\s]", "", str(x))) # punctuation
-    # pred_df[transcript_col_name] = pred_df[transcript_col_name].apply(lambda x: x.translate(str.maketrans('', '', string.punctuation)))
-
-    # for x in pred_df[transcript_col_name]: print(x)
+    label_df = labels if isinstance(labels, pd.DataFrame) else pd.read_csv(labels)
     
-    return pred_df
+    merged_df = pred_df.merge(label_df, on='file', how='left')
+    wer = 100 * metric.compute(predictions=merged_df["pred_transcript"], references=merged_df["transcript"])
+    return {"wer": wer}

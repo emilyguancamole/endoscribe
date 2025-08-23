@@ -108,7 +108,7 @@ if __name__ == "__main__":
     argparser.add_argument('--datasheet_fp', type=str,  default="")
     argparser.add_argument('--do_separate_vocals', type=str,  default=False, help='Whether to run DEMUCS vocal separation on audio recordings')
     argparser.add_argument('--model', type=str, required=True) #'distil-whisper/distil-large-v3' #openai/whisper-medium.en #openai/whisper-large-v3') 
-    argparser.add_argument('--use_prompt', default=False)
+    argparser.add_argument('--use_prompt', default=False, help='Whether to use the provided prompt for each audio file')
     argparser.add_argument('--test_labels_fp', 
                             default='transcription/finetune_data/test_labels.csv') # CSV of gold transcripts, columns=[file, transcript]
     args = argparser.parse_args()
@@ -131,16 +131,17 @@ if __name__ == "__main__":
 
         bkg_transcript_df = pd.read_csv(f"{args.save_dir}/{args.save_filename}_bkg.csv")
 
-        # Separate vocals or not
+        #! Separate vocals or not - separate is outdated
         if args.do_separate_vocals: # if not os.path.exists(f"{args.audio_dir}/htdemucs"):
-            separate_vocals(args.audio_dir, output_audio_path=args.audio_dir) # creates a subfolder `htdemucs` in the output path
-            vocals_dir = f"{args.audio_dir}/vocals"
-            print("vocals_dir", vocals_dir) # folder with the actual files to transcribe
-                # move_vocals_files(vocals_dir)
+            # separate_vocals(args.audio_dir, output_audio_path=args.audio_dir) # creates a subfolder `htdemucs` in the output path
+            # vocals_dir = f"{args.audio_dir}/vocals"
+            # print("vocals_dir", vocals_dir) # folder with the actual files to transcribe
+            # move_vocals_files(vocals_dir)
+            print("vocal separation not implemented")
         else:
             vocals_dir = args.audio_dir
 
-        print("Model: ", args.model)
+        print("Using model: ", args.model)
 
         # Transcribe each audio vocal file in directory.
         for filename in os.listdir(vocals_dir):
@@ -154,7 +155,7 @@ if __name__ == "__main__":
             #     print(f"Skipping {case_name}, already transcribed")
             #     continue
             
-            # Transcribe
+            # Transcribe, separate speaker and background
             audio_fp = os.path.join(vocals_dir, filename)
             print(f"Transcribing {audio_fp} with use_prompt={args.use_prompt}; saving to {args.save_dir}/{args.save_filename}")
             
@@ -170,12 +171,12 @@ if __name__ == "__main__":
         
 
     ############# Evaluation - outdated! ###################
-    if do_evaluate_results:
-        print("Evaluation of resulting transcript:")
-        processed_pred_df = process_predictions(output_fp)
-        wer_whisper = compute_metrics(processed_pred_df, 
-                                    labels=args.test_labels_fp)
-        print(f"WER for {args.model}: {wer_whisper}")
+    # if do_evaluate_results:
+    #     print("Evaluation of resulting transcript:")
+    #     processed_pred_df = process_predictions(output_fp)
+    #     wer_whisper = compute_metrics(processed_pred_df, 
+    #                                 labels=args.test_labels_fp)
+    #     print(f"WER for {args.model}: {wer_whisper}")
 
 
     print("Done")

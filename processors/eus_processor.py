@@ -40,5 +40,17 @@ class EUSProcessor(BaseProcessor):
                 "impressions": json_response.get("impressions", "")
             })
 
-        pd.DataFrame(outputs).to_csv(self.output_fp, index=False)
+        # Save to csv and postgres
+        self.save_outputs(outputs)
     
+    def save_outputs(self, outputs):
+        eus_df = pd.DataFrame(outputs)
+        eus_df.to_csv(self.output_fp, index=False)
+        
+        if self.to_postgres:
+            from db.postgres_writer import create_tables_if_not_exist, upsert_extracted_outputs
+            create_tables_if_not_exist()
+            
+            # eus_df = self.convert_data_types(eus_df) # Currently, eus has only text data; add if number/typed data is added later
+            if not eus_df.empty:
+                upsert_extracted_outputs(eus_df, "eus_procedures")

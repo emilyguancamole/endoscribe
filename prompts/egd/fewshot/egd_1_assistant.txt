@@ -1,0 +1,8 @@
+{
+    "indications": "",
+    "ercp_findings": "",
+    "egd_findings": "",
+    "impressions":[
+        
+    ]
+}

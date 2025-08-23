@@ -1,13 +1,12 @@
 
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "5,6,7,9"
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "6,7,8,9"
 import argparse
 import pandas as pd
 from llm.llm_handler import LLMHandler
-from processors.col_processor import ColProcessor
-from processors.ercp_processor import ERCPProcessor
-from processors.eus_processor import EUSProcessor
+from processors import ColProcessor, ERCPProcessor, EUSProcessor, EGDProcessor
 import torch
 import argparse
 
@@ -18,17 +17,19 @@ def main():
     python main.py --procedure_type=eus --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process cancer01 mass01
 
     python main.py --procedure_type=ercp --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process bdstone01 bdstricture01
+
+    python main.py --procedure_type=egd --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process egd01 egd02 egd03 egd04 egd05
     '''
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--procedure_type', choices=['col', 'eus', 'ercp'], required=True, help="Type of procedure to process")
+    parser.add_argument('--procedure_type', choices=['col', 'eus', 'ercp', 'egd'], required=True, help="Type of procedure to process")
     parser.add_argument('--transcripts_fp', required=True, help="Relative path to transcripts CSV file within transcription/{args.procedure_type}_results folder")
-    parser.add_argument('--output_filename', required=True, help="File name to save the extracted outputs, e.g. '1_outputs'. Will be saved as a .csv in ./results/{args.procedure_type}")
+    parser.add_argument('--output_filename', required=True, help="File name to save the extracted outputs. Will be saved as a .csv in ./results/{args.procedure_type}")
     parser.add_argument('--to_postgres', action='store_true', help="If set, write extracted outputs directly to Postgres")
     parser.add_argument('--files_to_process', nargs='*', help="List of filenames to process; 'all' to process all files")
     args = parser.parse_args()
 
-    system_prompt_fp = f"05_{args.procedure_type}_experiments/prompts/system.txt"
+    system_prompt_fp = f"prompts/{args.procedure_type}/system.txt" #!
     # args.model_dir = "/scratch/eguan2/llama33-70/llama33-70_model"
     # tok_dir = "/scratch/eguan2/llama33-70/llama33-70_tokenizer"
     output_fp = f"./results/{args.procedure_type}/{args.output_filename}.csv"
@@ -46,17 +47,13 @@ def main():
         # quant="awq_marlin", # "Use quant=awq_marlin for faster inference"
     )
 
-    transcripts_df = pd.read_csv(f"transcription/{args.procedure_type}_results/{args.transcripts_fp}")
-
     # Map procedure type to processor class and transcript path
     processor_map = {
-        "col": (ColProcessor, f"transcription/col_results/{args.transcripts_fp}"),
-        "eus": (EUSProcessor, f"transcription/eus_results/{args.transcripts_fp}"),
-        "ercp": (ERCPProcessor, f"transcription/ercp_results/{args.transcripts_fp}"),
+        "col": (ColProcessor, f"transcription/results/col/{args.transcripts_fp}"),
+        "eus": (EUSProcessor, f"transcription/results/eus/{args.transcripts_fp}"),
+        "ercp": (ERCPProcessor, f"transcription/results/ercp/{args.transcripts_fp}"),
+        "egd": (EGDProcessor, f"transcription/results/egd/{args.transcripts_fp}"),
     }
-
-    if args.procedure_type not in processor_map:
-        raise ValueError(f"Unknown procedure type: {args.procedure_type}")
 
     processor_class, transcript_path = processor_map[args.procedure_type]
     transcripts_df = pd.read_csv(transcript_path)

@@ -1,7 +1,7 @@
 import re
 
 
-def add_bold_text(paragraph, text):
+def add_bold_subheading(paragraph, text):
     """ Add bold text for specific EUS/ERCP subheadings. """
 
     EUS_SUBHEADINGS = ['PANCREAS', 'BILE DUCT', 'GALLBLADDER', 'LIVER', 'LYMPH NODES', 'SPLEEN', 'PERITONEUM', 'ADRENAL GLANDS', 'AMPULLA', 'AORTA AND CELIAC AXIS', 'MEDIASTINUM']

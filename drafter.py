@@ -1,23 +1,23 @@
 import argparse
 import os
 import pandas as pd
-from drafters import ColonoscopyDrafter, EUSDrafter, ERCPDrafter
-
+from drafters import ColonoscopyDrafter, EUSDrafter, ERCPDrafter, EGDDrafter
 
 def main():
     '''
     Will overwrite any existing reports with same name.
     
     Example use:
-        python drafter.py --procedure=col --pred_csv=extracted/colonoscopy/llama_col_outputs.csv --polyp_csv=extracted/colonoscopy/llama_polyp_outputs.csv --output_dir=/Users/emilyguan/Downloads/EndoScribe/reports_ai/colonoscopy/abstract/llama_extracted --samples_to_process 16 115 95
+        python drafter.py --procedure=col --pred_csv=results/colonoscopy/llama_col_outputs.csv --polyp_csv=results/colonoscopy/llama_polyp_outputs.csv --output_dir=/Users/emilyguan/Downloads/EndoScribe/reports_ai/colonoscopy/abstract/llama_extracted --samples_to_process 16 115 95
 
-        python drafter.py --procedure=eus --pred_csv=extracted/eus/llama_outputs.csv --output_dir=/Users/emilyguan/Downloads/EndoScribe/reports_ai/eus --samples_to_process mass02 cancer07
+        python drafter.py --procedure=eus --pred_csv=results/eus/llama_outputs.csv --output_dir=/Users/emilyguan/Downloads/EndoScribe/reports_ai/eus --samples_to_process mass02 cancer07
 
-        python drafter.py --procedure=ercp --pred_csv=extracted/ercp/indications_ercp.csv --output_dir=/Users/emilyguan/Downloads/EndoScribe/reports_ai --samples_to_process bdstricture01 bdstone01
+        python drafter.py --procedure=ercp --pred_csv=results/ercp/indications_ercp.csv --output_dir=/Users/emilyguan/Downloads/EndoScribe/reports_ai --samples_to_process bdstricture01 bdstone01
     
+        python drafter.py --procedure=egd --pred_csv=results/egd/082025-test.csv --output_dir=. --samples_to_process egd01 egd02 egd03
     '''
     parser = argparse.ArgumentParser()
-    parser.add_argument('--procedure', type=str, required=True, choices=['col', 'eus', 'ercp'])
+    parser.add_argument('--procedure', type=str, required=True, choices=['col', 'eus', 'ercp', 'egd'])
     parser.add_argument('--pred_csv', required=True, help="Path to predictions csv") #? should this be from db directly instead??
     parser.add_argument('--polyp_csv', required=False, help="Path to corresponding polyp predictions csv")
     parser.add_argument('--output_dir', required=True, help="Directory to save reports")
@@ -46,6 +46,7 @@ def main():
         "col": ColonoscopyDrafter,
         "eus": EUSDrafter,
         "ercp": ERCPDrafter,
+        "egd": EGDDrafter,
     }
     Drafter = drafter_classes[args.procedure]
     for sample in samples_to_process:

@@ -24,11 +24,12 @@ class EGDDrafter(EndoscopyDrafter):
 
         doc.add_heading('EGD Findings', level=2)
         doc.add_paragraph(self.sample_df['extent'].replace('\\n', '\n'))
-        doc.add_paragraph('Esophagus:', bold=True)
+        # bold
+        doc.add_paragraph('Esophagus:').runs[0].font.bold = True
         doc.add_paragraph(self.sample_df['esophagus'].replace('\\n', '\n'))
-        doc.add_paragraph('Stomach:', bold=True)
+        doc.add_paragraph('Stomach:').runs[0].font.bold = True
         doc.add_paragraph(self.sample_df['stomach'].replace('\\n', '\n'))
-        doc.add_paragraph('Duodenum:', bold=True)
+        doc.add_paragraph('Duodenum:').runs[0].font.bold = True
         doc.add_paragraph(self.sample_df['duodenum'].replace('\\n', '\n'))
         doc.add_paragraph(self.sample_df['egd_findings'].replace('\\n', '\n'))
 

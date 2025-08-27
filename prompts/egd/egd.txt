@@ -4,6 +4,7 @@ The entities you must extract are listed below. Follow the instructions. Do not 
 
 indications: Reasons for performing the procedure. Include patient history if mentioned. Do not include date of birth.
 extent: Furthest point reached by the endoscope, e.g. "descending duodenum"
+samples_taken: "True" if biopsies taken or specimens removed, otherwise "False".
 esophagus: Findings and procedures in the esophagus.
 stomach: Findings and procedures in the stomach.
 duodenum: Findings and procedures in the duodenum.

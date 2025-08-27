@@ -5,14 +5,27 @@ import re
 
 class EGDDrafter(EndoscopyDrafter):
     def construct_recommendations(self):
-        pass
+        rec = []
+        # sample_row = self.sample_df # todo add in when reextracted
+        # if sample_row.get('samples_taken', 'False') == 'True':
+        #     rec.insert(0, "Follow up pathology results.")
+        rec.extend(["MRI/MRCP in 1 year", "EUS in 2 years", "Advance diet as tolerated", "Resume current medications", "Follow up with referring provider."])
+        return rec
+        
+        # TODO IF findings include any “gastritis”, “duodenitis” or “ulcers”, recommendation should
+        # be “avoid non-steroidal anti-inflammatory drugs”
+        # - IF patient receive Barrett’s RFA or cryoablation, “follow standard Barrett’s ablation
+        # post-operative therapy”
+        # - IF patient received treatment for any bleeding, “continue PPI”
+        # - IF patient received a PEG or PEG-J or PEJ tube, ***
+        # o Run fluids
+        # o Consult nutrition for tube feed initiation and education
 
     def construct_recall(self):
         pass
 
     def draft_doc(self):
         # Find sample, if multiple, use the first one
-        
         print(f"Creating EGD report for '{self.sample}'") 
 
         doc = Document()
@@ -23,7 +36,7 @@ class EGDDrafter(EndoscopyDrafter):
         doc.add_paragraph(indications)
 
         doc.add_heading('EGD Findings', level=2)
-        doc.add_paragraph(self.sample_df['extent'].replace('\\n', '\n'))
+        doc.add_paragraph("A high-definition endoscope was advanced to the " + self.sample_df['extent'].replace('\\n', '\n'))
         # bold
         doc.add_paragraph('Esophagus:').runs[0].font.bold = True
         doc.add_paragraph(self.sample_df['esophagus'].replace('\\n', '\n'))

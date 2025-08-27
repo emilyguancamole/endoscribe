@@ -10,7 +10,11 @@ class EUSDrafter(EndoscopyDrafter):
         '''
         Recommendations section for EUS. Currently only default recommendations.
         '''
-        rec = ["MRI/MRCP in 1 year", "EUS in 2 years"]
+        rec = []
+        # sample_row = self.sample_df # todo add in when reextracted
+        # if sample_row.get('samples_taken', 'False') == 'True':
+        #     rec.insert(0, "Follow up pathology results.")
+        rec.extend(["MRI/MRCP in 1 year", "EUS in 2 years", "Advance diet as tolerated", "Resume current medications", "Follow up with referring provider."])
         return rec
 
     def construct_recall(self):

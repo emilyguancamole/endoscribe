@@ -3,6 +3,7 @@ I am giving you a transcript from an Endoscopic Ultrasound (EUS) and/or EGD proc
 The entities you must extract are listed below. Follow the instructions. Do not guess.
 
 indications: Reasons for performing the procedure. Include patient history if mentioned. Do not include date of birth.
+samples_taken: "True" if biopsies were taken or specimens removed (ie FNA/FNB), otherwise "False".
 eus_findings: All findings of EUS as free text. This should be one string. If there was an aspiration or needle aspiration, describe the FNA performed. If biopsy was done with a needle, describe the biopsy performed. 
 Organize findings by these subheadings, separated by "\\n\\n", if they are examined: PANCREAS, BILE DUCT, GALLBLADDER, LIVER, LYMPH NODES, SPLEEN, PERITONEUM, ADRENAL GLANDS, AMPULLA, AORTA AND CELIAC AXIS, MEDIASTINUM. If they were not examined, omit. Include findings in VASCULATURE (vascular abnormalities) only if abnormalities are found.
 Findings should always be reported in mm. If they are stated in cm, change them to mm in your report.

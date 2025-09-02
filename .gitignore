@@ -10,6 +10,8 @@ transcription/recordings
 transcription/fine_tune_whisper.ipynb
 
 tests
+.docx
+.doc
 
 # old files/folders
 05_col_experiments

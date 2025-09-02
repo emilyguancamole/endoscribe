@@ -12,8 +12,8 @@ import select
 import pandas as pd
 import librosa
 from transformers import WhisperProcessor, WhisperForConditionalGeneration, WhisperFeatureExtractor, WhisperTokenizer
-from convert_to_mono import batch_convert
-from utils import process_predictions, compute_metrics
+from .convert_to_mono import batch_convert
+from .utils import process_predictions, compute_metrics
 
 
 def copy_process_streams(process: sp.Popen):

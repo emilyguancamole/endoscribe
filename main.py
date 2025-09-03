@@ -5,7 +5,7 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "6,7,8,9"
 import argparse
 import pandas as pd
-from llm.llm_handler import LLMHandler
+from llm.llm_client import LLMClient
 from processors import ColProcessor, ERCPProcessor, EUSProcessor, EGDProcessor
 import torch
 import argparse
@@ -39,11 +39,11 @@ def main():
         for i in range(torch.cuda.device_count()):
             print(f"Device no.{i}: {torch.cuda.get_device_name(i)}")
 
-    llm_handler = LLMHandler(
-        model_path="RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16",
+    llm_handler = LLMClient(
+        model_path="Qwen/Qwen3-14B", #"RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16",
         quant="compressed-tensors",
         tensor_parallel_size=4,
-        # model_path="ibnzterrell/Meta-Llama-3.3-70B-Instruct-AWQ-INT4", # Llama 3.3 #"meta-llama/Llama-3.3-70B-Instruct", # vllm should load from cache since model's alr downloaded args.model_dir
+        # model_path="ibnzterrell/Meta-Llama-3.3-70B-Instruct-AWQ-INT4", # Llama 3.3 #"meta-llama/Llama-3.3-70B-Instruct", # vllm loads from cache, /scratch/eguan2/hf_cache/hub
         # quant="awq_marlin", # "Use quant=awq_marlin for faster inference"
     )
 

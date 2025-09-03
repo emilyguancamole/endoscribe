@@ -1,5 +1,6 @@
 import json
 from .base_processor import BaseProcessor
+from data_models.data_models import ColonoscopyData, PolypData
 from typing import List, Dict
 import pandas as pd
 
@@ -26,7 +27,7 @@ class ColProcessor(BaseProcessor):
         return messages
 
 
-    def process_transcripts(self, filenames_to_process, transcripts_df):
+    def process_transcripts(self, filenames_to_process, transcripts_df, max_attempts=2):
         col_outputs = []
         polyp_outputs = []
 
@@ -37,73 +38,78 @@ class ColProcessor(BaseProcessor):
             cur_transcript = row["pred_transcript"]
             filename = row["file"]
 
-            # Colonoscopy-level processing
-            col_messages = self.build_messages( 
-                cur_transcript,
-                system_prompt_fp=self.system_prompt_fp,
-                prompt_field_definitions_fp='./prompts/col/colonoscopies.txt',
-                fewshot_examples_dir="./prompts/col/fewshot",
-                prefix="col"
-            )
-            col_response = self.llm_handler.chat(col_messages)[0].outputs[0].text.strip()
-            try:
-                col_json = json.loads(col_response[col_response.find("{"): col_response.rfind("}") + 1])
-                col_outputs.append(self.parse_colonoscopy_response(col_json, filename))
-            except json.JSONDecodeError:
+            # Colonoscopy-level processing with retry
+            col_json = None
+            for attempt in range(max_attempts):
+                col_messages = self.build_messages(
+                    cur_transcript,
+                    system_prompt_fp=self.system_prompt_fp,
+                    prompt_field_definitions_fp='./prompts/col/colonoscopies.txt',
+                    fewshot_examples_dir="./prompts/col/fewshot",
+                    prefix="col"
+                )
+                col_response = self.llm_handler.chat(col_messages)[0].outputs[0].text.strip()
+                try:
+                    col_json = json.loads(col_response[col_response.find("{"): col_response.rfind("}") + 1])
+                    col_outputs.append(self.parse_validate_colonoscopy_response(col_json, filename))
+                    break
+                except (json.JSONDecodeError, ValueError):
+                    if attempt == 1:
+                        col_json = None
+            if not col_json:
                 continue
 
-            # Polyp-level processing
-            polyp_messages = self.build_polyp_messages(
-                cur_transcript,
-                findings=col_json.get("findings", ""),
-                polyp_count=col_json.get("polyp_count", 0),
-                system_prompt_fp=self.system_prompt_fp
-            )
-            print("Polyp messages:\n", polyp_messages)
-            
-            polyp_response = self.llm_handler.chat(polyp_messages)[0].outputs[0].text.strip()
-            try:
-                polyps_json = json.loads(polyp_response)
-                # todo maybe add?? parse into int/float here... but prob better in a loading data script before postgres
-                polyp_outputs.extend(self.parse_polyp_response(polyps_json, filename))
-            except json.JSONDecodeError:
-                continue
+            # Polyp-level processing with retry
+            polyps_json = None
+            for attempt in range(max_attempts):
+                polyp_messages = self.build_polyp_messages(
+                    cur_transcript,
+                    findings=col_json.get("findings", ""),
+                    polyp_count=col_json.get("polyp_count", 0),
+                    system_prompt_fp=self.system_prompt_fp
+                )
+                polyp_response = self.llm_handler.chat(polyp_messages)[0].outputs[0].text.strip()
+                try:
+                    polyps_json = json.loads(polyp_response)
+                    polyp_outputs.extend(self.parse_validate_polyp_response(polyps_json, filename))
+                    break
+                except (json.JSONDecodeError, ValueError):
+                    if attempt == 1:
+                        polyps_json = None
 
         # Save outputs to csv files
         self.save_outputs(col_outputs, polyp_outputs)
 
-    def parse_colonoscopy_response(self, col_json, filename):
+    def parse_validate_colonoscopy_response(self, col_json, filename, data_model=ColonoscopyData):
+        """ Use data_model to validate JSON fields + types, then parse + return as dict """
+        try:
+            col_data = data_model(**col_json)
+        except Exception as e:
+            raise ValueError(f"Validation failed for colonoscopy data for {filename}: {e}")
+
+        col_json = col_data.dict()
         return {
             "id": filename,
             "attending": "Llama 4", #! placeholder
-            "indications": col_json.get("indications", ""),
-            "last_colonoscopy": col_json.get("last_colonoscopy", ""),
-            "bbps_simple": col_json.get("bbps_simple", ""),
-            "bbps_right": col_json.get("bbps_right", ""),
-            "bbps_transverse": col_json.get("bbps_transverse", ""),
-            "bbps_left": col_json.get("bbps_left", ""),
-            "bbps_total": col_json.get("bbps_total", ""),
-            "extent": col_json.get("extent", ""),
-            "findings": col_json.get("findings", ""),
-            "polyp_count": col_json.get("polyp_count", ""),
-            "impressions": col_json.get("impressions", []),
+            **col_json
         }
+        
 
-    def parse_polyp_response(self, polyps_json, filename):
+    def parse_validate_polyp_response(self, polyps_json: List, filename: str, data_model=PolypData):
+        """ Use data_model to validate JSON fields + types, then parse + return as list of dicts """
+        try:
+            for polyp in polyps_json:
+                data_model(**polyp)  # This will raise an error if validation fails
+        except Exception as e:
+            raise ValueError(f"Validation failed for polyp data for {filename}: {e}")
+        
         return [
             {
                 "col_id": filename,
-                "size_min_mm": polyp.get("size_min_mm", ""),
-                "size_max_mm": polyp.get("size_max_mm", ""),
-                "location": polyp.get("location", ""),
-                "resection_performed": polyp.get("resection_performed", ""),
-                "resection_method": polyp.get("resection_method", ""),
-                "nice_class": polyp.get("nice_class", ""),
-                "jnet_class": polyp.get("jnet_class", ""),
-                "paris_class": polyp.get("paris_class", ""),
-            }
-            for polyp in polyps_json
+                **polyp
+            } for polyp in polyps_json
         ]
+        
     
     def convert_data_types(self, col_df, polyp_df):
         """Convert data types for PostgreSQL insertion"""

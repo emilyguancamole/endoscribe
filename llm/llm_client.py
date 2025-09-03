@@ -2,7 +2,7 @@ from vllm import LLM
 from vllm import SamplingParams
 
 
-class LLMHandler:
+class LLMClient:
     def __init__(self, model_path, quant=None, tensor_parallel_size=4, sampling_params=None):
         self.model = self.load_llm(model_path, quant, tensor_parallel_size)
         self.sampling_params = sampling_params or self.default_sampling_params()

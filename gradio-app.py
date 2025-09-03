@@ -9,7 +9,7 @@ from docx import Document
 from transcription.whisper_transcribe import transcribe as local_transcribe
 from processors.col_processor import ColProcessor
 from drafters.colonoscopy import ColonoscopyDrafter
-from llm.llm_handler import LLMHandler
+from llm.llm_client import LLMClient
 
 
 
@@ -33,8 +33,8 @@ WHISPER_MODEL_OPTIONS = {
 # )
 # print(f"Using Gpt")
 
-# Set up LLMHandler (Llama 4, quantized, as in main.py)
-llm_handler = LLMHandler(
+# Set up LLM (Llama 4, quantized, as in main.py)
+llm_handler = LLMClient(
     model_path="RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16",
     quant="compressed-tensors",
     tensor_parallel_size=4,
@@ -52,7 +52,7 @@ def full_pipeline(audio_path, whisper_model_name, sample_id):
     # 1. Transcription
     transcription = transcribe(audio_path, whisper_model_name)
 
-    # 2. Extraction using ColProcessor and LLMHandler
+    # 2. Extraction using ColProcessor and LLMClient
     # Build a fake transcripts_df for a single sample
     transcripts_df = pd.DataFrame({
         "file": [sample_id],

@@ -65,63 +65,47 @@ def transcribe(audio_file, whisper_model, prompt=None) -> str:
     return transcription
 
 
-def move_to_datasheet(transcriptions_df, datasheet_fp):
-    # move transcriptions to /Users/emilyguan/Downloads/EndoScribe/datasheets/Sample_1_test_datasheet_finetune.csv. match by column 'file'
-    datasheet_df = pd.read_csv(datasheet_fp) #, encoding='ISO-8859-1'
-    print(transcribed_df.columns)
-    print(datasheet_df.columns)
-    datasheet_df = datasheet_df.merge(transcriptions_df, on='file', how='left')
-    datasheet_df.to_csv(datasheet_fp, index=False)
-    print("Saved to datasheet", datasheet_fp)
-
-
 if __name__ == "__main__":
     '''
-    Run from endoscribe!!
+    Run from `endoscribe` folder!!
     
     python transcription/whisper_transcribe.py \
-    --save_dir=transcription/results/col --save_filename=lg_45 \
+    --procedure_type=col --save_filename=lg_45 \
     --model=/scratch/eguan2/whisper_lg_45 \
     --audio_dir=transcription/recordings/finetune_testset
 
-    Colonoscopy with Errors:
-    python transcription/whisper_transcribe.py \
-    --save_dir=transcription/results/col/with_errorsconvo --save_filename=whisper_lg_v3 \
-    --model=openai/whisper-large-v3 \
-    --audio_dir=transcription/recordings/colonoscopy/with_errorsconvo
-
     EUS (cyst):
     python transcription/whisper_transcribe.py \
-    --save_dir=transcription/results/eus --save_filename=whisper_lg_v3_clean_noprompt \
+    --procedure_type=eus --save_filename=whisper_lg_v3_clean_noprompt \
     --model=openai/whisper-large-v3 \
     --audio_dir=transcription/recordings/eus/cyst
 
     ERCP
     python transcription/whisper_transcribe.py \
-    --save_dir=transcription/results/ercp --save_filename=whisper_lg_v3 \
+    --procedure_type=ercp --save_filename=whisper_lg_v3 \
     --model=openai/whisper-large-v3 \
     --audio_dir=transcription/recordings/ercp/bdstone
 
     EGD
     python transcription/whisper_transcribe.py \
-    --save_dir=transcription/results/egd --save_filename=whisper_lg_v3 \
+    --procedure_type=egd --save_filename=whisper_lg_v3 \
     --model=openai/whisper-large-v3 \
     --audio_dir=transcription/recordings/egd
 
     '''
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument('--audio_dir', type=str, required=True, help='Path to audio folder (general, not specialized vocals folder)')
-    argparser.add_argument('--save_dir', type=str, required=True)
-    argparser.add_argument('--save_filename', type=str, required=True, help='Name of file, without .csv, to save transcriptions to')
-    argparser.add_argument('--datasheet_fp', type=str,  default="")
-    argparser.add_argument('--do_separate_vocals', type=str,  default=False, help='Whether to run DEMUCS vocal separation on audio recordings')
-    argparser.add_argument('--model', type=str, required=True) #'distil-whisper/distil-large-v3' #openai/whisper-medium.en #openai/whisper-large-v3') 
-    argparser.add_argument('--use_prompt', default=False)
-    argparser.add_argument('--test_labels_fp', 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--audio_dir', type=str, required=True, help='Path to audio folder (general, not specialized vocals folder)')
+    parser.add_argument('--procedure_type', choices=['col', 'eus', 'ercp', 'egd'], required=True, help="Type of procedure to process")
+    parser.add_argument('--save_filename', type=str, required=True, help='Name of file, without .csv, to save transcriptions to')
+    parser.add_argument('--do_separate_vocals', type=str,  default=False, help='Whether to run DEMUCS vocal separation on audio recordings')
+    parser.add_argument('--model', type=str, required=True) #'distil-whisper/distil-large-v3' #openai/whisper-medium.en #openai/whisper-large-v3') 
+    parser.add_argument('--use_prompt', default=False)
+    parser.add_argument('--test_labels_fp', 
                             default='transcription/finetune_data/test_labels.csv') # CSV of gold transcripts, columns=[file, transcript]
-    args = argparser.parse_args()
+    args = parser.parse_args()
 
-    output_fp = f"{args.save_dir}/{args.save_filename}.csv"
+    save_dir = f"transcription/results/{args.procedure_type}"
+    output_fp = f"{save_dir}/{args.save_filename}.csv"
 
     # Colonoscopy prompt
     # prompt = "Boston Bowel Prep, colonoscopy, polyp, transverse colon, cold snare, Roth net, 2 mm, sessile, NICE classification, Paris classification IIa, JNET, cecum, LST-G, endoclips, swift coagulation, submucosal fibrosis, tattoo, retroflexion, diverticulosis"
@@ -168,7 +152,7 @@ if __name__ == "__main__":
             
             # Transcribe vocals
             audio_fp = os.path.join(vocals_dir, filename)
-            print(f"Transcribing {audio_fp} with use_prompt={args.use_prompt}; saving to {args.save_dir}/{args.save_filename}")
+            print(f"Transcribing {audio_fp} with use_prompt={args.use_prompt}; saving to {save_dir}/{args.save_filename}")
             if args.use_prompt:
                 transcribed_df.loc[len(transcribed_df)] = [case_name, "", transcribe(audio_fp, args.model, prompt=prompt)]
             else:
@@ -178,7 +162,7 @@ if __name__ == "__main__":
             transcribed_df.to_csv(output_fp, index=False) # Save intermediate results
             print(f"Transcribed {case_name}, saved to {output_fp}")
 
-        print(f"Saved transcriptions to {args.save_dir}")
+        print(f"Saved transcriptions to {save_dir}")
 
         
 

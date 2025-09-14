@@ -1,0 +1,10 @@
+pandas
+pydantic
+python-docx
+pytest
+transformers
+librosa
+torch
+vllm
+psycopg2-binary
+python-dotenv

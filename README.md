@@ -1,104 +1,146 @@
 # EndoScribe
 
+EndoScribe is an AI-powered scribe for automating endoscopy documentation.
+
+This README outlines how the code is organized, rationale/details of implementation, and how to run the three main stages of the scribe (transcription -> extraction/processors -> drafting).
+
+## High-level architecture
+
 An AI-powered scribe for automating endoscopy documentation. At a high level, this scribe works in 3 parts:
-1. Audio dictations of the procedure are input to the **Transcription** module. This optionally pre-processes the audio input, then uses Whisper to transcribe into text word-for-word. It outputs text transcripts as CSV files.
-2. The transcripts are fed into **Processors**. Processors build a prompt, prompt an LLM to extract data from the transcripts, and perform validation of the extracted data. Data is saved to a CSV file and optionally a Postgres table.
-3. The data is fed into **Drafters**, which formats the final note. This includes formatting data extracted directly by the LLM, as well as creating follow-up recommendations based on certain findings in the data. The drafter outputs a final note draft as a Word Document.
+1. **Transcription**
+    - Audio dictations of the procedure are input to **Transcription** module. This optionally pre-processes the audio input, then uses Whisper to transcribe into text word-for-word. It outputs text transcripts as CSV files.
+2. **Processors**
+    - The transcripts are fed into **Processors**. Processors build a prompt, prompt an LLM to extract data from the transcripts, and perform validation of the extracted data. Data is saved as CSV and optionally written to Postgres.
+3. **Drafters**
+    - The data is fed into **Drafters**, which formats the final note. This includes formatting data extracted directly by the LLM, as well as creating follow-up recommendations based on certain findings in the data. The drafter outputs a final note draft as a `.docx`.
 
 The scribe currently processes 4 types of endoscopy procedures: Colonoscopy, EGD, ERCP, and EUS. Logic across these procedure types are similar, with key differences. Several folders (Processors, Prompts, Results, Drafters) are organized by procedure type.
 
 ## Repository Structure
-Below is a simplified file tree for this repo. If a file/folder isn't included in the file tree, it's probably not important OR is still highly experimental.
+Below is a simplified file tree for this repo. 
 
 ```
 .
 ├── README.md
 ├── main.py                 # main entry point for Part 2 (processors)
-├── data_models
-│   └── data_models.py
-├── db
-│   └── postgres_writer.py
-├── drafter.py              # main entry point for Part 3 (drafters)
-├── drafters
-│   ├── base.py
-│   ├── colonoscopy.py
-│   ├── egd.py
-│   ├── ercp.py
-│   ├── eus.py
-│   └── utils.py
-├── llm
-│   ├── llm_client.py
-│   └── prompt_builder.py
-├── processors
-│   ├── base_processor.py
-│   ├── col_processor.py
-│   ├── egd_processor.py
-│   ├── ercp_processor.py
-│   └── eus_processor.py
-├── prompts
-│   ├── col
-│   │   ├── colonoscopies.txt   # definitions for extracting core colonoscopy data
-│   │   ├── fewshot         # folder with fewshot examples for colonoscopy
-│   │   ├── polyps.txt      # definitions for extracting polyp data
-│   │   └── system.txt      # core system instructions - definitions from colonoscopies.txt or polyps.txt are input
-│   ├── egd
-│   │   ├── egd.txt
-│   │   ├── fewshot
-│   │   └── system.txt
-│   ├── ercp
-│   │   ├── ercp.txt
-│   │   ├── fewshot
-│   │   └── system.txt
-│   └── eus
-│       ├── eus.txt
-│       ├── fewshot
-│       └── system.txt
-├── results                 # results of LLM extraction as CSV files
-│   ├── col
-│   ├── egd
-│   ├── ercp
-│   └── eus
+├── data_models             # Pydantic models for each procedure's extracted data
+├── db                      # Postgres writer/upsert helpers
+├── drafter.py              # Main entry point for Part 3 (drafters)
+├── drafters                # Converts model data into Word docs
+├── llm                     # LLM client (vllm/llama) and prompt helpers
+├── processors              # Build prompts, call LLM, validate, save outputs
+├── prompts                 # System instructions, data field definitions, fewshot examples
+├── results                 # CSV outputs produced by processors
 └── transcription
-    ├── convert_to_mono.py
-    ├── results
-    │   ├── col
-    │   ├── egd
-    │   ├── ercp
-    │   └── eus
-    ├── utils.py
-    └── whisper_transcribe.py   # main entry point (and logic) for Part 1 (transcription)
+    ├── results                 # Text transcripts as CSV
+    └── whisper_transcribe.py   # Main entry + logic for Part 1 (transcription)
 ```
 
 
 ## How to Run in Development
-{ instructions on how to run each Part from terminal and where to find outputs}
-A case example is found in `demo.ipynb` (TODO)
+!!! A case example is found in `demo.ipynb` (TODO)
+
+Prerequisites
+- Python 3.10+ (project uses 3.10 in development)
+- GPU + CUDA for local Llama/Whisper acceleration
+
+Install dependencies. Note that `requirements.txt` includes heavy packages like `vllm` and `torch`:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Run transcription on an audio file (local dev):
+```bash
+python -m transcription.whisper_transcribe --procedure_type=col --save_filename=dev_transcripts_file --model=openai/whisper-large-v3 --audio_dir=/path/to/audio_files_folder
+```
+
+This generates a CSV under `transcription/results/{procedure_type}/{save_filename}.csv` with the transcripts.
+
+Run extraction for a procedure (example: colonoscopy):
+```bash
+python main.py --procedure_type=col --transcripts_fp=dev_transcripts_file.csv --output_filename=dev_llm_output --files_to_process all
+```
+
+- `main.py` wires up `LLMHandler` (vllm/llama), loads prompt files from `prompts/col/`, and writes CSV outputs to `results/col/`.
+
+Draft a Word document from extracted CSVs (example: colonoscopy):
+```bash
+python drafter.py --procedure=col --pred_csv=results/col/dev_llm_output.csv --output_dir=drafters/results --samples_to_process all
+```
+
 
 ## Implementation Details
+
 ### Part 1: Transcription
+Purpose: convert raw audio recordings into reliable, time-ordered textual transcripts.
+
+Approach: 
+- Lightweight preprocessing (stereo->mono conversion and resampling). I experimented with other utils further preprocessing (e.g. vocal separation), but currently not using.
+- Whisper model for transcription (usually use whisper-lg-v3) pulled from HuggingFace
+- Outputs CSV rows with at least these columns: `file` (string id), `pred_transcript` (transcribed text).
+
+Future/current work I'm exploring. I anticipate we'll need heavier preprocessing for full-procedure-length audio: 
+- Noise suppression
+- Using **WhisperX**: built on top of faster-whisper and includes preprocessing, e.g. voice activity detection and speaker diarization.
+
 
 ### Part 2: Processors
-#### LLM
-We currently use Llama 4 as the LLM. I download Llama weights?checkpoints? from huggingface; run on gpu servers in our lab's IA1 compute cluster.
 
-#### Prompts
-We use chat-style, few-shot prompting with system instructions and multiple message turns. Files are found in `prompts` and are organized by procedure type.
+Purpose: Data extraction from text transcripts. 
+Each procedure type (col, egd, ercp, eus) has its own Processor subclass that implements parsing/shape-specific logic.
 
-System instructions define the entities to extract from the transcript. Few-shot examples are given as user/assistant message pairs.
+LLM
+- Default LLM: local Llama via `vllm` (see `llm/llm_handler.py`). This gives low-latency, on-prem inference for sensitive clinical data. An Azure OpenAI or other backend can be added with a thin adapter.
+- Processors build a list of messages in chat format and pass them to the `llm_handler.chat(messages)` method. LLM is expected to return a textual completion that can be post-processed into JSON.
 
-#### Processors
-Processor for each procedure type. Each processor spins up an LLM instance. Builds prompt, calls LLM. Pydantic validation. Save to `results` as CSV.
+Prompts
+- Files live in `prompts/{procedure}/` and are composed of:
+    - a small field-definition file (`colonoscopies.txt`, `eus.txt`, etc.) describing expected extraction fields and their formats;
+    - `system.txt` which becomes the system message and includes field definitions;
+    - `fewshot/` which contains `*_user.txt` / `*_assistant.txt` pairs used as conversational few-shot examples.
+
+Steps inside a Processor (e.g. `ColProcessor`):
+    1. Call `build_messages(...)` (BaseProcessor) to create system + fewshot + user messages.
+    2. Send messages to `llm_handler.chat(...)` and retrieve the text completion.
+    3. Parse JSON and validate with the appropriate Pydantic model in `data_models/data_models.py`.
+    4. Convert/clean types, append to outputs list, and finally call `save_outputs(...)`.
+
+Error modes and handling
+- JSON parsing failures: we currently skip the sample and continue (logged). 
+- Validation failures: Pydantic `ValidationError` is logged; by default the sample is skipped.
+- Future: add retries or a secondary cleanup LLM call.
+
+Important note about Colonoscopy procedures:
+- Colonoscopy procedures have 2 parts.
+    - `colonoscopies` extracts core procedure details. 
+    - `polyps` extracts polyp-level output with sizes, locations, classification of polyps found during the procedure. 
+    - These are separated to allow futher analysis with just the polyp findings. This means 2 LLM calls are made for each Colonoscopy procedure extraction.
+- All other procedures have just 1 part.
 
 
 ### Part 3: Drafters
 
+Purpose: Turn structured data into a readable clinical draft (.docx). Drafters don't need to understand LLM or extraction internals—they only receive data records.
+
+Key notes
+- Each drafter implements `EndoscopyDrafter` in `drafters/base.py`.
+- Drafters expect the `pred_df` index to be the sample `id`. They use `self._get_sample_row(...)` to pick a single sample row and then render sections (Indications, Findings, Impressions, Recommendations, Repeat Exam).
+- Formatting: we use `python-docx` to add headings, paragraphs, and more complex inline formatting (for example `drafters/utils.py` contains helper logic to bold subheadings inside long `findings` text).
+
+Recall / Recommendations
+- Drafters contain small, deterministic decision rules to construct recall and/or recommendations sections from extracted data.
+- Example: suggests colonoscopy recall intervals based on `polyp_count` and `size_max_mm`.
 
 
 ## Anticipated Changes Needed
 From dev to production, we'll need some changes. These may include:
-- more robust database stuff instead of reading data from csv
-- 
+- Replace local CSV wiring with tighter database use and message queue / API for near-real-time processing. End goal is to have near-real-time transcription; note generation done post-procedure.
+- Move prompts into a versioned store and tag releases by prompt version.
 
+
+## Contact + Notes
+Feel free to contact the owner of the repo, Emily Guan, with any questions. Email: emilymguan@gmail.com
 
 
 

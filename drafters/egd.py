@@ -6,9 +6,10 @@ import re
 class EGDDrafter(EndoscopyDrafter):
     def construct_recommendations(self):
         rec = []
-        # sample_row = self.sample_df # todo add in when reextracted
-        # if sample_row.get('samples_taken', 'False') == 'True':
-        #     rec.insert(0, "Follow up pathology results.")
+        sample_row = self.sample_df # todo add in when reextracted
+        if sample_row.get('samples_taken', 'False') == 'True':
+            rec.append("Follow up pathology results.")
+
         rec.extend(["MRI/MRCP in 1 year", "EUS in 2 years", "Advance diet as tolerated", "Resume current medications", "Follow up with referring provider."])
         return rec
         

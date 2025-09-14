@@ -1,5 +1,4 @@
-from vllm import LLM
-from vllm import SamplingParams
+from vllm import LLM, SamplingParams
 
 
 class LLMClient:

@@ -1,6 +1,9 @@
 import json
+
+from pydantic import ValidationError
 from .base_processor import BaseProcessor
 import pandas as pd
+from data_models.data_models import EUSData
 
 class EUSProcessor(BaseProcessor):
     def process_transcripts(self, filenames_to_process, transcripts_df):
@@ -27,17 +30,16 @@ class EUSProcessor(BaseProcessor):
             response = self.llm_handler.chat(messages)[0].outputs[0].text.strip()
             try:
                 json_response = json.loads(response[response.find("{"): response.rfind("}") + 1])
-            except json.JSONDecodeError:
-                continue
+                validated = EUSData(**json_response)
+            except json.JSONDecodeError or ValidationError as e:
+                print(f"Error processing file {filename}: {e}")
+                continue #todo better handling
             
             # Parse EUS response
             outputs.append({
                 "id": filename,
                 "attending": "Llama4",  # placeholder
-                "indications": json_response.get("indications", ""),
-                "eus_findings": json_response.get("eus_findings", ""),
-                "egd_findings": json_response.get("egd_findings", ""),
-                "impressions": json_response.get("impressions", "")
+                **validated.dict()
             })
 
         # Save to csv and postgres

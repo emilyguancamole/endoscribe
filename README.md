@@ -50,14 +50,14 @@ Install dependencies. Note that `requirements.txt` includes heavy packages like 
 python -m pip install -r requirements.txt
 ```
 
-Run transcription on an audio file (local dev):
+Run transcription on a folder of audio files:
 ```bash
 python -m transcription.whisper_transcribe --procedure_type=col --save_filename=dev_transcripts_file --model=openai/whisper-large-v3 --audio_dir=/path/to/audio_files_folder
 ```
 
 This generates a CSV under `transcription/results/{procedure_type}/{save_filename}.csv` with the transcripts.
 
-Run extraction for a procedure (example: colonoscopy):
+Run extraction for a procedure type (example: colonoscopy):
 ```bash
 python main.py --procedure_type=col --transcripts_fp=dev_transcripts_file.csv --output_filename=dev_llm_output --files_to_process all
 ```
@@ -130,7 +130,7 @@ Key notes
 
 Recall / Recommendations
 - Drafters contain small, deterministic decision rules to construct recall and/or recommendations sections from extracted data.
-- Example: suggests colonoscopy recall intervals based on `polyp_count` and `size_max_mm`.
+    - Example: suggests colonoscopy recall intervals based on `polyp_count` and `size_max_mm`.
 
 
 ## Anticipated Changes Needed

@@ -21,6 +21,8 @@ llama_extraction.py
 llama_vllm.py
 structure.txt
 
+whisperx_transcribe-wip.py
+
 # unrelated
 nostalg-ai
 lang_rag_tutorial_2

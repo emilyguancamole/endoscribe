@@ -67,10 +67,10 @@ def transcribe(audio_file, whisper_model, prompt=None) -> str:
 
 if __name__ == "__main__":
     '''
-    Run from `endoscribe` folder!!
+    Run from `endoscribe` folder root, e.g.:
     
     python transcription/whisper_transcribe.py \
-    --procedure_type=col --save_filename=lg_45 \
+    --procedure_type=col --save_filename=whisper_lg_v3 \
     --model=/scratch/eguan2/whisper_lg_45 \
     --audio_dir=transcription/recordings/finetune_testset
 

@@ -23,9 +23,9 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--procedure_type', choices=['col', 'eus', 'ercp', 'egd'], required=True, help="Type of procedure to process")
-    parser.add_argument('--transcripts_fp', required=True, help="Relative path to transcripts CSV file within transcription/{args.procedure_type}_results folder")
+    parser.add_argument('--transcripts_fp', required=True, help="Relative path to transcripts CSV file within transcription/results/{args.procedure_type} folder")
     parser.add_argument('--output_filename', required=True, help="File name to save the extracted outputs. Will be saved as a .csv in ./results/{args.procedure_type}")
-    parser.add_argument('--to_postgres', action='store_true', help="If set, write extracted outputs directly to Postgres")
+    parser.add_argument('--to_postgres', action='store_true', help="If set, write extracted outputs directly to Postgres") # TODO
     parser.add_argument('--files_to_process', nargs='*', help="List of filenames to process; 'all' to process all files")
     args = parser.parse_args()
 
@@ -40,11 +40,10 @@ def main():
             print(f"Device no.{i}: {torch.cuda.get_device_name(i)}")
 
     llm_handler = LLMClient(
-        model_path="Qwen/Qwen3-14B", #"RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16",
+        model_path="RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16",#"Qwen/Qwen3-14B"
         quant="compressed-tensors",
         tensor_parallel_size=4,
-        # model_path="ibnzterrell/Meta-Llama-3.3-70B-Instruct-AWQ-INT4", # Llama 3.3 #"meta-llama/Llama-3.3-70B-Instruct", # vllm loads from cache, /scratch/eguan2/hf_cache/hub
-        # quant="awq_marlin", # "Use quant=awq_marlin for faster inference"
+        # Llama 3.3 #"meta-llama/Llama-3.3-70B-Instruct", # vllm loads from cache, /scratch/eguan2/hf_cache/hub
     )
 
     # Map procedure type to processor class and transcript path

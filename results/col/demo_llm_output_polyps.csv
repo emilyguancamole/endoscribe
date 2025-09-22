@@ -1,0 +1,19 @@
+col_id,size_min_mm,size_max_mm,location,resection_performed,resection_method,nice_class,jnet_class,paris_class
+16,3.0,13.0,cecum,True,hot EMR,2,0,0-Is
+16,3.0,3.0,cecum,True,cold snare,2,0,0-Is
+16,3.0,3.0,cecum,True,cold snare,2,0,0-Is
+16,3.0,3.0,cecum,True,cold snare,2,0,0-Is
+16,3.0,3.0,cecum,True,cold snare,2,0,0-Is
+16,10.0,10.0,ascending colon,True,cold snare,2,0,0-Is
+16,5.0,5.0,ascending colon,True,cold snare,2,0,0-Is
+16,10.0,10.0,transverse colon,True,cold snare,0,0,NA
+16,5.0,10.0,sigmoid colon,True,cold snare,0,0,NA
+115,10.0,10.0,transverse colon,True,cold EMR,0,0,NA
+115,5.0,5.0,transverse colon,True,cold snare,0,0,NA
+115,8.0,8.0,transverse colon,True,cold snare,0,0,NA
+115,6.0,6.0,transverse colon,True,cold EMR,0,0,NA
+115,25.0,25.0,transverse colon,True,hot EMR,0,0,NA
+115,20.0,20.0,transverse colon,True,hot EMR,0,0,NA
+115,20.0,20.0,transverse colon,True,hot EMR,0,0,NA
+115,12.0,12.0,across anastomosis,True,hot EMR,0,0,NA
+115,10.0,10.0,across anastomosis,True,hot EMR,0,0,NA

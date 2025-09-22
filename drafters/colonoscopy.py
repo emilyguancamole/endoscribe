@@ -63,9 +63,9 @@ class ColonoscopyDrafter(EndoscopyDrafter):
         doc = Document()
         doc.add_heading(f'Report {self.sample}', level=1)
 
-        doc.add_heading('Indications', level=2)
-        indications = self.colon_sample_df.get('indications', 'unknown')
-        doc.add_paragraph(indications)
+        # doc.add_heading('Indications', level=2) #TODO - reextract with indications - new update
+        # indications = self.colon_sample_df.get('indications', 'unknown')
+        # doc.add_paragraph(indications)
 
         doc.add_heading('Description of Procedure', level=2)
         description_extent = self.construct_description_procedure()

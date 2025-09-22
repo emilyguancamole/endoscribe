@@ -38,7 +38,7 @@ Below is a simplified file tree for this repo.
 
 
 ## How to Run in Development
-!!! A case example is found in `demo.ipynb` (TODO)
+NOTE: A case example is found in `demo.ipynb`.
 
 Prerequisites
 - Python 3.10+ (project uses 3.10 in development)
@@ -52,21 +52,21 @@ python -m pip install -r requirements.txt
 
 Run transcription on a folder of audio files:
 ```bash
-python -m transcription.whisper_transcribe --procedure_type=col --save_filename=dev_transcripts_file --model=openai/whisper-large-v3 --audio_dir=/path/to/audio_files_folder
+python -m transcription.whisper_transcribe --procedure_type=col --save_filename=demo_whisper_lg --model=openai/whisper-large-v3 --audio_dir=/path/to/audio_files_folder
 ```
 
 This generates a CSV under `transcription/results/{procedure_type}/{save_filename}.csv` with the transcripts.
 
 Run extraction for a procedure type (example: colonoscopy):
 ```bash
-python main.py --procedure_type=col --transcripts_fp=dev_transcripts_file.csv --output_filename=dev_llm_output --files_to_process all
+python main.py --procedure_type=col --transcripts_fp=dev_transcripts_file.csv --output_filename=demo_llm_output --files_to_process all
 ```
 
-- `main.py` wires up `LLMHandler` (vllm/llama), loads prompt files from `prompts/col/`, and writes CSV outputs to `results/col/`.
+- `main.py` wires up `LLMHandler` (vllm/llama), loads prompt files from `prompts/col/`, and writes CSV outputs to `results/col/`. Note that for colonoscopies, 2 output CSVs will be generated, with `colonoscopies` and `polyps` appended to `output_filename`. For all other procedures, 1 output CSV will be generated with name `{output_filename}.csv`.
 
 Draft a Word document from extracted CSVs (example: colonoscopy):
 ```bash
-python drafter.py --procedure=col --pred_csv=results/col/dev_llm_output.csv --output_dir=drafters/results --samples_to_process all
+python drafter.py --procedure=col --pred_csv=results/col/demo_llm_output_colonoscopies.csv --polyp_csv=results/col/demo_llm_output_polyps.csv --output_dir=drafters/results/col --samples_to_process all
 ```
 
 
@@ -129,7 +129,7 @@ Key notes
 - Formatting: we use `python-docx` to add headings, paragraphs, and more complex inline formatting (for example `drafters/utils.py` contains helper logic to bold subheadings inside long `findings` text).
 
 Recall / Recommendations
-- Drafters contain small, deterministic decision rules to construct recall and/or recommendations sections from extracted data.
+- Beyond formatting data into drafts, drafters also contain small, deterministic decision rules to construct recall and/or recommendations sections from extracted data.
     - Example: suggests colonoscopy recall intervals based on `polyp_count` and `size_max_mm`.
 
 

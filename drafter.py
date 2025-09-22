@@ -14,7 +14,7 @@ def main():
 
         python drafter.py --procedure=ercp --pred_csv=results/ercp/indications_ercp.csv --output_dir=/Users/emilyguan/Downloads/EndoScribe/reports_ai --samples_to_process bdstricture01 bdstone01
     
-        python drafter.py --procedure=egd --pred_csv=results/egd/082025-test.csv --output_dir=drafters/results --samples_to_process egd01 egd02 egd03
+        python drafter.py --procedure=egd --pred_csv=results/egd/082025-test.csv --output_dir=drafters/results/egd --samples_to_process egd01 egd02 egd03
     '''
     parser = argparse.ArgumentParser()
     parser.add_argument('--procedure', type=str, required=True, choices=['col', 'eus', 'ercp', 'egd'])

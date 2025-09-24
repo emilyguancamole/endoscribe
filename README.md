@@ -148,7 +148,7 @@ Each procedure type (col, egd, ercp, eus) has its own Processor subclass that im
 From dev to production, we'll need some changes. These may include:
 - Heavier audio pre-processing and changes to transcription pipeline, as described above.
 - Replace local CSV wiring with tighter database use and message queue / API for near-real-time processing. End goal is to have near-real-time transcription; note generation done post-procedure.
-- Move prompts into a versioned store and tag releases by prompt version.
+- Automated validation of LLM-extracted data. Currently, validation of generated notes is done with human reviewers.
 - Major future tasks: integration with EHR.
 
 ## Contact + Notes

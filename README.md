@@ -1,6 +1,15 @@
 # EndoScribe
+## Introduction
 
 EndoScribe is an AI-powered scribe for automating endoscopy documentation.
+
+Currently, endoscopists' note-writing workflow looks something like this: perform the procedure and remember procedure details -> write a note by heavily editing a template, filling it in with procedure details.
+
+This workflow requires physicians to spend signficant time on documentation.
+
+EndoScribe automates note-writing. The workflow now looks like this: perform and dictate the procedure -> review an AI-generated note draft of the procedure.
+
+EndoScribe's goal is to give time back to the physician, reducing burnout and allowing them to spend more time with patients.
 
 This README outlines how the code is organized, rationale/details of implementation, and how to run the three main stages of the scribe (transcription -> extraction/processors -> drafting).
 

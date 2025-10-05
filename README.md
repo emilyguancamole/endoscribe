@@ -85,7 +85,7 @@ python drafter.py --procedure=col --pred_csv=results/col/demo_llm_output_colonos
 Purpose: convert raw audio recordings into reliable, time-ordered textual transcripts.
 
 Approach: 
-- Lightweight preprocessing (stereo->mono conversion and resampling). I experimented with other utils further preprocessing (e.g. vocal separation), but currently am not using.
+- Lightweight preprocessing (stereo->mono conversion and resampling). I experimented with other utils for further preprocessing (e.g. vocal separation), but currently am not using.
 - Whisper model for transcription (usually use whisper-lg-v3) pulled from HuggingFace.
 - Outputs CSV rows with at least these columns: `file` (string id), `pred_transcript` (transcribed text).
 

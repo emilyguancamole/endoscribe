@@ -21,7 +21,7 @@ llama_extraction.py
 llama_vllm.py
 structure.txt
 
-whisperx_transcribe-wip.py
+LLM_USAGE.md
 
 # unrelated
 nostalg-ai

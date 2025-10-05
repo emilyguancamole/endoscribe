@@ -48,7 +48,10 @@ class ColProcessor(BaseProcessor):
                     fewshot_examples_dir="./prompts/col/fewshot",
                     prefix="col"
                 )
-                col_response = self.llm_handler.chat(col_messages)[0].outputs[0].text.strip()
+                if self.llm_handler.model_type == "local":
+                    col_response = self.llm_handler.chat(col_messages)[0].outputs[0].text.strip()
+                elif self.llm_handler.model_type == "openai":
+                    col_response = self.llm_handler.chat(col_messages)
                 try:
                     col_json = json.loads(col_response[col_response.find("{"): col_response.rfind("}") + 1])
                     col_outputs.append(self.parse_validate_colonoscopy_response(col_json, filename))
@@ -68,7 +71,10 @@ class ColProcessor(BaseProcessor):
                     polyp_count=col_json.get("polyp_count", 0),
                     system_prompt_fp=self.system_prompt_fp
                 )
-                polyp_response = self.llm_handler.chat(polyp_messages)[0].outputs[0].text.strip()
+                if self.llm_handler.model_type == "local":
+                    polyp_response = self.llm_handler.chat(polyp_messages)[0].outputs[0].text.strip()
+                elif self.llm_handler.model_type == "openai":
+                    polyp_response = self.llm_handler.chat(polyp_messages)
                 try:
                     polyps_json = json.loads(polyp_response)
                     polyp_outputs.extend(self.parse_validate_polyp_response(polyps_json, filename))

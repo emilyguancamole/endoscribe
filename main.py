@@ -2,7 +2,7 @@
 
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "6,7,8,9"
+os.environ["CUDA_VISIBLE_DEVICES"] = "6,9"
 import argparse
 import pandas as pd
 from llm.llm_client import LLMClient
@@ -19,6 +19,9 @@ def main():
     python main.py --procedure_type=ercp --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process bdstone01 bdstricture01
 
     python main.py --procedure_type=egd --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process egd01 egd02 egd03 egd04 egd05
+
+    LONGFORM, OPENAI FROM CONFIG
+        python main.py --procedure_type=egd --transcripts_fp=long_9-30-2025.csv --output_filename=long_9-30-2025 --files_to_process 6 3 4 --model_config=openai_gpt4o
     '''
 
     parser = argparse.ArgumentParser()
@@ -27,6 +30,13 @@ def main():
     parser.add_argument('--output_filename', required=True, help="File name to save the extracted outputs. Will be saved as a .csv in ./results/{args.procedure_type}")
     parser.add_argument('--to_postgres', action='store_true', help="If set, write extracted outputs directly to Postgres") # TODO
     parser.add_argument('--files_to_process', nargs='*', help="List of filenames to process; 'all' to process all files")
+    
+    # Model config options
+    parser.add_argument('--model_config', choices=['local_llama', 'openai_gpt4o'], 
+                       default='local_llama', help="Predefined model configuration to use")
+    parser.add_argument('--model_type', choices=['local', 'openai'], help="Override model type (local or openai)")
+    parser.add_argument('--model_path', help="Override model path or OpenAI model name")
+    
     args = parser.parse_args()
 
     system_prompt_fp = f"prompts/{args.procedure_type}/system.txt" #!
@@ -39,14 +49,27 @@ def main():
         for i in range(torch.cuda.device_count()):
             print(f"Device no.{i}: {torch.cuda.get_device_name(i)}")
 
-    llm_handler = LLMClient(
-        model_path="RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16",#"Qwen/Qwen3-14B"
-        quant="compressed-tensors",
-        tensor_parallel_size=4,
-        # Llama 3.3 #"meta-llama/Llama-3.3-70B-Instruct", # vllm loads from cache, /scratch/eguan2/hf_cache/hub
-    )
+    # Initialize LLM with flexible configuration
+    llm_kwargs = {}
+    if args.model_type: llm_kwargs['model_type'] = args.model_type
+    if args.model_path: llm_kwargs['model_path'] = args.model_path
+    
+    # Use predefined config or custom parameters
+    if args.model_config and not any([args.model_type, args.model_path]):
+        llm_handler = LLMClient.from_config(args.model_config, **llm_kwargs) #* `from_config` classmethod instead of passing in params to LLMClient constructor
+        print(f"Using predefined model config: {args.model_config}")
+    else:
+        # Fallback to pre-10/5/2025 local model config
+        llm_handler = LLMClient(
+            model_path=args.model_path or "RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16",
+            model_type=args.model_type or "local",
+            quant="compressed-tensors" if args.model_type != "openai" else None,
+            tensor_parallel_size=4 if args.model_type != "openai" else None,
+            **llm_kwargs
+        )
+        print(f"Using custom model config: {args.model_type or 'local'} - {args.model_path or 'RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16'}")
 
-    # Map procedure type to processor class and transcript path
+    ## Map procedure type to processor class and transcript path
     processor_map = {
         "col": (ColProcessor, f"transcription/results/col/{args.transcripts_fp}"),
         "eus": (EUSProcessor, f"transcription/results/eus/{args.transcripts_fp}"),

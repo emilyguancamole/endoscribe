@@ -33,12 +33,22 @@ WHISPER_MODEL_OPTIONS = {
 # )
 # print(f"Using Gpt")
 
-# Set up LLM (Llama 4, quantized, as in main.py)
-llm_handler = LLMClient(
-    model_path="RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16",
-    quant="compressed-tensors",
-    tensor_parallel_size=4,
-)
+# Set up LLM handler - default to local model, but can be switched
+# You can modify this to use OpenAI models by changing the config or adding UI controls
+MODEL_CONFIG = os.getenv("MODEL_CONFIG", "local_llama")  # Can be overridden via environment variable
+
+try:
+    llm_handler = LLMClient.from_config(MODEL_CONFIG)
+    print(f"Using model config: {MODEL_CONFIG}")
+except (ValueError, FileNotFoundError):
+    # Fallback to original local setup if config not found
+    llm_handler = LLMClient(
+        model_path="RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16",
+        model_type="local",
+        quant="compressed-tensors",
+        tensor_parallel_size=4,
+    )
+    print("Using fallback local model configuration")
 
 
 def transcribe(audio_file, whisper_model_name):
@@ -65,7 +75,7 @@ def full_pipeline(audio_path, whisper_model_name, sample_id):
         procedure_type="col",
         system_prompt_fp=system_prompt_fp,
         output_fp=output_fp,
-        llm_handler=None,  # using Azure OpenAI directly in ColProcessor
+        llm_handler=llm_handler,  # Use the configured LLM handler
         to_postgres=False,
     )
 

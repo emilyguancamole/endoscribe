@@ -27,8 +27,10 @@ class EGDProcessor(BaseProcessor):
             )
             print(f"Processing file: {filename} with {len(messages)} messages")
             print("")
-            # response = self.llm_handler.chat(messages)[0].text.strip() #!! for local model
-            response = self.llm_handler.chat(messages) #!! for OpenAI model - string response
+            if self.llm_handler.model_type == "local": #! diff response processing for local vs openai
+                response = self.llm_handler.chat(messages)[0].outputs[0].text.strip()
+            elif self.llm_handler.model_type == "openai":
+                response = self.llm_handler.chat(messages)
             try:
                 json_response = json.loads(response[response.find("{"): response.rfind("}") + 1])
                 validated = EGDData(**json_response)

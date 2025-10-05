@@ -1,0 +1,29 @@
+{
+    "model_configs": {
+        "local_llama": {
+            "model_type": "local",
+            "model_path": "RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16",
+            "quant": "compressed-tensors",
+            "tensor_parallel_size": 4,
+            "sampling_params": {
+                "max_tokens": 8000,
+                "temperature": 0.15,
+                "top_p": 0.95,
+                "stop": ["<|eot_id|>"]
+            }
+        },
+        "openai_gpt4o": {
+            "model_type": "openai",
+            "model_path": "gpt-4o",
+            "use_azure": true,
+            "azure_endpoint": "https://gpt4-endoscribe.openai.azure.com/",
+            "api_version": "2025-03-01-preview",
+            "openai_params": {
+                "max_tokens": 8000,
+                "temperature": 0.15,
+                "top_p": 0.95
+            }
+        }
+    },
+    "default_config": "local_llama"
+}

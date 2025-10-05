@@ -7,5 +7,5 @@ egd_findings: An EGD was performed if and ony if there is mention of EGD perform
 If EGD is not performed, record "EGD not performed", and any findings in the esophagus, stomach, and duodenum must include a note that findings were “limited views”.
 ercp_findings: Findings by ERCP as free text. This should be one string. 
 If CRE balloon is mentioned, it should be referred to as "CRE balloon". Stomach findings should not be included under ercp_findings.
-samples_taken: "True" if brushings were taken of the duct, otherwise "False".
+samples_taken: "True" if brushings were taken of the duct, biopsies were taken, or specimens removed. Otherwise "False".
 impressions: Summarizes the most important findings, procedures, and biopsies as a list. If there are multiple normal findings, combine them in one list item for EGD and another list item for ERCP, such as "Normal ERCP examination of x, y, z" where x y z are different areas with normal ERCP findings. Normal findings do not need to be in order of examination. "Scout film" results should not be mentioned in impressions.

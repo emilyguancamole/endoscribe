@@ -1,6 +1,7 @@
 import json
 from .base_processor import BaseProcessor
 import pandas as pd
+from data_models.data_models import ERCPData
 
 
 class ERCPProcessor(BaseProcessor):
@@ -27,6 +28,7 @@ class ERCPProcessor(BaseProcessor):
             response = self.llm_handler.chat(messages)[0].outputs[0].text.strip()
             try:
                 json_response = json.loads(response[response.find("{"): response.rfind("}") + 1])
+                validated = ERCPData(**json_response)
             except json.JSONDecodeError:
                 continue
             
@@ -34,10 +36,7 @@ class ERCPProcessor(BaseProcessor):
             outputs.append({
                 "id": filename,
                 "attending": "Llama4", # placeholder
-                "indications": json_response.get("indications", ""),
-                "egd_findings": json_response.get("egd_findings", ""),
-                "ercp_findings": json_response.get("ercp_findings", ""),
-                "impressions": json_response.get("impressions", "")
+                **validated.dict()
             })
 
         # Save outputs to csv

@@ -10,7 +10,7 @@ class EGDDrafter(EndoscopyDrafter):
         if sample_row.get('samples_taken', 'False') == 'True':
             rec.append("Follow up pathology results.")
 
-        rec.extend(["MRI/MRCP in 1 year", "EUS in 2 years", "Advance diet as tolerated", "Resume current medications", "Follow up with referring provider."])
+        rec.extend(["MRI/MRCP in 1 year", "EUS in 2 years", "Advance diet as tolerated", "Resume current medications", "Follow up with referring provider"])
         return rec
         
         # TODO IF findings include any “gastritis”, “duodenitis” or “ulcers”, recommendation should
@@ -45,6 +45,7 @@ class EGDDrafter(EndoscopyDrafter):
         doc.add_paragraph(self.sample_df['stomach'].replace('\\n', '\n'))
         doc.add_paragraph('Duodenum:').runs[0].font.bold = True
         doc.add_paragraph(self.sample_df['duodenum'].replace('\\n', '\n'))
+        doc.add_paragraph('EGD Findings').runs[0].font.bold = True
         doc.add_paragraph(self.sample_df['egd_findings'].replace('\\n', '\n'))
 
         doc.add_heading('Impressions', level=2)
@@ -54,4 +55,11 @@ class EGDDrafter(EndoscopyDrafter):
         for i, item in enumerate(impressions, start=1):
             p = doc.add_paragraph(f"{i}. {item}")
             p.paragraph_format.space_after = Pt(0)
+
+        doc.add_heading('Recommendations', level=2)
+        recs = self.construct_recommendations()
+        for i, rec in enumerate(recs, start=1): 
+            p = doc.add_paragraph(f"{i}. {rec}")
+            p.paragraph_format.space_after = Pt(0)
+
         return doc

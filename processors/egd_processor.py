@@ -1,6 +1,8 @@
 import json
 from .base_processor import BaseProcessor
 import pandas as pd
+from data_models.data_models import EGDData
+
 
 class EGDProcessor(BaseProcessor):
     def process_transcripts(self, filenames_to_process, transcripts_df):
@@ -23,9 +25,13 @@ class EGDProcessor(BaseProcessor):
                 fewshot_examples_dir=fewshot_examples_dir,
                 prefix="egd"
             )
-            response = self.llm_handler.chat(messages)[0].outputs[0].text.strip()
+            print(f"Processing file: {filename} with {len(messages)} messages")
+            print("")
+            # response = self.llm_handler.chat(messages)[0].text.strip() #!! for local model
+            response = self.llm_handler.chat(messages) #!! for OpenAI model - string response
             try:
                 json_response = json.loads(response[response.find("{"): response.rfind("}") + 1])
+                validated = EGDData(**json_response)
             except json.JSONDecodeError:
                 continue
 
@@ -33,13 +39,7 @@ class EGDProcessor(BaseProcessor):
             outputs.append({
                 "id": filename,
                 "attending": "Llama4", # placeholder
-                "indications": json_response.get("indications", ""),
-                "extent": json_response.get("extent", ""),
-                "esophagus": json_response.get("esophagus", ""),
-                "stomach": json_response.get("stomach", ""),
-                "duodenum": json_response.get("duodenum", ""),
-                "egd_findings": json_response.get("egd_findings", ""),
-                "impressions": json_response.get("impressions", "")
+                **validated.dict()
             })
 
         # Save outputs to csv

@@ -33,9 +33,19 @@ class EUSData(BaseModel):
     egd_findings: str
     impressions: List[str]
 
-class ERCPProcedure(BaseModel):
+class ERCPData(BaseModel):
     indications: str
     egd_findings: str
     ercp_findings: str
     samples_taken: bool
+    impressions: List[str]
+
+class EGDData(BaseModel):
+    indications: str
+    extent: str
+    samples_taken: bool
+    esophagus: str
+    stomach: str
+    duodenum: str
+    egd_findings: str
     impressions: List[str]

@@ -1,30 +1,21 @@
 ###################### https://huggingface.co/docs/transformers/en/model_doc/whisper#transformers.WhisperForConditionalGeneration.generate
 import argparse
 import os
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
-import subprocess as sp
-import io
-from typing import Dict, Tuple, Optional, IO
-from pathlib import Path
-import sys
-import shutil
-import select
-import re
+os.environ["CUDA_VISIBLE_DEVICES"] = "6,9"
+import noisereduce as nr
+import soundfile as sf
 import pandas as pd
-import torch
-import librosa
-from datasets import load_dataset
-import evaluate
 from convert_to_mono import batch_convert
 from dotenv import load_dotenv
 load_dotenv()
 hf_token = os.getenv("HF_TOKEN")
+import whisperx 
 
-import whisperx                     # https://github.com/m-bain/whisperX
-from collections import Counter
-
-def noise_suppression(input_audio_path, output_audio_path):
-    pass
+def suppress_noise(input_audio_fp: str, output_audio_path: str):
+    audio, sr = sf.read(input_audio_fp)
+    reduced_noise = nr.reduce_noise(y=audio, sr=sr)
+    sf.write(output_audio_path, reduced_noise, sr)
+    return output_audio_path
 
 def transcribe(audio_file, whisper_model="large-v3", device="cuda"):
     """
@@ -43,19 +34,18 @@ def transcribe(audio_file, whisper_model="large-v3", device="cuda"):
     audio = whisperx.load_audio(audio_file)
 
     print("Transcribing...")
-    result = model.transcribe(audio, batch_size=8, language="en", vad=True)
+    result = model.transcribe(audio, batch_size=8, language="en")
 
     # Align whisper output to improve word level timing alignment
     model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
     result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
 
-
-    # Speaker diarization; uses pyannote/pyannote-audio
-    print("Running diarization...")
-    diarize_model = whisperx.diarize.DiarizationPipeline(use_auth_token=hf_token, device=device)
-    diarize_segments = diarize_model(audio)
-    result = whisperx.assign_word_speakers(diarize_segments, result) # combine transcipt with diarization
-    print("Result segments:\n", print(result['segments']))
+    #todo add Speaker diarization; uses pyannote/pyannote-audio
+    # print("Running diarization...")
+    # diarize_model = whisperx.diarize.DiarizationPipeline(use_auth_token=hf_token, device=device)
+    # diarize_segments = diarize_model(audio)
+    # result = whisperx.assign_word_speakers(diarize_segments, result) # combine transcipt with diarization
+    # print("Result segments:\n", print(result['segments']))
 
     # Main speaker
     # first_seconds = [seg for seg in result['segments'] if seg['start'] < 60.0] # first n secs
@@ -71,28 +61,33 @@ def transcribe(audio_file, whisper_model="large-v3", device="cuda"):
     # bkg_transcript = " ".join([seg['text'] for seg in bkg_segments])
     # print("SPEAKER TRANSCRIPT:\n", speaker_transcript)
     # print("BKG :\n", bkg_segments)
-
-    return result["segments"]
+    result_text = [seg['text'] for seg in result['segments']] 
+    # join into one string but leave single quotes between segments
+    result_text = " '".join(result_text).replace("  ", " ").strip()
+    print("Final transcript:\n", result_text)
+    return result_text
 
 
 if __name__ == "__main__":
     '''
-    Run from endoscribe!!
+    Run from endoscribe!! in IA1
     
     python transcription/whisperx_transcribe-wip.py \
     --save_dir=transcription/results/ercp --save_filename=long_9-30-2025 \
-    --model=openai/whisper-large-v3 \
-    --audio_dir=/Users/emilyguan/Downloads/EndoScribe/recordings/10-5_recordings_mono
+    --model=large-v3 \
+    --audio_dir=transcription/recordings/long
 
+        --convert_to_mono \
+    Notes: 
+        - model names don't have "openai/" or "whisper-" prefix
     '''
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--audio_dir', type=str, required=True, help='Path to audio folder (general, not specialized vocals folder)')
-    argparser.add_argument('--convert_to_mono', type=str, default=False, help='Whether to convert all audio files in the audio_dir to mono')
+    argparser.add_argument('--convert_to_mono', action='store_true', help='Flag to convert all audio files in the audio_dir to mono')
     argparser.add_argument('--save_dir', type=str, required=True)
     argparser.add_argument('--save_filename', type=str, required=True, help='Name of file, without .csv, to save transcriptions to')
     argparser.add_argument('--datasheet_fp', type=str,  default="")
-    argparser.add_argument('--do_separate_vocals', type=str,  default=False, help='Whether to run DEMUCS vocal separation on audio recordings')
-    argparser.add_argument('--model', type=str, required=True) #'distil-whisper/distil-large-v3' #openai/whisper-medium.en #openai/whisper-large-v3') 
+    argparser.add_argument('--model', type=str, required=True) #'distil-whisper/distil-large-v3' #openai/whisper-medium.en 
     argparser.add_argument('--use_prompt', default=False, help='Whether to use the provided prompt for each audio file')
     args = argparser.parse_args()
 
@@ -111,17 +106,8 @@ if __name__ == "__main__":
     transcribed_filenames = set(transcribed_df['file']) 
     print("with already transcribed files:", transcribed_filenames)
 
-    bkg_transcript_df = pd.read_csv(f"{args.save_dir}/{args.save_filename}_bkg.csv")
-
-    #! Separate vocals or not - separate is outdated
-    if args.do_separate_vocals: # if not os.path.exists(f"{args.audio_dir}/htdemucs"):
-        # separate_vocals(args.audio_dir, output_audio_path=args.audio_dir) # creates a subfolder `htdemucs` in the output path
-        # vocals_dir = f"{args.audio_dir}/vocals"
-        # print("vocals_dir", vocals_dir) # folder with the actual files to transcribe
-        # move_vocals_files(vocals_dir)
-        print("vocal separation not implemented")
-    else:
-        vocals_dir = args.audio_dir
+  
+    vocals_dir = args.audio_dir
 
     print("Using model: ", args.model)
 
@@ -132,21 +118,20 @@ if __name__ == "__main__":
 
         case_name = str(filename.split(".")[0])
 
-        #! If file already transcribed, skip
+        #! CURRENTLY OVERWRITING If file already transcribed, skip
         # if case_name in transcribed_filenames:
         #     print(f"Skipping {case_name}, already transcribed")
         #     continue
 
-        #todo--- Noise suppression (optional)
-        # noise_suppression(os.path.join(vocals_dir, filename), os.path.join(vocals_dir, filename))
+        #todo Noise suppression (optional) - creates a new file with _cleaned suffix
+        # audio_fp = suppress_noise(os.path.join(vocals_dir, filename), os.path.join(vocals_dir, filename.split(".")[0] + "_cleaned.wav"))
 
-        #--- Transcribe, separate speaker and background
         audio_fp = os.path.join(vocals_dir, filename)
         print(f"Transcribing {audio_fp}; saving to {args.save_dir}/{args.save_filename}")
         print(f"    Use prompt: {args.use_prompt}")
         
-        speaker_transcript = transcribe(audio_fp, args.model)
-        transcribed_df.loc[len(transcribed_df)] = [case_name, "", speaker_transcript[0]]
+        transcript = transcribe(audio_fp, args.model)
+        transcribed_df.loc[len(transcribed_df)] = [case_name, "", transcript]
 
         transcribed_df.to_csv(output_fp, index=False) # Save intermediate results
 

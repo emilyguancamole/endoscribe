@@ -5,8 +5,11 @@ The entities you must extract are listed below. Follow the instructions. Do not 
 indications: Reasons for performing the procedure. Include patient history if mentioned. Do not include date of birth.
 extent: Furthest point reached by the endoscope, e.g. "descending duodenum"
 samples_taken: "True" if biopsies taken or specimens removed, otherwise "False".
-esophagus: Findings and procedures in the esophagus.
-stomach: Findings and procedures in the stomach.
-duodenum: Findings and procedures in the duodenum.
+barrets_ablation: "True" if patient received Barrett’s RFA or cryoablation, otherwise "False"
+bleeding_treatment: "True" if patient received treatment for any bleeding, otherwise "False"
+peg_pej: "True" if patient received a PEG, PEG-J, or PEJ tube, otherwise "False"
+esophagus: Findings and procedures in the esophagus
+stomach: Findings and procedures in the stomach
+duodenum: Findings and procedures in the duodenum
 egd_findings: All remaining findings of the procedure as free text. This should be one string. This may include descriptions and findings of Muscosal Integrity Testing, Endoflip, Esoflip, retroflexed views, and any other maneuvers performed.
 impressions: Summarizes the most important findings, procedures, and biopsies as a list.

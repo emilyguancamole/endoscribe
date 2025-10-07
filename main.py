@@ -21,7 +21,7 @@ def main():
     python main.py --procedure_type=egd --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process egd01 egd02 egd03 egd04 egd05
 
     LONGFORM, OPENAI FROM CONFIG
-        python main.py --procedure_type=egd --transcripts_fp=long_9-30-2025.csv --output_filename=long_9-30-2025 --files_to_process 6 3 4 --model_config=openai_gpt4o
+        python main.py --procedure_type=egd --transcripts_fp=longform/long_9-30-2025.csv --output_filename=long_9-30-2025 --files_to_process 6 3 4 --model_config=openai_gpt4o
     '''
 
     parser = argparse.ArgumentParser()

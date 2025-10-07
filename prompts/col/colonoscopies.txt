@@ -1,7 +1,7 @@
 I am giving you a transcript from a colonoscopy procedure. The task is to extract procedure entities. Make sure you are accurate (no mistakes), complete (do not miss any relevant information), and organized (record information in a manner that matches clinical standards).
 
 The target entities you must extract are listed below with descriptions or instructions. Follow the instructions. Do not guess.
-
+<target-entities>
 indications: Reasons for performing the procedure. Include patient history if mentioned, but NOT including when last colonoscopy done.
 last_colonoscopy: When last colonoscopy was performed if mentioned, otherwise "N/A".
 bbps_simple: Overall Boston Bowel Prep score as [adequate/inadequate].
@@ -22,6 +22,8 @@ Report findings in an organized, concise way.
 
 polyp_count: If no polyps were found, record "0". This must be consistent with the Findings section.
 impressions: Summarizes the most important findings, briefly as a list.
+recommendations:
+</target-entities>
 
 Do NOT include bowel prep SCORE in free-text findings. The scores as numbers should ONLY appear in the appropriate bbps fields.
 

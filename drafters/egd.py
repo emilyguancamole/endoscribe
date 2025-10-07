@@ -3,6 +3,8 @@ from docx import Document
 from docx.shared import Pt
 import re
 
+from drafters.utils import find_terms_spacy
+
 class EGDDrafter(EndoscopyDrafter):
     def construct_recommendations(self):
         rec = []
@@ -10,17 +12,23 @@ class EGDDrafter(EndoscopyDrafter):
         if sample_row.get('samples_taken', 'False') == 'True':
             rec.append("Follow up pathology results.")
 
-        rec.extend(["MRI/MRCP in 1 year", "EUS in 2 years", "Advance diet as tolerated", "Resume current medications", "Follow up with referring provider"])
+        findings = self.sample_df.get('egd_findings', '').lower()
+        # IF include any “gastritis”, “duodenitis” or “ulcers”, recommendation should be “avoid non-steroidal anti-inflammatory drugs”
+        terms = find_terms_spacy(findings, ["gastritis", "duodenitis", "ulcer", "ulcers"])
+        if terms:
+            rec.append("Avoid non-steroidal anti-inflammatory drugs.")
+        rec.extend(["Advance diet as tolerated.", "Resume current medications.", "Follow up with referring provider."])
         return rec
         
-        # TODO IF findings include any “gastritis”, “duodenitis” or “ulcers”, recommendation should
-        # be “avoid non-steroidal anti-inflammatory drugs”
+        # TODO 
         # - IF patient receive Barrett’s RFA or cryoablation, “follow standard Barrett’s ablation
         # post-operative therapy”
         # - IF patient received treatment for any bleeding, “continue PPI”
         # - IF patient received a PEG or PEG-J or PEJ tube, ***
         # o Run fluids
         # o Consult nutrition for tube feed initiation and education
+        # Dilation
+        # Stent placement
 
     def construct_recall(self):
         pass

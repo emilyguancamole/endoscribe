@@ -11,10 +11,7 @@ class EndoscopyDrafter(ABC):
 
     def _get_sample_row(self, df, sample):
         try:
-            # print("df head\n",self.pred_df.head())
-            
-            sample_row_df = df.loc[[sample]] # force dataframe # exact sample name matc
-            # print("\nsample rowssss df\n", sample_row_df)
+            sample_row_df = df.loc[[sample]] # force dataframe # exact sample name match
             return sample_row_df.iloc[-1] # if multiple, use the last one
 
         except KeyError:

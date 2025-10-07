@@ -1,4 +1,4 @@
-### I am giving you a transcript from an EGD procedure. The task is to extract procedure entities. Make sure you are accurate (no mistakes), complete (do not miss any relevant information), and organized (record information in a manner that matches clinical standards).
+I am giving you a transcript from an EGD procedure. The task is to extract procedure entities. Make sure you are accurate (no mistakes), complete (do not miss any relevant information), and organized (record information in a manner that matches clinical standards).
 
 The entities you must extract are listed below. Follow the instructions. Do not guess.
 

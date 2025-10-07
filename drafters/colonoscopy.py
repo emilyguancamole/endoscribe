@@ -4,6 +4,8 @@ from docx import Document
 from docx.shared import Pt
 import re
 
+from drafters.utils import find_terms_spacy
+
 class ColonoscopyDrafter(EndoscopyDrafter):
     def __init__(self, sample, pred_df, polyp_df):
         super().__init__(sample, pred_df, polyp_df)
@@ -39,14 +41,25 @@ class ColonoscopyDrafter(EndoscopyDrafter):
     def construct_recommendations(self):
         '''
         Recommendations section for colonoscopy, including default and custom recommendations.
-        If polyp was removed, we await biopsy results
+        Uses simple rules; uses negspacy to identify negated terms.
         '''
         rec = []
-        colon_row = self.pred_df.loc[self.sample] # row for the sample
-        count = int(colon_row['polyp_count'])
-        if count > 0:
+        colon_row = self.colon_sample_df
+        if int(colon_row['polyp_count']) > 0:
             rec.append("Await biopsy results.")
         rec.append("Continue surveillance.")
+        rec.append("Advance diet as tolerated.")
+        rec.append("Resume current medications.")
+        
+        terms = find_terms_spacy(colon_row['findings'].lower(), ["ulcers", "ulcer"])
+        if terms:
+            rec.append("Avoid non-steroidal anti-inflammatory drugs.")
+
+        if int(colon_row.get('age', 0)) < 75:
+            rec.append("Continue age-appropriate colorectal cancer surveillance.")
+        else:
+            rec.append("Routine surveillance not typically recommended; will discuss on case-by-case basis.")
+
         rec.append("Follow up with referring physician.")
         return rec
 

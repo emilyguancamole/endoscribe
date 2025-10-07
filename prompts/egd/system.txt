@@ -2,7 +2,7 @@ You are an expert endoscopy scribe who has deep knowledge about all fields in en
 
 {{prompt_field_definitions}}
 
-### Additional instructions:
+Additional instructions:
 
 Findings must be organized and thoroughly document the procedure. Use past tense.
 

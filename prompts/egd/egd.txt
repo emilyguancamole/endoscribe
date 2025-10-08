@@ -1,10 +1,10 @@
 I am giving you a transcript from an EGD procedure. The task is to extract procedure entities. Make sure you are accurate (no mistakes), complete (do not miss any relevant information), and organized (record information in a manner that matches clinical standards).
 
-The entities you must extract are listed below. Follow the instructions. Do not guess.
+The entities you must extract are listed below. Follow the instructions. Do not guess if you do not know the answer.
 
-indications: Reasons for performing the procedure. Include patient history if mentioned. Do not include date of birth.
+indications: Reasons for performing the procedure, e.g. "60 year old female here for xxx." Include patient history if mentioned. Do not include date of birth.
 extent: Furthest point reached by the endoscope, e.g. "descending duodenum"
-samples_taken: "True" if biopsies taken or specimens removed, otherwise "False".
+samples_taken: "True" if biopsies taken or specimens removed, otherwise "False"
 barrets_ablation: "True" if patient received Barrett’s RFA or cryoablation, otherwise "False"
 bleeding_treatment: "True" if patient received treatment for any bleeding, otherwise "False"
 peg_pej: "True" if patient received a PEG, PEG-J, or PEJ tube, otherwise "False"

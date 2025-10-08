@@ -1,4 +1,4 @@
-# from vllm import LLM, SamplingParams
+from vllm import LLM, SamplingParams
 from openai import OpenAI, AzureOpenAI
 import os
 import json

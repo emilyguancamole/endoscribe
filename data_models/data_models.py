@@ -44,6 +44,9 @@ class EGDData(BaseModel):
     indications: str
     extent: str
     samples_taken: bool
+    barrets_ablation: bool
+    bleeding_treatment: bool
+    peg_pej: bool
     esophagus: str
     stomach: str
     duodenum: str

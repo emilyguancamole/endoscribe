@@ -56,7 +56,8 @@ Prerequisites
 Install dependencies. Note that `requirements.txt` includes heavy packages like `vllm` and `torch`:
 
 ```bash
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
+python -m spacy download en_core_web_sm
 ```
 
 Run transcription on a folder of audio files:

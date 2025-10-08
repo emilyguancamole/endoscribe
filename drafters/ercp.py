@@ -9,11 +9,32 @@ class ERCPDrafter(EndoscopyDrafter):
     def construct_recommendations(self):
         rec = []
         ercp_row = self.sample_df
-        if ercp_row.get('samples_taken', 'False') == 'True': # todo add in when reextracted
+        if ercp_row.get('samples_taken', False): # todo reextract
             rec.append("Follow up pathology results.")
-        rec.append("Follow up with referring provider.")
         rec.append("Finish IV fluids now.")
         rec.append("Pain control as needed.")
+
+        # Stent recommendations
+        biliary_stent = ercp_row.get('biliary_stent_type', 'None')
+        if biliary_stent != "None":
+            if biliary_stent=="plastic biliary 5F":
+                rec.append("Repeat ERCP in 6-8 weeks for stent removal/replacement.")
+            elif biliary_stent=="plastic biliary 7F":
+                rec.append("Repeat ERCP in 3-4 months for stent removal/replacement.")
+            elif biliary_stent=="plastic biliary 10F":
+                rec.append("Repeat ERCP in ~4-5 months for stent removal/replacement.")
+            elif biliary_stent=="other biliary":
+                rec.append("Repeat ERCP for stent removal/replacement as clinically indicated.")
+            elif biliary_stent=="FCSEMS bengign":
+                rec.append("Repeat ERCP in 3 months for stent removal/replacement.")
+            elif biliary_stent=="FCSEMS malignant":
+                rec.append("Repeat ERCP in 6 months for stent removal/replacement.")
+        if ercp_row.get('pd_stent'):
+            rec.append("AXR in 2-4 weeks to confirm stent passage.")
+        #todo If stent was placed and patient had indication of chronic pancreatitis/pancreatic duct strictures/pancreatic duct leaks: • Repeat ERCP for stent exchange in 3 months
+            ### update when I understand if indications come from pre-written or speech
+
+        rec.append("Follow up with referring provider.")
         return rec
 
     def construct_recall(self):
@@ -47,4 +68,11 @@ class ERCPDrafter(EndoscopyDrafter):
         for i, item in enumerate(impressions, start=1):
             p = doc.add_paragraph(f"{i}. {item}")
             p.paragraph_format.space_after = Pt(0)
+        
+        doc.add_heading('Recommendations', level=2)
+        recommendations = self.construct_recommendations()
+        for i, item in enumerate(recommendations, start=1):
+            p = doc.add_paragraph(f"{i}. {item}")
+            p.paragraph_format.space_after = Pt(0)
+            
         return doc

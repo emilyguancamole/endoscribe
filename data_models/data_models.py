@@ -35,9 +35,11 @@ class EUSData(BaseModel):
 
 class ERCPData(BaseModel):
     indications: str
+    samples_taken: bool
     egd_findings: str
     ercp_findings: str
-    samples_taken: bool
+    biliary_stent_type: str
+    pd_stent: bool
     impressions: List[str]
 
 class EGDData(BaseModel):

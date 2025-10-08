@@ -116,7 +116,6 @@ class ColonoscopyDrafter(EndoscopyDrafter):
 ###### Colonoscopy-specific functions ######
 
     def construct_description_procedure(self):
-        # extent = row.get('Extent', 'unknown')
         extent = self.colon_sample_df.get('extent', 'unknown')
 
         report = ("After the risks, benefits and alternatives of the procedure were thoroughly explained, informed consent was obtained and confirmed.  Immediately prior to the procedure, a time-out was performed to verify the correct patient, procedure and site. A digital exam revealed no abnormalities of the rectum. The colonoscope was introduced through the anus and advanced to the {extent}.")

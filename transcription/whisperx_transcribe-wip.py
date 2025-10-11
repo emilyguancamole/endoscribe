@@ -1,7 +1,7 @@
 ###################### https://huggingface.co/docs/transformers/en/model_doc/whisper#transformers.WhisperForConditionalGeneration.generate
 import argparse
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "6,9"
+os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7,8,9"
 import noisereduce as nr
 import soundfile as sf
 import pandas as pd
@@ -67,70 +67,93 @@ def transcribe(audio_file, whisper_model="large-v3", device="cuda"):
     print("Final transcript:\n", result_text)
     return result_text
 
+def get_procedure_type(proc_row):
+    # procedure_type is the 'true' column in procedures_df: procedure_type_egd,procedure_type_eus,procedure_type_ercp,procedure_type_colonoscopy,procedure_type_endoflip,procedure_type_sigmoidoscopy -> #? can there be more than 1 procedure type
+        # else use the text value written in procedure_type_other
+    if proc_row.empty:
+        return "unknown"
+    for proc in ['egd', 'eus', 'ercp', 'colonoscopy', 'endoflip', 'sigmoidoscopy']:
+        if proc_row[f'procedure_type_{proc}'].values[0]:
+            return proc if proc != 'colonoscopy' else 'col'
+    return proc_row['procedure_type_other'].values[0].lower() if pd.notna(proc_row['procedure_type_other'].values[0]) else 'unknown'
+
 
 if __name__ == "__main__":
     '''
     Run from endoscribe!! in IA1
     
     python transcription/whisperx_transcribe-wip.py \
-    --save_dir=transcription/results/ercp --save_filename=long_9-30-2025 \
+    --convert_to_mono \
+    x--save_filename=long-10-2025 \
     --model=large-v3 \
     --audio_dir=transcription/recordings/long
 
-        --convert_to_mono \
     Notes: 
         - for whisperx, model names don't have "openai/" or "whisper-" prefix
     '''
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument('--audio_dir', type=str, required=True, help='Path to audio folder (general, not specialized vocals folder)')
-    argparser.add_argument('--convert_to_mono', action='store_true', help='Flag to convert all audio files in the audio_dir to mono')
-    argparser.add_argument('--save_dir', type=str, required=True)
-    argparser.add_argument('--save_filename', type=str, required=True, help='Name of file, without .csv, to save transcriptions to')
-    argparser.add_argument('--datasheet_fp', type=str,  default="")
-    argparser.add_argument('--model', type=str, required=True) #'distil-whisper/distil-large-v3' #openai/whisper-medium.en 
-    argparser.add_argument('--use_prompt', default=False, help='Whether to use the provided prompt for each audio file')
-    args = argparser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--audio_dir', type=str, required=True, help='Path to audio folder (general, not specialized vocals folder)')
+    parser.add_argument('--convert_to_mono', action='store_true', help='Flag to convert all audio files in the audio_dir to mono')
+    parser.add_argument('--save_filename', type=str, required=True, help='Name of file, without .csv, to save transcriptions to')
+    parser.add_argument('--procedures_data', default="data/procedures.csv", help="Path to procedures data csv")
+    parser.add_argument('--model', type=str, required=True) #'distil-whisper/distil-large-v3' #openai/whisper-medium.en 
+    parser.add_argument('--use_prompt', default=False, help='Whether to use the provided prompt for each audio file')
+    args = parser.parse_args()
 
     if args.convert_to_mono:
         print(f"Converting all audio files in {args.audio_dir} to mono...")
-        batch_convert(args.audio_dir)
+        batch_convert(args.audio_dir, inp_audio_format="wav")
 
-    output_fp = f"{args.save_dir}/{args.save_filename}.csv"
+    output_fp = f"transcription/results/longform/{args.save_filename}.csv" # longform directory for mixed procedure types
 
     if os.path.exists(output_fp):
         transcribed_df = pd.read_csv(output_fp)
         print("Loaded existing transcription df")
     else:
-        transcribed_df = pd.DataFrame(columns=["participant_id", "audio_dir", "notes", "pred_transcript"])
+        transcribed_df = pd.DataFrame(columns=["participant_id", "procedure_type", "audio_dir", "notes", "pred_transcript"])
         # transcribed_df = pd.DataFrame(columns=["file", "notes", "pred_transcript"])
     transcribed_df['participant_id'] = transcribed_df['participant_id'].astype(str)
     transcribed_filenames = set(transcribed_df['participant_id']) 
     print("with already transcribed files:", transcribed_filenames)
+
+    procedures_df = pd.read_csv(args.procedures_data) # used for getting procedure type
+    procedures_df['participant_id'] = procedures_df['participant_id'].astype(str)
   
     vocals_dir = args.audio_dir
     print("Using model: ", args.model)
 
     # Transcribe each audio vocal file in directory
-    for filename in os.listdir(vocals_dir):
-        if filename == ".DS_Store": continue
+    # for filename in os.listdir(vocals_dir):
+    #     if filename == ".DS_Store": continue
 
-        participant_id = str(filename.split("_")[1].split(".")[:-1])
-        print("case name:", participant_id)
+    #     participant_id = str('.'.join(filename.split("_")[1].split(".")[:-1]))
+    #     print("case name:", participant_id)
 
-        if participant_id in transcribed_filenames:
-            print(f"Skipping {participant_id}, already transcribed")
-            continue
+    #     if participant_id in transcribed_filenames:
+    #         print(f"Skipping {participant_id}, already transcribed")
+    #         continue
 
-        #todo Noise suppression (optional) - creates a new file with _cleaned suffix
-        # audio_fp = suppress_noise(os.path.join(vocals_dir, filename), os.path.join(vocals_dir, filename.split(".")[0] + "_cleaned.wav"))
+    #     # Infer procedure type by finding participant_id in procedures_df
+    #     proc_row = procedures_df[procedures_df['participant_id'] == participant_id]
+    #     procedure_type = get_procedure_type(proc_row)
+    #     print(f"Inferred procedure type as: {procedure_type}")
 
-        audio_fp = os.path.join(vocals_dir, filename)
-        print(f"Transcribing {audio_fp}; saving to {args.save_dir}/{args.save_filename}")
-        print(f"    Use prompt: {args.use_prompt}")
-        
-        transcript = transcribe(audio_fp, args.model)
-        transcribed_df.loc[len(transcribed_df)] = [participant_id, audio_fp, "", transcript]
+    #     #todo Noise suppression (optional) - creates a new file with _cleaned suffix
+    #     # audio_fp = suppress_noise(os.path.join(vocals_dir, filename), os.path.join(vocals_dir, filename.split(".")[0] + "_cleaned.wav"))
 
-        transcribed_df.to_csv(output_fp, index=False) # Save intermediate results
+    #     audio_fp = os.path.join(vocals_dir, filename)
+    #     print(f"Transcribing {audio_fp}; use prompt: {args.use_prompt}")
+    #     transcript = transcribe(audio_fp, args.model)
+    #     transcribed_df.loc[len(transcribed_df)] = [participant_id, procedure_type, audio_fp, "", transcript]
 
-    print(f"Saved transcriptions to {args.save_dir}")
+    #     transcribed_df.to_csv(output_fp, index=False) # Save intermediate results
+
+    print(f"Saved all procedure transcriptions to {args.save_filename}")
+
+    # Split into different procedure types and also save as separate files in respective folders. 
+    # note will overwrite existing files
+    for proc in transcribed_df['procedure_type'].unique():
+        proc_df = transcribed_df[transcribed_df['procedure_type'] == proc]
+        proc_output_fp = f"transcription/results/{proc}/{args.save_filename}.csv"
+        proc_df.to_csv(proc_output_fp, index=False)
+        print(f"Saved {len(proc_df)} {proc} transcriptions to {proc_output_fp}")

@@ -10,6 +10,12 @@ from processors import ColProcessor, ERCPProcessor, EUSProcessor, EGDProcessor
 import torch
 import argparse
 
+def infer_procedure_type(row):
+        for proc in ['egd', 'eus', 'ercp', 'colonoscopy', 'endoflip', 'sigmoidoscopy']:
+            if row[f'procedure_type_{proc}'] == 1:
+                return proc if proc != 'colonoscopy' else 'col'
+        return row['procedure_type_other'].lower() if pd.notna(row['procedure_type_other']) else 'unknown'
+
 def main():
     ''' 
     python main.py --procedure_type=col --transcripts_fp=first_datasets/abstract_transcribe_fall24.csv --output_filename=082025-test --to_postgres --files_to_process 16 11
@@ -26,7 +32,8 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--procedure_type', choices=['col', 'eus', 'ercp', 'egd'], required=True, help="Type of procedure to process")
-    parser.add_argument('--transcripts_fp', required=True, help="Relative path to transcripts CSV file within transcription/results/{args.procedure_type} folder")
+    parser.add_argument('--transcripts_fp', required=True, help="Relative path to transcripts csv file within transcription/results/{args.procedure_type} folder")
+    parser.add_argument('--procedures_data', default="data/procedures.csv", help="Path to procedures data csv")
     parser.add_argument('--output_filename', required=True, help="File name to save the extracted outputs. Will be saved as a .csv in ./results/{args.procedure_type}")
     parser.add_argument('--to_postgres', action='store_true', help="If set, write extracted outputs directly to Postgres") # TODO
     parser.add_argument('--files_to_process', nargs='*', help="List of filenames to process; 'all' to process all files")
@@ -39,9 +46,20 @@ def main():
     
     args = parser.parse_args()
 
-    system_prompt_fp = f"prompts/{args.procedure_type}/system.txt" #!
+    # todo infer procedure type from transcripts_fp
+    transcripts_df = pd.read_csv(args.transcripts_fp)
+    participant_id = transcripts_df['participant_id'].astype(str)
+   
+    procedures_df = pd.read_csv(args.procedures_data)
+    procedures_df['participant_id'] = procedures_df['participant_id'].astype(str)
+    # Merge to get procedure types
+    merged_df = pd.merge(transcripts_df, procedures_df, on='participant_id', how='left')
+    # set merged_df[procedure_type] as the true column in: procedure_type_egd,procedure_type_eus,procedure_type_ercp,procedure_type_colonoscopy,procedure_type_endoflip,procedure_type_sigmoidoscopy -> #? can there be more than 1 procedure type
+    # else use the text value written in procedure_type_other
+    
+
+    system_prompt_fp = f"prompts/{args.procedure_type}/system.txt"
     # args.model_dir = "/scratch/eguan2/llama33-70/llama33-70_model"
-    # tok_dir = "/scratch/eguan2/llama33-70/llama33-70_tokenizer"
     output_fp = f"./results/{args.procedure_type}/{args.output_filename}.csv"
 
     print("CUDA Available:", torch.cuda.is_available())
@@ -69,16 +87,21 @@ def main():
         )
         print(f"Using custom model config: {args.model_type or 'local'} - {args.model_path or 'RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16'}")
 
-    ## Map procedure type to processor class and transcript path
+    ## Map procedure type to processor class and transcript path #* old - changed to transcripts for all procedure types in `long` folder
+    # processor_map = {
+    #     "col": (ColProcessor, f"transcription/results/col/{args.transcripts_fp}"),
+    #     "eus": (EUSProcessor, f"transcription/results/eus/{args.transcripts_fp}"),
+    #     "ercp": (ERCPProcessor, f"transcription/results/ercp/{args.transcripts_fp}"),
+    #     "egd": (EGDProcessor, f"transcription/results/egd/{args.transcripts_fp}"),
+    # }
     processor_map = {
-        "col": (ColProcessor, f"transcription/results/col/{args.transcripts_fp}"),
-        "eus": (EUSProcessor, f"transcription/results/eus/{args.transcripts_fp}"),
-        "ercp": (ERCPProcessor, f"transcription/results/ercp/{args.transcripts_fp}"),
-        "egd": (EGDProcessor, f"transcription/results/egd/{args.transcripts_fp}"),
+        "col": ColProcessor,
+        "eus": EUSProcessor,
+        "ercp": ERCPProcessor,
+        "egd": EGDProcessor,
     }
 
-    processor_class, transcript_path = processor_map[args.procedure_type]
-    transcripts_df = pd.read_csv(transcript_path)
+    processor_class = processor_map[args.procedure_type]
     transcripts_df["file"] = transcripts_df["file"].astype(str)
     processor = processor_class(args.procedure_type, system_prompt_fp, output_fp, llm_handler, args.to_postgres)
     processor.process_transcripts(args.files_to_process, transcripts_df)

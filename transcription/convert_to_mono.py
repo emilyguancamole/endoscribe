@@ -28,16 +28,17 @@ def batch_convert(audio_dir, inp_audio_format, replace=False):
         save_dir: directory to save converted files.
         inp_audio_format: format of the input audio files ('wav', 'm4a').
     '''
-    save_dir = audio_dir if replace else os.path.join(audio_dir, "converted")
+    save_dir = audio_dir # if replace else os.path.join(audio_dir, "converted")
     
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
     for audiofile in os.listdir(audio_dir):
-        if audiofile.startswith('.') or audiofile.endswith(".wav"): 
+        if audiofile.startswith('.') or audiofile.endswith(".wav") or os.path.isdir(audiofile):
             continue
         input_path = os.path.join(audio_dir, audiofile)
         output_filename = os.path.splitext(audiofile)[0] + ".wav"
+        print(output_filename)
         print("output", output_filename)
         save_fp = os.path.join(save_dir, output_filename)
         convert_file_mono_wav(input_path, save_fp, inp_audio_format, replace)

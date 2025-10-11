@@ -48,7 +48,7 @@ class ERCPDrafter(EndoscopyDrafter):
         doc = Document()
         doc.add_heading(f'Report {self.sample}', level=1)
 
-        doc.add_heading('Indications', level=2)
+        doc.add_heading('Indications', level=2) #todo
         indications = self.sample_df.get('indications', 'unknown').replace('\\n', '\n')
         doc.add_paragraph(indications)
 

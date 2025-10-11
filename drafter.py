@@ -19,7 +19,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--procedure', type=str, required=True, choices=['col', 'eus', 'ercp', 'egd'])
     parser.add_argument('--pred_csv', required=True, help="Path to predictions csv") #? should this be from db directly instead??
-    parser.add_argument('--polyp_csv', required=False, help="Path to corresponding polyp predictions csv")
+    parser.add_argument('--polyp_csv', required=False, help="Path to corresponding polyp predictions csv, for colonoscopy only")
+    parser.add_argument('--patients_data', default="data/patients.csv", help="Path to patient info data from RedCap") 
+    parser.add_argument('--procedures_data', default="data/procedures.csv", help="Path to patient info data from RedCap") 
     parser.add_argument('--output_dir', required=True, help="Directory to save reports")
     parser.add_argument('--transcripts', default='transcription/eus_transcripts/initial_whisper_lg_v3.csv', help="File with AI transcripts so we can add to report for reference")
     parser.add_argument('--samples_to_process', nargs='*', help="List of sample numbers to process")
@@ -51,7 +53,7 @@ def main():
     Drafter = drafter_classes[args.procedure]
     for sample in samples_to_process:
         if args.procedure == "col":
-            drafter = Drafter(sample, pred_df, polyp_df)
+            drafter = Drafter(sample, pred_df, polyp_df, patients)
         else:
             drafter = Drafter(sample, pred_df)
 

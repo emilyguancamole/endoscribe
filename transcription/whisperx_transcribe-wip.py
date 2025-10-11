@@ -79,7 +79,7 @@ if __name__ == "__main__":
 
         --convert_to_mono \
     Notes: 
-        - model names don't have "openai/" or "whisper-" prefix
+        - for whisperx, model names don't have "openai/" or "whisper-" prefix
     '''
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--audio_dir', type=str, required=True, help='Path to audio folder (general, not specialized vocals folder)')
@@ -101,27 +101,25 @@ if __name__ == "__main__":
         transcribed_df = pd.read_csv(output_fp)
         print("Loaded existing transcription df")
     else:
-        transcribed_df = pd.DataFrame(columns=["file", "notes", "pred_transcript"])
-    transcribed_df['file'] = transcribed_df['file'].astype(str)
-    transcribed_filenames = set(transcribed_df['file']) 
+        transcribed_df = pd.DataFrame(columns=["participant_id", "audio_dir", "notes", "pred_transcript"])
+        # transcribed_df = pd.DataFrame(columns=["file", "notes", "pred_transcript"])
+    transcribed_df['participant_id'] = transcribed_df['participant_id'].astype(str)
+    transcribed_filenames = set(transcribed_df['participant_id']) 
     print("with already transcribed files:", transcribed_filenames)
-
   
     vocals_dir = args.audio_dir
-
     print("Using model: ", args.model)
 
-    # Transcribe each audio vocal file in directory.
+    # Transcribe each audio vocal file in directory
     for filename in os.listdir(vocals_dir):
-        if filename == ".DS_Store":
+        if filename == ".DS_Store": continue
+
+        participant_id = str(filename.split("_")[1].split(".")[:-1])
+        print("case name:", participant_id)
+
+        if participant_id in transcribed_filenames:
+            print(f"Skipping {participant_id}, already transcribed")
             continue
-
-        case_name = str(filename.split(".")[0])
-
-        #! CURRENTLY OVERWRITING If file already transcribed, skip
-        # if case_name in transcribed_filenames:
-        #     print(f"Skipping {case_name}, already transcribed")
-        #     continue
 
         #todo Noise suppression (optional) - creates a new file with _cleaned suffix
         # audio_fp = suppress_noise(os.path.join(vocals_dir, filename), os.path.join(vocals_dir, filename.split(".")[0] + "_cleaned.wav"))
@@ -131,7 +129,7 @@ if __name__ == "__main__":
         print(f"    Use prompt: {args.use_prompt}")
         
         transcript = transcribe(audio_fp, args.model)
-        transcribed_df.loc[len(transcribed_df)] = [case_name, "", transcript]
+        transcribed_df.loc[len(transcribed_df)] = [participant_id, audio_fp, "", transcript]
 
         transcribed_df.to_csv(output_fp, index=False) # Save intermediate results
 

@@ -12,7 +12,7 @@ def main():
 
         python drafter.py --procedure=eus --pred_csv=results/eus/llama_outputs.csv --output_dir=/Users/emilyguan/Downloads/EndoScribe/reports_ai/eus --samples_to_process mass02 cancer07
 
-        python drafter.py --procedure=ercp --pred_csv=results/ercp/indications_ercp.csv --output_dir=/Users/emilyguan/Downloads/EndoScribe/reports_ai --samples_to_process bdstricture01 bdstone01
+        python drafter.py --procedure=ercp --pred_csv=results/ercp/long-10-2025.csv --output_dir=drafters/results/ercp/longform --samples_to_process all
     
         python drafter.py --procedure=egd --pred_csv=results/egd/082025-test.csv --output_dir=drafters/results/egd/longform --samples_to_process egd01 egd02 egd03
     '''

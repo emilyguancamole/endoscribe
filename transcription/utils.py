@@ -83,7 +83,7 @@ def compute_metrics(predictions, labels):
 
     label_df = labels if isinstance(labels, pd.DataFrame) else pd.read_csv(labels)
     
-    merged_df = pred_df.merge(label_df, on='file', how='left')
+    merged_df = pred_df.merge(label_df, on='participant_id', how='left')
     wer = 100 * metric.compute(predictions=merged_df["pred_transcript"], references=merged_df["transcript"])
     return {"wer": wer}
 

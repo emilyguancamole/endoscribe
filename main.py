@@ -33,8 +33,6 @@ def main():
     
     args = parser.parse_args()
 
-    transcripts_df = pd.read_csv(args.transcripts_fp)
-
     system_prompt_fp = f"prompts/{args.procedure_type}/system.txt"
     # args.model_dir = "/scratch/eguan2/llama33-70/llama33-70_model"
     output_fp = f"results/{args.procedure_type}/{args.output_filename}.csv"
@@ -66,13 +64,14 @@ def main():
 
     ## Map procedure type to processor class and transcript path #* old - changed to transcripts for all procedure types in `long` folder
     processor_map = {
-        "col": (ColProcessor, f"transcription/results/col/{args.transcripts_fp}"),
-        "eus": (EUSProcessor, f"transcription/results/eus/{args.transcripts_fp}"),
-        "ercp": (ERCPProcessor, f"transcription/results/ercp/{args.transcripts_fp}"),
-        "egd": (EGDProcessor, f"transcription/results/egd/{args.transcripts_fp}"),
+        "col": ColProcessor,
+        "eus": EUSProcessor,
+        "ercp": ERCPProcessor,
+        "egd": EGDProcessor,
     }
 
     processor_class = processor_map[args.procedure_type]
+    transcripts_df = pd.read_csv(f"transcription/results/{args.procedure_type}/{args.transcripts_fp}")
     transcripts_df["participant_id"] = transcripts_df["participant_id"].astype(str)
     processor = processor_class(args.procedure_type, system_prompt_fp, output_fp, llm_handler, args.to_postgres)
     processor.process_transcripts(args.files_to_process, transcripts_df)

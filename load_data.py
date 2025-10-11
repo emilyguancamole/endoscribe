@@ -111,6 +111,7 @@ def process_procedure_data(df: pd.DataFrame) -> pd.DataFrame:
     
     # Basic procedure info
     basic_columns = {
+        'Participant ID': 'participant_id',
         'Date of Procedure:': 'procedure_date',
         'Room Number': 'room_number',
         'Diagnosis': 'diagnosis',

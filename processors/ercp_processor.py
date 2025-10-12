@@ -38,7 +38,7 @@ class ERCPProcessor(BaseProcessor):
             # Parse ERCP response - not in a sep file (as in col_processor)
             outputs.append({
                 "id": filename,
-                "attending": self.llm_handler.model_type,
+                "model": self.llm_handler.model_type,
                 **validated.dict()
             })
 

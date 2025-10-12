@@ -1,4 +1,4 @@
-from vllm import LLM, SamplingParams
+# from vllm import LLM, SamplingParams
 from openai import OpenAI, AzureOpenAI
 import os
 import json
@@ -8,7 +8,7 @@ load_dotenv()
 
 class LLMClient:
     def __init__(self, model_path: str = None, model_type: str = "local", quant: Optional[str] = None, 
-                 tensor_parallel_size: int = 4, sampling_params: Optional[SamplingParams] = None,
+                 tensor_parallel_size: int = 4, sampling_params = None,
                  base_url: Optional[str] = None, openai_params: Optional[Dict[str, Any]] = None, 
                  config_name: Optional[str] = None, config_file: str = "llm/config.json",
                  use_azure: bool = True, azure_endpoint: Optional[str] = None, api_version: Optional[str] = None):
@@ -42,8 +42,8 @@ class LLMClient:
             api_version = api_version or config.get("api_version")
             
             # Load sampling params from config
-            if not sampling_params and "sampling_params" in config:
-                sampling_params = SamplingParams(**config["sampling_params"])
+            # if not sampling_params and "sampling_params" in config:
+            #     sampling_params = SamplingParams(**config["sampling_params"])
         
         self.model_path = model_path
         self.model_type = model_type.lower()
@@ -83,15 +83,15 @@ class LLMClient:
         """Create LLMClient instance from predefined configuration"""
         return cls(config_name=config_name, config_file=config_file, **kwargs)
 
-    def load_local_llm(self, model_path: str, quant: Optional[str], tensor_parallel_size: int):
-        """Load local VLLM model"""
-        return LLM(
-            model=model_path,
-            enforce_eager=False,  # can set to true for faster inference
-            tensor_parallel_size=tensor_parallel_size,
-            quantization=quant,
-            max_model_len=8192
-        )
+    # def load_local_llm(self, model_path: str, quant: Optional[str], tensor_parallel_size: int):
+    #     """Load local VLLM model"""
+    #     return LLM(
+    #         model=model_path,
+    #         enforce_eager=False,  # can set to true for faster inference
+    #         tensor_parallel_size=tensor_parallel_size,
+    #         quantization=quant,
+    #         max_model_len=8192
+    #     )
 
     def setup_openai_client(self, base_url: Optional[str], 
                           use_azure: bool = True, azure_endpoint: Optional[str] = None, 

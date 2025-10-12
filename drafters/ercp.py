@@ -6,6 +6,10 @@ from drafters.utils import add_bold_subheading
 
 
 class ERCPDrafter(EndoscopyDrafter):
+    def get_indications(self):
+        age, sex, indication_str = super().get_indications()
+        return f"{age} year old {sex} here for Endoscopic Retrograde Cholangiopancreatography (ERCP) for {indication_str}."
+
     def construct_recommendations(self):
         rec = []
         ercp_row = self.sample_df
@@ -25,9 +29,11 @@ class ERCPDrafter(EndoscopyDrafter):
                 rec.append("Repeat ERCP in ~4-5 months for stent removal/replacement.")
             elif biliary_stent=="other biliary":
                 rec.append("Repeat ERCP for stent removal/replacement as clinically indicated.")
-            elif biliary_stent=="FCSEMS bengign":
+            elif biliary_stent=="FCSEMS bengign" or biliary_stent=="FCSEMS unknown" and self.patients_df.loc[self.sample].get('relevant_co_morbidities_malignancy___cancer')=="False":
                 rec.append("Repeat ERCP in 3 months for stent removal/replacement.")
-            elif biliary_stent=="FCSEMS malignant":
+            elif biliary_stent=="FCSEMS malignant" or biliary_stent=="FCSEMS unknown" and self.patients_df.loc[self.sample].get('relevant_co_morbidities_malignancy___cancer')=="True":
+                rec.append("Repeat ERCP in 6 months for stent removal/replacement.")
+            elif biliary_stent=="FCSEMS unknown":
                 rec.append("Repeat ERCP in 6 months for stent removal/replacement.")
         if ercp_row.get('pd_stent'):
             rec.append("AXR in 2-4 weeks to confirm stent passage.")
@@ -37,20 +43,27 @@ class ERCPDrafter(EndoscopyDrafter):
         rec.append("Follow up with referring provider.")
         return rec
 
+
     def construct_recall(self):
         pass
+
 
     def draft_doc(self):
         # Find sample, if multiple, use the first one
         
-        print(f"Creating ERCP report for '{self.sample}'") 
+        print(f"Creating ERCP report for '{self.sample}'")
+
 
         doc = Document()
         doc.add_heading(f'Report {self.sample}', level=1)
 
+
         doc.add_heading('Indications', level=2) #todo
-        indications = self.sample_df.get('indications', 'unknown').replace('\\n', '\n')
+        indications = self.get_indications()
+        if not indications:
+            indications = self.sample_df.get('indications', 'unknown').replace('\\n', '\n')
         doc.add_paragraph(indications)
+
 
         doc.add_heading('EGD Findings', level=2)
         paragraph = doc.add_paragraph()
@@ -61,8 +74,9 @@ class ERCPDrafter(EndoscopyDrafter):
         text = self.sample_df['ercp_findings'].replace('\\n', '\n')
         add_bold_subheading(paragraph, text)
 
+
         doc.add_heading('Impressions', level=2)
-        impressions_text = self.sample_df['impressions'].strip("[]") 
+        impressions_text = self.sample_df['impressions'].strip("[]")
         matches = re.findall(r'''(['"])(.*?)(\1)''', impressions_text) # split at commas outside quotes to get each list item
         impressions = [match[1] for match in matches]
         for i, item in enumerate(impressions, start=1):

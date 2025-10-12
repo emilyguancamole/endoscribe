@@ -6,9 +6,13 @@ from drafters.utils import add_bold_subheading
 
 
 class EUSDrafter(EndoscopyDrafter):
+    def get_indications(self):
+        age, sex, indication_str = super().get_indications()
+        return f"{age} year old {sex} here for Endoscopic Ultrasound (EUS) for {indication_str}."
+    
     def construct_recommendations(self):
         '''
-        Recommendations section for EUS. Currently only default recommendations.
+        Recommendations section for EUS. 
         '''
         rec = []
         sample_row = self.sample_df
@@ -30,12 +34,13 @@ class EUSDrafter(EndoscopyDrafter):
         doc.add_heading(f'Report {self.sample}', level=1)
 
         doc.add_heading('Indications', level=2)
-        indications = self.sample_df.get('indications', 'unknown').replace('\\n', '\n')
+        indications = self.get_indications()
+        if not indications:
+            indications = self.sample_df.get('indications', 'unknown').replace('\\n', '\n')
         doc.add_paragraph(indications)
         
         doc.add_heading('EUS Findings', level=2)
         paragraph = doc.add_paragraph()
-        # print("SAMPLE DF\n", self.sample_df)
         text = self.sample_df['eus_findings'].replace('\\n', '\n')
         add_bold_subheading(paragraph, text)
         doc.add_heading('EGD Findings', level=2)

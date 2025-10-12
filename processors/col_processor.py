@@ -32,11 +32,11 @@ class ColProcessor(BaseProcessor):
         polyp_outputs = []
 
         for _, row in transcripts_df.iterrows():
-            if filenames_to_process[0] != "all" and row["file"] not in filenames_to_process:
+            if filenames_to_process[0] != "all" and row["participant_id"] not in filenames_to_process:
                 continue
 
             cur_transcript = row["pred_transcript"]
-            filename = row["file"]
+            filename = row["participant_id"]
 
             # Colonoscopy-level processing with retry
             col_json = None
@@ -96,7 +96,7 @@ class ColProcessor(BaseProcessor):
         col_json = col_data.dict()
         return {
             "id": filename,
-            "attending": "Llama 4", #! placeholder
+            "model": self.llm_handler.model_type,
             **col_json
         }
         

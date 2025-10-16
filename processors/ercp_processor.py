@@ -5,6 +5,38 @@ from data_models.data_models import ERCPData
 
 
 class ERCPProcessor(BaseProcessor):
+    def extract_from_transcript(self, transcript: str, filename: str = "live") -> dict:
+        """
+        Run ERCP extraction on a single transcript and return a validated dict.
+        This is a lightweight wrapper for server-side, one-off processing.
+
+        Returns a dict with keys: id, model, and the ERCPData fields.
+        """
+        prompt_field_definitions_fp = './prompts/ercp/ercp.txt'
+        fewshot_examples_dir = "./prompts/ercp/fewshot"
+
+        messages = self.build_messages(
+            transcript,
+            system_prompt_fp=self.system_prompt_fp,
+            prompt_field_definitions_fp=prompt_field_definitions_fp,
+            fewshot_examples_dir=fewshot_examples_dir,
+            prefix="ercp",
+        )
+
+        if self.llm_handler.model_type == "local":
+            response = self.llm_handler.chat(messages)[0].outputs[0].text.strip()
+        elif self.llm_handler.model_type == "openai":
+            response = self.llm_handler.chat(messages)
+
+        json_response = json.loads(response[response.find("{"): response.rfind("}") + 1])
+        validated = ERCPData(**json_response)
+        print("ERCP extraction raw result:\n", validated)
+
+        return {
+            "id": filename,
+            "model": self.llm_handler.model_type,
+            **validated.dict(),
+        }
     def process_transcripts(self, filenames_to_process, transcripts_df):
         outputs = []
         # Prompt files for ERCP

@@ -68,7 +68,7 @@ def transcribe(audio_file, whisper_model="large-v3", device="cuda"):
     return result_text
 
 
-def transcrib_whisperx(audio_file, whisper_model="large-v3", device="cuda"):
+def transcribe_whisperx(audio_file, whisper_model="large-v3", device="cuda"):
     """
     Transcribe an audio file using WhisperX with alignment. based on above old transcribe() function
     Returns the full text and segment details.
@@ -83,10 +83,11 @@ def transcrib_whisperx(audio_file, whisper_model="large-v3", device="cuda"):
 
     print("Transcribing...")
     result = model.transcribe(audio, batch_size=8, language="en")
+    # print("Transcription result:\n", result)
 
     # Alignment
     print("Aligning transcription for better accuracy...")
-    model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
+    model_a, metadata = whisperx.load_align_model(language_code="en", device=device)
     aligned_result = whisperx.align(
         result["segments"],
         model_a,
@@ -101,8 +102,7 @@ def transcrib_whisperx(audio_file, whisper_model="large-v3", device="cuda"):
 
     return {
         "text": result_text,
-        "segments": aligned_result["segments"],
-        "language": aligned_result["language"]
+        "segments": aligned_result["segments"]
     }
 
 

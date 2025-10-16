@@ -14,8 +14,8 @@ transcription/fine_tune_whisper.ipynb
 irb
 data
 tests
-WhisperLiveKit
 uploads
+chunks
 
 # old files/folders
 05_col_experiments

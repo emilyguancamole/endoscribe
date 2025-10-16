@@ -1,6 +1,6 @@
 I am giving you a transcript from an Endoscopic Ultrasound (EUS) and/or EGD procedure. The task is to extract procedure entities. Make sure you are accurate (no mistakes), complete (do not miss any relevant information), and organized (record information in a manner that matches clinical standards).
 
-The entities you must extract are listed below. Follow the instructions. Do not guess if you do not know the answer.
+The entities you must extract are listed below. Follow the instructions. If you do not know the answer from the transcript, do not guess - omit the unknown information.
 
 indications: Reasons for performing the procedure. Include patient history if mentioned. Do not include date of birth.
 samples_taken: "True" if biopsies were taken or specimens removed (ie FNA/FNB), otherwise "False".

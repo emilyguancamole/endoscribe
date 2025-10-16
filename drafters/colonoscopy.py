@@ -7,14 +7,18 @@ import re
 from drafters.utils import find_terms_spacy
 
 class ColonoscopyDrafter(EndoscopyDrafter):
-    def __init__(self, sample, pred_df, polyp_df):
-        super().__init__(sample, pred_df, polyp_df)
+    def __init__(self, sample, pred_df, patients_df, procedures_df, polyp_df):
+        super().__init__(sample, pred_df, patients_df, procedures_df, polyp_df)
 
         self.colon_sample_df = self.sample_df
         self.polyp_sample_df = (
             polyp_df.loc[[sample]] if sample in polyp_df.index else pd.DataFrame()
         )
         self.polyp_count = int(self.colon_sample_df.get('polyp_count', 0))
+    
+    def get_indications(self):
+        age, sex, indication_str = super().get_indications()
+        return f"{age} year old {sex} here for a Colonoscopy for {indication_str}."
 
     def construct_recall(self):
         ''' 
@@ -76,8 +80,10 @@ class ColonoscopyDrafter(EndoscopyDrafter):
         doc = Document()
         doc.add_heading(f'Report {self.sample}', level=1)
 
-        doc.add_heading('Indications', level=2) #TODO - reextract with indications - new update
-        indications = self.colon_sample_df.get('indications', 'unknown')
+        doc.add_heading('Indications', level=2)
+        indications = self.get_indications()
+        if not indications:
+            indications = self.sample_df.get('indications', 'unknown').replace('\\n', '\n')
         doc.add_paragraph(indications)
 
         doc.add_heading('Description of Procedure', level=2)

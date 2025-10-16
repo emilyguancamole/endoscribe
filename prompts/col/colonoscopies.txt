@@ -1,15 +1,15 @@
-I am giving you a transcript from a colonoscopy procedure. The task is to extract procedure entities. Make sure you are accurate (no mistakes), complete (do not miss any relevant information), and organized (record information in a manner that matches clinical standards).
+I am giving you a transcript from a colonoscopy procedure. The task is to extract procedure entities. Make sure you are accurate (no mistakes), complete (do not miss relevant information), and organized (record information in a manner that matches clinical standards).
 
-The target entities you must extract are listed below with descriptions or instructions. Follow the instructions. Do not guess.
+The target entities you must extract are listed below with descriptions or instructions. Follow the instructions. If you do not know the answer from the transcript, do not guess - omit the unknown information.
 <target-entities>
-indications: Reasons for performing the procedure. Include patient history if mentioned, but NOT including when last colonoscopy done.
-last_colonoscopy: When last colonoscopy was performed if mentioned, otherwise "N/A".
+indications: Reasons for performing the procedure. Include patient history if mentioned.
+last_colonoscopy: When last colonoscopy was performed if mentioned, as a specific time frame e.g. "1 year ago". Otherwise "N/A".
 bbps_simple: Overall Boston Bowel Prep score as [adequate/inadequate].
 bbps_right: BBPS in right colon as [number].
 bbps_transverse: BBPS in right colon as [number].
 bbps_left: BBPS in left colon as [number].
 bbps_total: sum of BBPS in right, transverse, and left colons
-extent: Furthest location where the colonoscope reached. Terminal ileum is further than cecum.
+extent: Furthest location where the colonoscope reached in current procedure. Note, terminal ileum is further than cecum.
 findings: All findings of the procedure as free text. This must begin with the extent of exam: "The colonoscope was advanced to {extent}." Then, record other findings, including:
 - polyps/masses and their location, quantity, type (in parentheses),
 - maneuvers performed or attempted,

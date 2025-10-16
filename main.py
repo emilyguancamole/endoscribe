@@ -81,7 +81,7 @@ def main():
 
 if __name__=="__main__":
     ''' 
-    python main.py --procedure_type=col --transcripts_fp=first_datasets/abstract_transcribe_fall24.csv --output_filename=082025-test --to_postgres --files_to_process 16 11
+    python main.py --procedure_type=col --transcripts_fp=long-10-2025.csv --output_filename=longform/long-10-2025 --files_to_process all
 
     python main.py --procedure_type=eus --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process cancer01 mass01
 
@@ -90,7 +90,7 @@ if __name__=="__main__":
     python main.py --procedure_type=egd --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process egd01 egd02 egd03 egd04 egd05
 
     LONGFORM, OPENAI FROM CONFIG
-        python main.py --procedure_type=ercp --transcripts_fp=long-10-2025.csv --output_filename=long-10-2025 --files_to_process all --model_config=openai_gpt4o
+        python main.py --procedure_type=egd --transcripts_fp=long-10-2025.csv --output_filename=longform/long-10-2025 --files_to_process all --model_config=openai_gpt4o
     '''
 
     main()

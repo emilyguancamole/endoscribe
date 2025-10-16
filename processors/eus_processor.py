@@ -13,11 +13,11 @@ class EUSProcessor(BaseProcessor):
         fewshot_examples_dir = "./prompts/eus/fewshot"
 
         for _, row in transcripts_df.iterrows():
-            if filenames_to_process[0] != "all" and row["file"] not in filenames_to_process:
+            if filenames_to_process[0] != "all" and row["participant_id"] not in filenames_to_process:
                 continue
 
             cur_transcript = row["pred_transcript"]
-            filename = row["file"]
+            filename = row["participant_id"]
 
             messages = self.build_messages(
                 cur_transcript,
@@ -41,7 +41,7 @@ class EUSProcessor(BaseProcessor):
             # Parse EUS response
             outputs.append({
                 "id": filename,
-                "attending": "Llama4",  # placeholder
+                "model": self.llm_handler.model_type,
                 **validated.dict()
             })
 

@@ -67,6 +67,45 @@ def transcribe(audio_file, whisper_model="large-v3", device="cuda"):
     print("Final transcript:\n", result_text)
     return result_text
 
+
+def transcrib_whisperx(audio_file, whisper_model="large-v3", device="cuda"):
+    """
+    Transcribe an audio file using WhisperX with alignment. based on above old transcribe() function
+    Returns the full text and segment details.
+
+    USED IN PEP_RISK -- #todo make normal endoscribe transcription use this function
+    """
+    print(f"Loading WhisperX model: {whisper_model}")
+    model = whisperx.load_model(whisper_model, device=device, compute_type="float16")
+
+    print(f"Loading audio: {audio_file}")
+    audio = whisperx.load_audio(audio_file)
+
+    print("Transcribing...")
+    result = model.transcribe(audio, batch_size=8, language="en")
+
+    # Alignment
+    print("Aligning transcription for better accuracy...")
+    model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
+    aligned_result = whisperx.align(
+        result["segments"],
+        model_a,
+        metadata,
+        audio,
+        device,
+        return_char_alignments=False
+    )
+
+    # Join all segments into one text string
+    result_text = " '".join(seg["text"] for seg in aligned_result["segments"]).replace("  ", " ").strip()
+
+    return {
+        "text": result_text,
+        "segments": aligned_result["segments"],
+        "language": aligned_result["language"]
+    }
+
+
 def get_procedure_type(proc_row):
     # procedure_type is the 'true' column in procedures_df: procedure_type_egd,procedure_type_eus,procedure_type_ercp,procedure_type_colonoscopy,procedure_type_endoflip,procedure_type_sigmoidoscopy -> #? can there be more than 1 procedure type
         # else use the text value written in procedure_type_other

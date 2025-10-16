@@ -5,7 +5,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7,8,9"
 import noisereduce as nr
 import soundfile as sf
 import pandas as pd
-from convert_to_mono import batch_convert
+from transcription.convert_to_mono import batch_convert
 from dotenv import load_dotenv
 load_dotenv()
 hf_token = os.getenv("HF_TOKEN")

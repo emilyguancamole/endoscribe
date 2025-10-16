@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 import os
 
-SERVER_URL = "http://localhost:8000/upload"  # change if using SSH tunnel
+SERVER_URL = "http://localhost:8000/upload" 
 AUDIO_PATH = "recording_buffer.wav"
 SAMPLE_RATE = 16000
 CHANNELS = 1

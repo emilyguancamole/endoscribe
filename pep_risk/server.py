@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, Form
 import os, uuid, asyncio
 from whisperx import load_model
 import torch
+from transcription import whisperx_transcribe
 
 app = FastAPI()
 
@@ -24,15 +25,15 @@ async def upload_audio(file: UploadFile):
 
     # Transcribe with WhisperX
     print(f"Transcribing {audio_fp} ...")
-    result = model.transcribe(audio_fp, batch_size=8, language="en")
-    print("Transcription complete, result", result)
-    text = result["segments"]["text"] # {'segments': [{'text': ' You will receive an email with a link to my hub.', 'start': 6.393, 'end': 10.308}], 'language': 'en'}
+    try:
+        result = whisperx_transcribe(audio_fp, whisper_model="large-v3", device="cuda")
+    except Exception as e:
+        print("Transcription error:", e)
+        return {"error": str(e)}
+    print("Transcription complete, raw result:", result)
+    text = result["text"] # {'segments': [{'text': ' You will receive an email with a link to my hub.', 'start': 6.393, 'end': 10.308}], 'language': 'en'}
 
     print(f"Transcription: {text}")
-
-    # todo alignment. Align whisper output to improve word level timing alignment... how does this work with chunks?
-    # model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
-    # result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
 
     # ---- Placeholder: replace with your LLM + PEP pipeline ----
     pep_risk = await process_pipeline(text)

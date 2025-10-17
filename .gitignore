@@ -9,6 +9,8 @@ transcription/finetune_data
 transcription/recordings
 transcription/fine_tune_whisper.ipynb
 
+pep_risk/recordings
+
 *long*
 *longform*
 irb

@@ -38,8 +38,8 @@ if llm_handler is not None:
     try:
         ercp_processor = ERCPProcessor(
             procedure_type="ercp",
-            system_prompt_fp="prompts/ercp/system.txt",
-            output_fp="results/ercp/pep_server.csv",
+            system_prompt_fp="pep_risk/prompts/system.txt",
+            output_fp="pep_risk/results/pep_server.csv",
             llm_handler=llm_handler,
             to_postgres=False,
         )
@@ -110,7 +110,7 @@ async def process_pipeline(transcript: str) -> dict:
     if ercp_processor is None:
         raise RuntimeError("ERCP processor is not initialized; check LLM config and credentials.")
     # Run once on the final transcript
-    result = ercp_processor.extract_from_transcript(transcript, filename="session")
+    result = ercp_processor.extract_pep_from_transcript(transcript, filename="session")
     return result
 
 
@@ -174,11 +174,11 @@ async def finalize_session(session_id: str):
         raise ValueError("No transcripts available for this session.")
 
     # Concatenate all chunk transcripts with space separator
-    print(f"Concatenating {len(transcripts)} transcript chunks ...")
+    print(f"Concatenating {len(transcripts)} transcript chunks...")
     final_text = " ".join(transcripts).strip()
     
     print(f"Final transcript length: {len(final_text)} characters")
-    print("Running ERCP extraction (one call) ...")
+    print("Running ERCP extraction...")
     extraction = await process_pipeline(final_text)
 
     session["final_transcript"] = final_text

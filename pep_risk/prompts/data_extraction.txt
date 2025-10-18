@@ -18,7 +18,7 @@ acinarization: 0/1
 trainee_involvement: whether a trainee was involved in performing the procedure; 0/1
 cholecystectomy: whether this was performed; 0/1
 pancreo_biliary_malignancy: 0/1
-guidewire_cannulation：0/1
+guidewire_cannulation: 0/1
 guidewire_passage_into_pancreatic_duct: whether guidewire passage was performed; 0/1
 guidewire_passage_into_pancreatic_duct_2: if guidewire passage was performed, number of passes performed (integer). If no passes were performed, this should be 0.
 biliary_sphincterotomy: whether performed; 0/1

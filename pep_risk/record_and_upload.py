@@ -7,7 +7,6 @@ import subprocess
 import time
 from datetime import datetime
 import os
-import uuid
 
 SERVER_URL = "http://localhost:8000/upload" 
 FINALIZE_URL = "http://localhost:8000/finalize"
@@ -104,7 +103,6 @@ if __name__ == "__main__":
         try:
             if session_id:
                 # Extract the final chunk from the current buffer position
-                import time
                 current_time = time.time()
                 # Get the last chunk from wherever we left off
                 output_fp = os.path.join(CHUNK_DIR, f"chunk_final_{datetime.now():%Y%m%d_%H%M%S}.wav")

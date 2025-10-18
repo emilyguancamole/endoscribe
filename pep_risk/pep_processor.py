@@ -1,10 +1,9 @@
-from abc import ABC, abstractmethod
 import os
 from typing import Dict, List
 import pandas as pd
 
-class BaseProcessor:
-    def __init__(self, procedure_type, system_prompt_fp, output_fp, llm_handler, to_postgres=False):
+class PEPProcessor:
+    def __init__(self, procedure_type, system_prompt_fp, output_fp, llm_handler, to_postgres):
         self.procedure_type = procedure_type
         self.system_prompt_fp = system_prompt_fp
         self.output_fp = output_fp
@@ -58,6 +57,5 @@ class BaseProcessor:
         return messages
 
 
-    @abstractmethod
     def process_transcripts(self, filenames_to_process, transcripts_df):
         pass

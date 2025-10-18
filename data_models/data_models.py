@@ -42,6 +42,30 @@ class ERCPData(BaseModel):
     pd_stent: bool
     impressions: List[str]
 
+class PEPRiskData(BaseModel):
+    sod: bool
+    history_of_pep: bool
+    hx_of_recurrent_pancreatitis: bool
+    pancreatic_sphincterotomy: bool
+    precut_sphincterotomy: bool
+    minor_papilla_sphincterotomy: bool
+    failed_cannulation: bool
+    difficult_cannulation: bool
+    pneumatic_dilation_of_intact_biliary_sphincter: bool
+    pancreatic_duct_injection: bool
+    pancreatic_duct_injections_2: int
+    acinarization: bool
+    trainee_involvement: bool
+    cholecystectomy: bool
+    pancreo_biliary_malignancy: bool
+    guidewire_cannulation: bool
+    guidewire_passage_into_pancreatic_duct: bool
+    guidewire_passage_into_pancreatic_duct_2: int
+    biliary_sphincterotomy: bool
+    indomethacin_nsaid_prophylaxis: bool
+    aggressive_hydration: bool
+    pancreatic_duct_stent_placement: bool
+
 class EGDData(BaseModel):
     indications: str
     extent: str

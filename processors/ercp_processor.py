@@ -1,14 +1,15 @@
 import json
 from .base_processor import BaseProcessor
 import pandas as pd
-from data_models.data_models import ERCPData
+from data_models.data_models import ERCPData, PEPRiskData
 
 
 class ERCPProcessor(BaseProcessor):
-    def extract_from_transcript(self, transcript: str, filename: str = "live") -> dict:
+    def extract_pep_from_transcript(self, transcript: str, filename: str = "live") -> dict:
         """
-        Run ERCP extraction on a single transcript and return a validated dict.
+        Run PEP risk extraction on a single transcript and return a validated dict.
         This is a lightweight wrapper for server-side, one-off processing.
+        # todo perhaps place this within pep_risk folder for modularity
 
         Returns a dict with keys: id, model, and the ERCPData fields.
         """
@@ -22,6 +23,7 @@ class ERCPProcessor(BaseProcessor):
             fewshot_examples_dir=fewshot_examples_dir,
             prefix="ercp",
         )
+        print("PEP messages:\n", messages)
 
         if self.llm_handler.model_type == "local":
             response = self.llm_handler.chat(messages)[0].outputs[0].text.strip()
@@ -29,7 +31,7 @@ class ERCPProcessor(BaseProcessor):
             response = self.llm_handler.chat(messages)
 
         json_response = json.loads(response[response.find("{"): response.rfind("}") + 1])
-        validated = ERCPData(**json_response)
+        validated = PEPRiskData(**json_response)
         print("ERCP extraction raw result:\n", validated)
 
         return {
@@ -37,6 +39,7 @@ class ERCPProcessor(BaseProcessor):
             "model": self.llm_handler.model_type,
             **validated.dict(),
         }
+    
     def process_transcripts(self, filenames_to_process, transcripts_df):
         outputs = []
         # Prompt files for ERCP

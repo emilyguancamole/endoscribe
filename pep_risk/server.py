@@ -56,9 +56,15 @@ async def upload_audio(
     """Receive audio chunk, attach to a recording session, and transcribe the chunk.
     If is_last is true, finalize: merge audio, produce final transcript once, and run ERCP extraction.
     """
-    # Save file
+    # Save file (keep original extension)
     file_id = str(uuid.uuid4())
-    audio_fp = os.path.join(UPLOAD_DIR, f"{file_id}.wav")
+    orig_name = getattr(file, "filename", None) or ""
+    _, ext = os.path.splitext(orig_name)
+    ext = (ext or ".wav").lower()
+    allowed_exts = {".wav", ".m4a", ".mp3"}
+    if ext not in allowed_exts:
+        ext = ".wav"  # default if unknown
+    audio_fp = os.path.join(UPLOAD_DIR, f"{file_id}{ext}")
 
     with open(audio_fp, "wb") as f:
         f.write(await file.read())

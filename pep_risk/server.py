@@ -191,19 +191,19 @@ async def finalize_session(session_id: str):
     return final_text, extraction
 
 
-@app.post("/finalize")
-async def finalize(session_id: str = Form(...)):
-    """Explicitly finalize a session without sending another chunk."""
-    try:
-        final_text, extraction = await finalize_session(session_id)
-        return {
-            "session_id": session_id,
-            "transcript": final_text,
-            "pep_risk": simple_pep_rule(final_text, extraction),
-            "extraction": extraction,
-            "finalized": True,
-        }
-    except Exception as e:
-        print("Finalize endpoint error:", e)
-        print(traceback.format_exc())
-        return {"error": str(e), "session_id": session_id}
+# @app.post("/finalize")
+# async def finalize(session_id: str = Form(...)):
+#     """Explicitly finalize a session without sending another chunk."""
+#     try:
+#         final_text, extraction = await finalize_session(session_id)
+#         return {
+#             "session_id": session_id,
+#             "transcript": final_text,
+#             "pep_risk": simple_pep_rule(final_text, extraction),
+#             "extraction": extraction,
+#             "finalized": True,
+#         }
+#     except Exception as e:
+#         print("Finalize endpoint error:", e)
+#         print(traceback.format_exc())
+#         return {"error": str(e), "session_id": session_id}

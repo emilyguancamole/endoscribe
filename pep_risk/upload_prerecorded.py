@@ -6,11 +6,11 @@ SERVER_URL = "http://localhost:8000/upload"
 
 
 def main():
-    """Upload a pre-recorded audio file (wav or m4a) to the ERCP pipeline server.
+    """Upload a pre-recorded audio file (wav, m4a, mp3) to the ERCP pipeline server.
     Sends is_last=true so the server transcribes once, concatenates (just the 1 transcript), runs ERCP extraction, and saves to CSV
     """
     parser = argparse.ArgumentParser(description="Upload a pre-recorded audio file to the ERCP pipeline server.")
-    parser.add_argument("audio_path", help="Path to the audio file (.wav or .m4a)")
+    parser.add_argument("audio_path", help="Path to the audio file (wav, m4a, mp3)")
     parser.add_argument("--session-id", dest="session_id", default=None, help="Optional session id to reuse; otherwise a new one is created")
     parser.add_argument("--server", default=SERVER_URL, help="Server upload URL (default: http://localhost:8000/upload)")
     args = parser.parse_args()

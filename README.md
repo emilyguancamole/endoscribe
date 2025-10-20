@@ -21,7 +21,7 @@ An AI-powered scribe for automating endoscopy documentation. At a high level, th
 2. **Processors**
     - The transcripts are fed into **Processors**. Processors build a prompt, prompt an LLM to extract data from the transcripts, and perform validation of the extracted data. Data is saved as CSV and optionally written to Postgres.
 3. **Drafters**
-    - The data is fed into **Drafters**, which formats the final note. This includes formatting data extracted directly by the LLM, as well as creating follow-up recommendations based on certain findings in the data. The drafter outputs a final note draft as a `.docx`.
+    - The data is fed into **Drafters**, which formats the final note. This includes formatting data extracted directly by the LLM, creating follow-up recommendations based on certain findings in the data, and integrating patient information. The drafter outputs a final note draft as a `.docx`.
 
 The scribe currently processes 4 types of endoscopy procedures: Colonoscopy, EGD, ERCP, and EUS. Logic across these procedure types are similar, with key differences. Therefore, several folders in this repo (i.e. `processors`, `prompts`, `results`, `drafters`) are organized by procedure type.
 
@@ -140,9 +140,14 @@ Each procedure type (col, egd, ercp, eus) has its own Processor subclass that im
 - Drafters expect the `pred_df` index to be the sample `id`. They use `self._get_sample_row(...)` to pick a single sample row and then render sections (Indications, Findings, Impressions, Recommendations, Repeat Exam).
 - Formatting: we use `python-docx` to add headings, paragraphs, and more complex inline formatting (for example `drafters/utils.py` contains helper logic to bold subheadings inside long `findings` text).
 
+**Patient info**
+- Drafters pull patient info (e.g. sex, indications) and incorporate into the note. Currently, this info comes from CSV files exported from RedCap. Future: comes from EHR system.
+
 **Recall / Recommendations**
 - Beyond formatting data into drafts, drafters also contain small, deterministic decision rules to construct recall and/or recommendations sections from extracted data.
     - Example: suggests colonoscopy recall intervals based on `polyp_count` and `size_max_mm`.
+    - Note: recommendations are rule-based only, and I change what is extracted by LLM in order to accomodate more complicated recommendations. 
+    Future idea: another LLM call to construct smart recommendations.
 
 
 ## Anticipated Changes Needed

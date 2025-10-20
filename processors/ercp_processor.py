@@ -13,15 +13,15 @@ class ERCPProcessor(BaseProcessor):
 
         Returns a dict with keys: id, model, and the ERCPData fields.
         """
-        prompt_field_definitions_fp = './prompts/ercp/ercp.txt'
-        fewshot_examples_dir = "./prompts/ercp/fewshot"
+        prompt_field_definitions_fp = 'pep_risk/prompts/field_definitions.txt'
+        fewshot_examples_dir = "pep_risk/prompts/fewshot"
 
         messages = self.build_messages(
             transcript,
             system_prompt_fp=self.system_prompt_fp,
             prompt_field_definitions_fp=prompt_field_definitions_fp,
             fewshot_examples_dir=fewshot_examples_dir,
-            prefix="ercp",
+            prefix="pep",
         )
         print("PEP messages:\n", messages)
 
@@ -31,8 +31,9 @@ class ERCPProcessor(BaseProcessor):
             response = self.llm_handler.chat(messages)
 
         json_response = json.loads(response[response.find("{"): response.rfind("}") + 1])
+        print("PEP extraction raw json result:\n", json_response)
         validated = PEPRiskData(**json_response)
-        print("ERCP extraction raw result:\n", validated)
+        print("PEP extraction validated result:\n", validated)
 
         return {
             "id": filename,

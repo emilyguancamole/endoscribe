@@ -10,6 +10,7 @@ transcription/recordings
 transcription/fine_tune_whisper.ipynb
 
 pep_risk/recordings
+ground_truth.csv
 
 *long*
 *longform*

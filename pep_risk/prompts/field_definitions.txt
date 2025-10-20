@@ -2,26 +2,20 @@ I am giving you a transcript from an ERCP procedure. The task is to extract proc
 The entities you must extract are listed below with descriptions. If the description says "0/1", record "0" if false/not performed, "1" if true/performed.
 Follow the instructions. Make sure you are accurate. If an entity is not clear from the transcript, record "N/A".
 
-sod: whether patient has sphincter of oddi dysfunction; 0/1
-history_of_pep: whether patient has history of PEP; 0/1
-hx_of_recurrent_pancreatitis: whether patient has history of pancreatitis; 0/1
-
 pancreatic_sphincterotomy: 0/1
 precut_sphincterotomy: 0/1
 minor_papilla_sphincterotomy: 0/1
 failed_cannulation:	whether the procedure had failed ERCP cannulation; 0/1
 difficult_cannulation: whether the procedure had difficult cannulation; 0/1
 pneumatic_dilation_of_intact_biliary_sphincter: 0/1
-pancreatic_duct_injection: whether this was performed; 0/1
+pancreatic_duct_injections: whether at least one was performed; 0/1
 pancreatic_duct_injections_2: number of pancreatic duct injections performed (integer). If no pancreatic duct injections were performed, this should be 0.
 acinarization: 0/1
-trainee_involvement: whether a trainee was involved in performing the procedure; 0/1
-cholecystectomy: whether this was performed; 0/1
 pancreo_biliary_malignancy: 0/1
 guidewire_cannulation: 0/1
 guidewire_passage_into_pancreatic_duct: whether guidewire passage was performed; 0/1
 guidewire_passage_into_pancreatic_duct_2: if guidewire passage was performed, number of passes performed (integer). If no passes were performed, this should be 0.
 biliary_sphincterotomy: whether performed; 0/1
 indomethacin_nsaid_prophylaxis: whether rectal indomethacin was administered; 0/1 	
-aggressive_hydration: 0/1
+aggressive_hydration: aggressive (true) if the endoscopist starts 2 liters of lactated ringers wide open; 0/1
 pancreatic_duct_stent_placement: whether pd stent was placed; 0/1

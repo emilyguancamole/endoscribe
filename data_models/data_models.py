@@ -43,20 +43,20 @@ class ERCPData(BaseModel):
     impressions: List[str]
 
 class PEPRiskData(BaseModel):
-    sod: bool
-    history_of_pep: bool
-    hx_of_recurrent_pancreatitis: bool
+    # sod: bool
+    # history_of_pep: bool
+    # hx_of_recurrent_pancreatitis: bool
     pancreatic_sphincterotomy: bool
     precut_sphincterotomy: bool
     minor_papilla_sphincterotomy: bool
     failed_cannulation: bool
     difficult_cannulation: bool
     pneumatic_dilation_of_intact_biliary_sphincter: bool
-    pancreatic_duct_injection: bool
+    pancreatic_duct_injections: bool
     pancreatic_duct_injections_2: int
     acinarization: bool
-    trainee_involvement: bool
-    cholecystectomy: bool
+    # trainee_involvement: bool
+    # cholecystectomy: bool # (history, redcap)
     pancreo_biliary_malignancy: bool
     guidewire_cannulation: bool
     guidewire_passage_into_pancreatic_duct: bool

@@ -53,34 +53,6 @@ def process_patient_data(df: pd.DataFrame) -> pd.DataFrame:
         patient_data["relevant_co_morbidities_other"] = df['If other please elaborate']
         print("Handled other patient_data co morbidities: ", patient_data["relevant_co_morbidities_other"] )
 
-    # More columns - trying to keep order of columns
-    more_columns = {
-        # 'If other please elaborate': 'co_morbidities_other_type',
-        'If cancer please elaborate on type': 'co_morbidities_cancer_type',
-        'Family History': 'family_history',
-        'Current Medications': 'current_medications'
-    }
-    for old_name, new_name in more_columns.items():
-        patient_data[new_name] = df[old_name]
-    
-    # #todo not included now - Prior endoscopic procedures - pairs of (old name, new name)
-    # procedure_fields = [
-    #     ('Prior Endoscopic procedures:', 'prev_endoscopic_procedures_number'),
-    #     ('What type of procedure was first previous procedure', 'first_prev_procedure_type'),
-    #     ('First Previous Procedure  Case Number', 'first_prev_procedure_case_number')
-    #     ('Date of first previous procedure', 'first_prev_procedure_date'),
-    #     ('Reason / Details of prior procedure', 'first_prev_procedure_reason'),
-    #     ('What type of procedure was second previous procedure', 'second_prev_procedure_type'),
-    #     ('Second Previous Procedure Case Number', 'second_prev_procedure_case_number'),
-    #     ('Date of second previous procedure', 'second_previous_procedure_date'),
-    #     ('What type of procedure was third previous procedure', 'third_previous_procedure_type'),
-    #     ('Third Previous Procedure Case Number', 'third_previous_procedure_case_number'),
-    #     ('Date of third previous procedure', 'third_previous_procedure_date'),
-    #     ('What type of procedure was fourth previous procedure', 'fourth_previous_procedure_type'),
-    #     ('Fourth Previous Procedure Case Number', 'fourth_previous_procedure_case_number'),
-    #     ('Date of fourth previous procedure', 'fourth_previous_procedure_date')
-    # ]
-    
     # # Handle variations in column names and multiple "Reason / Details" columns
     # for old_name, new_name in procedure_fields:
     #     matching_cols = [col for col in df.columns if old_name in col]

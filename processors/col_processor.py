@@ -50,7 +50,7 @@ class ColProcessor(BaseProcessor):
                 )
                 if self.llm_handler.model_type == "local":
                     col_response = self.llm_handler.chat(col_messages)[0].outputs[0].text.strip()
-                elif self.llm_handler.model_type == "openai":
+                elif self.llm_handler.model_type in ["openai", "anthropic"]:
                     col_response = self.llm_handler.chat(col_messages)
                 try:
                     col_json = json.loads(col_response[col_response.find("{"): col_response.rfind("}") + 1])
@@ -73,7 +73,7 @@ class ColProcessor(BaseProcessor):
                 )
                 if self.llm_handler.model_type == "local":
                     polyp_response = self.llm_handler.chat(polyp_messages)[0].outputs[0].text.strip()
-                elif self.llm_handler.model_type == "openai":
+                elif self.llm_handler.model_type in ["openai", "anthropic"]:
                     polyp_response = self.llm_handler.chat(polyp_messages)
                 try:
                     polyps_json = json.loads(polyp_response)

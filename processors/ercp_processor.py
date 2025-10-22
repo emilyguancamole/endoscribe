@@ -27,7 +27,7 @@ class ERCPProcessor(BaseProcessor):
 
         if self.llm_handler.model_type == "local":
             response = self.llm_handler.chat(messages)[0].outputs[0].text.strip()
-        elif self.llm_handler.model_type == "openai":
+        elif self.llm_handler.model_type in ["openai", "anthropic"]:
             response = self.llm_handler.chat(messages)
 
         json_response = json.loads(response[response.find("{"): response.rfind("}") + 1])
@@ -63,7 +63,7 @@ class ERCPProcessor(BaseProcessor):
             )
             if self.llm_handler.model_type == "local": #! diff response processing for local vs openai
                 response = self.llm_handler.chat(messages)[0].outputs[0].text.strip()
-            elif self.llm_handler.model_type == "openai":
+            elif self.llm_handler.model_type in ["openai", "anthropic"]:
                 response = self.llm_handler.chat(messages)
             try:
                 json_response = json.loads(response[response.find("{"): response.rfind("}") + 1])

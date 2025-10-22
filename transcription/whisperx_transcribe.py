@@ -1,10 +1,20 @@
 ###################### https://huggingface.co/docs/transformers/en/model_doc/whisper#transformers.WhisperForConditionalGeneration.generate
 import argparse
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7,8,9"
+import pandas as pd
+import torch
+
+# Dynamic CUDA configuration - only set if CUDA is available
+if torch.cuda.is_available():
+    # Use CUDA_VISIBLE_DEVICES env var if set, otherwise use default GPUs for WhisperX
+    if "CUDA_VISIBLE_DEVICES" not in os.environ:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7,8,9"
+        print(f"CUDA detected. Setting CUDA_VISIBLE_DEVICES to: {os.environ['CUDA_VISIBLE_DEVICES']}")
+else:
+    print("CUDA not available. WhisperX will run on CPU or MPS (Apple Silicon).")
+
 import noisereduce as nr
 import soundfile as sf
-import pandas as pd
 from transcription.convert_to_mono import batch_convert
 from dotenv import load_dotenv
 load_dotenv()
@@ -17,18 +27,22 @@ def suppress_noise(input_audio_fp: str, output_audio_path: str):
     sf.write(output_audio_path, reduced_noise, sr)
     return output_audio_path
 
-def transcribe(audio_file, whisper_model="large-v3", device="cuda"):
+def transcribe(audio_file, whisper_model="large-v3", device=None):
     """
     Transcribe an audio file using WhisperX with speaker diarization.
         NOTES: do not need to manually tokenize or preprocess audio; WhisperX handles it.
-    
+
     Args:
         audio_file (str): Path to audio file
         whisper_model (str): WhisperX model name (e.g., "large-v3")
-        device (str): "cuda" or "cpu"
-    
+        device (str): Device to use ("cuda", "cpu", "mps"). If None, auto-detects.
+
     Returns:
     """
+    # Auto-detect device if not specified
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"Auto-detected device: {device}")
 
     model = whisperx.load_model(whisper_model, device=device, compute_type="float16")
     audio = whisperx.load_audio(audio_file)
@@ -68,13 +82,23 @@ def transcribe(audio_file, whisper_model="large-v3", device="cuda"):
     return result_text
 
 
-def transcribe_whisperx(audio_file, whisper_model="large-v3", device="cuda"):
+def transcribe_whisperx(audio_file, whisper_model="large-v3", device=None):
     """
     Transcribe an audio file using WhisperX with alignment. based on above old transcribe() function
     Returns the full text and segment details.
 
     USED IN PEP_RISK -- #todo make normal endoscribe transcription use this function
+
+    Args:
+        audio_file (str): Path to audio file
+        whisper_model (str): WhisperX model name (e.g., "large-v3")
+        device (str): Device to use ("cuda", "cpu", "mps"). If None, auto-detects.
     """
+    # Auto-detect device if not specified
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"Auto-detected device: {device}")
+
     print(f"Loading WhisperX model: {whisper_model}")
     model = whisperx.load_model(whisper_model, device=device, compute_type="float16")
 

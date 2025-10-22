@@ -9,5 +9,6 @@ vllm
 psycopg2-binary
 python-dotenv
 openai
+anthropic
 spacy
 negspacy

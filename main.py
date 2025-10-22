@@ -79,6 +79,11 @@ def main():
 
     processor_class = processor_map[args.procedure_type]
     transcripts_df = pd.read_csv(f"transcription/results/{args.procedure_type}/{args.transcripts_fp}")
+
+    # Handle both 'file' and 'participant_id' column names
+    if "file" in transcripts_df.columns and "participant_id" not in transcripts_df.columns:
+        transcripts_df = transcripts_df.rename(columns={"file": "participant_id"})
+
     transcripts_df["participant_id"] = transcripts_df["participant_id"].astype(str)
     processor = processor_class(args.procedure_type, system_prompt_fp, output_fp, llm_handler, args.to_postgres)
     processor.process_transcripts(args.files_to_process, transcripts_df)

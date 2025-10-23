@@ -82,6 +82,7 @@ def main():
 if __name__=="__main__":
     ''' 
     python main.py --procedure_type=col --transcripts_fp=long-10-2025.csv --output_filename=longform/long-10-2025 --files_to_process all
+        --model_config=openai_gpt4o
 
     python main.py --procedure_type=eus --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process cancer01 mass01
 

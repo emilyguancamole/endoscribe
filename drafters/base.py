@@ -19,7 +19,7 @@ class EndoscopyDrafter(ABC):
 
        except KeyError:
            raise ValueError(f"Sample {sample} not found in provided dataframe.")
-  
+  # 10/20 comment out for quick egd testing #todo implement method for egddrafter
    @abstractmethod
    def get_indications(self):
         """{age} year old {sex} here for an {procedure type} for {indication}"""

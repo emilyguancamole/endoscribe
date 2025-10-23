@@ -1,4 +1,4 @@
-# from vllm import LLM, SamplingParams
+from vllm import LLM, SamplingParams
 from openai import OpenAI, AzureOpenAI
 import os
 import json
@@ -42,8 +42,8 @@ class LLMClient:
             api_version = api_version or config.get("api_version")
             
             # Load sampling params from config
-            # if not sampling_params and "sampling_params" in config:
-            #     sampling_params = SamplingParams(**config["sampling_params"])
+            if not sampling_params and "sampling_params" in config:
+                sampling_params = SamplingParams(**config["sampling_params"])
         
         self.model_path = model_path
         self.model_type = model_type.lower()
@@ -83,15 +83,15 @@ class LLMClient:
         """Create LLMClient instance from predefined configuration"""
         return cls(config_name=config_name, config_file=config_file, **kwargs)
 
-    # def load_local_llm(self, model_path: str, quant: Optional[str], tensor_parallel_size: int):
-    #     """Load local VLLM model"""
-    #     return LLM(
-    #         model=model_path,
-    #         enforce_eager=False,  # can set to true for faster inference
-    #         tensor_parallel_size=tensor_parallel_size,
-    #         quantization=quant,
-    #         max_model_len=8192
-    #     )
+    def load_local_llm(self, model_path: str, quant: Optional[str], tensor_parallel_size: int):
+        """Load local VLLM model"""
+        return LLM(
+            model=model_path,
+            enforce_eager=False,  # can set to true for faster inference
+            tensor_parallel_size=tensor_parallel_size,
+            quantization=quant,
+            max_model_len=8192
+        )
 
     def setup_openai_client(self, base_url: Optional[str], 
                           use_azure: bool = True, azure_endpoint: Optional[str] = None, 

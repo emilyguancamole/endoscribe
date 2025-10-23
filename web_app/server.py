@@ -5,9 +5,11 @@ import json
 import time
 import asyncio
 import traceback
+import warnings
 from pathlib import Path
 from typing import Dict, Optional
 from datetime import datetime
+from contextlib import asynccontextmanager
 
 import torch
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
@@ -15,6 +17,10 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
+
+# Filter external library warnings that we can't control
+warnings.filterwarnings("ignore", category=UserWarning, module="pyannote.audio.core.io")
+warnings.filterwarnings("ignore", category=UserWarning, module="speechbrain.utils.torch_audio_backend")
 
 # Add project root to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
@@ -31,17 +37,10 @@ from processors import ColProcessor, ERCPProcessor, EUSProcessor, EGDProcessor
 from transcription.whisperx_transcribe import transcribe_whisperx
 import whisperx
 
-# Initialize FastAPI app
-app = FastAPI(title="EndoScribe Web API", version="1.0.0")
-
 # Setup directories
 BASE_DIR = Path(__file__).parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
-
-# Setup templates and static files
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 # Global state
 WHISPER_MODEL = None
@@ -56,11 +55,12 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {DEVICE}")
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize models on startup"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize models on startup and cleanup on shutdown"""
     global WHISPER_MODEL, WHISPER_ALIGN_MODEL, WHISPER_ALIGN_METADATA, LLM_HANDLER, PROCESSOR_MAP
 
+    # Startup
     print("Initializing WhisperX model...")
     try:
         # Use appropriate compute type based on device
@@ -137,6 +137,19 @@ async def startup_event():
         except Exception as e:
             print(f"Failed to initialize processors: {e}")
             traceback.print_exc()
+
+    yield  # Application runs here
+
+    # Shutdown (cleanup if needed)
+    print("Shutting down...")
+
+
+# Initialize FastAPI app with lifespan handler
+app = FastAPI(title="EndoScribe Web API", version="1.0.0", lifespan=lifespan)
+
+# Setup templates and static files
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)

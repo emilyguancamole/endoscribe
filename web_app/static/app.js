@@ -139,35 +139,36 @@ function closeWebSocket() {
     }
 }
 
-// MediaRecorder functions
+// RecordRTC functions
 async function startRecording() {
     try {
         // Request microphone access
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-        // Create MediaRecorder
-        const options = { mimeType: 'audio/webm' };
-        state.mediaRecorder = new MediaRecorder(stream, options);
-
         // Connect WebSocket
         connectWebSocket();
 
-        // Handle dataavailable event (audio chunks)
-        state.mediaRecorder.ondataavailable = async (event) => {
-            if (event.data.size > 0 && state.websocket?.readyState === WebSocket.OPEN) {
-                console.log('Sending audio chunk:', event.data.size, 'bytes');
-                // Send binary audio data via WebSocket
-                state.websocket.send(event.data);
+        // Create RecordRTC instance
+        state.mediaRecorder = new RecordRTC(stream, {
+            type: 'audio',
+            mimeType: 'audio/webm;codecs=opus',
+            recorderType: RecordRTC.StereoAudioRecorder,
+            timeSlice: 2000, // Send chunks every 2 seconds
+            ondataavailable: async (blob) => {
+                if (blob.size > 0 && state.websocket?.readyState === WebSocket.OPEN) {
+                    console.log('Sending audio chunk:', blob.size, 'bytes');
+                    // Send binary audio data via WebSocket
+                    state.websocket.send(blob);
+                }
+            },
+            onstop: (blob) => {
+                console.log('RecordRTC stopped');
+                stream.getTracks().forEach(track => track.stop());
             }
-        };
+        });
 
-        state.mediaRecorder.onstop = () => {
-            console.log('MediaRecorder stopped');
-            stream.getTracks().forEach(track => track.stop());
-        };
-
-        // Start recording with chunks every 3 seconds
-        state.mediaRecorder.start(3000);
+        // Start recording
+        state.mediaRecorder.startRecording();
         state.recording = true;
         state.paused = false;
 
@@ -186,7 +187,7 @@ async function startRecording() {
 
 function pauseRecording() {
     if (state.mediaRecorder && state.recording) {
-        state.mediaRecorder.pause();
+        state.mediaRecorder.pauseRecording();
         state.paused = true;
         updateUI();
         elements.recordingStatus.textContent = 'Paused';
@@ -196,7 +197,7 @@ function pauseRecording() {
 
 function resumeRecording() {
     if (state.mediaRecorder && state.paused) {
-        state.mediaRecorder.resume();
+        state.mediaRecorder.resumeRecording();
         state.paused = false;
         updateUI();
         elements.recordingStatus.textContent = 'Recording';
@@ -206,7 +207,7 @@ function resumeRecording() {
 
 function stopRecording() {
     if (state.mediaRecorder) {
-        state.mediaRecorder.stop();
+        state.mediaRecorder.stopRecording();
         state.recording = false;
         state.paused = false;
 

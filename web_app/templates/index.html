@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EndoScribe - Medical Transcription & Extraction</title>
+
+    <!-- Tailwind CSS + DaisyUI (minified) -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    <style>
+        .transcript-text {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .recording-indicator {
+            animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-base-200">
+    <!-- Navigation -->
+    <div class="navbar bg-base-100 shadow-lg">
+        <div class="flex-1">
+            <a class="btn btn-ghost text-xl">EndoScribe</a>
+        </div>
+        <div class="flex-none">
+            <span id="health-status" class="badge badge-success">System Ready</span>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container mx-auto p-4 max-w-6xl">
+
+        <!-- Procedure Type Selection -->
+        <div class="card bg-base-100 shadow-xl mb-4">
+            <div class="card-body">
+                <h2 class="card-title">Select Procedure Type</h2>
+                <select id="procedure-type" class="select select-bordered w-full max-w-xs">
+                    <option value="col">Colonoscopy</option>
+                    <option value="eus">Endoscopic Ultrasound (EUS)</option>
+                    <option value="ercp">ERCP</option>
+                    <option value="egd">Esophagogastroduodenoscopy (EGD)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Recording Section -->
+        <div class="card bg-base-100 shadow-xl mb-4">
+            <div class="card-body">
+                <h2 class="card-title">
+                    Audio Recording
+                    <span id="recording-status" class="badge badge-neutral hidden">Idle</span>
+                </h2>
+
+                <!-- Recording Controls -->
+                <div class="flex gap-4 items-center">
+                    <button id="start-recording" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd" />
+                        </svg>
+                        Start Recording
+                    </button>
+
+                    <button id="pause-recording" class="btn btn-warning hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                        Pause
+                    </button>
+
+                    <button id="resume-recording" class="btn btn-success hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                        </svg>
+                        Resume
+                    </button>
+
+                    <button id="stop-recording" class="btn btn-error hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd" />
+                        </svg>
+                        Stop
+                    </button>
+
+                    <div id="recording-indicator" class="hidden">
+                        <span class="recording-indicator flex h-3 w-3">
+                            <span class="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-error opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-error"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Session Info -->
+                <div id="session-info" class="text-sm text-base-content/70 hidden">
+                    Session ID: <span id="session-id" class="font-mono"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transcription Display -->
+        <div class="card bg-base-100 shadow-xl mb-4">
+            <div class="card-body">
+                <h2 class="card-title">Real-time Transcription</h2>
+                <div id="transcription-container" class="bg-base-200 p-4 rounded-lg min-h-[200px] max-h-[400px] overflow-y-auto">
+                    <p id="transcription-text" class="transcript-text text-base-content/70">
+                        Transcription will appear here as you speak...
+                    </p>
+                </div>
+
+                <!-- Submit Button (shown after recording) -->
+                <button id="submit-transcript" class="btn btn-primary mt-4 hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd" />
+                    </svg>
+                    Submit for Processing
+                </button>
+            </div>
+        </div>
+
+        <!-- Processing Status -->
+        <div id="processing-status" class="alert alert-info shadow-lg mb-4 hidden">
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current flex-shrink-0 w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>Processing transcript... This may take a moment.</span>
+            </div>
+            <progress class="progress progress-primary w-56"></progress>
+        </div>
+
+        <!-- Results Display -->
+        <div id="results-container" class="hidden">
+            <!-- Colonoscopy Results -->
+            <div id="col-results" class="hidden">
+                <div class="card bg-base-100 shadow-xl mb-4">
+                    <div class="card-body">
+                        <h2 class="card-title">Colonoscopy Results</h2>
+                        <div id="colonoscopy-data" class="overflow-x-auto">
+                            <!-- Colonoscopy data will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-xl mb-4">
+                    <div class="card-body">
+                        <h2 class="card-title">Polyps Detected</h2>
+                        <div id="polyps-data" class="overflow-x-auto">
+                            <!-- Polyps data will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Other Procedure Results -->
+            <div id="other-results" class="card bg-base-100 shadow-xl mb-4 hidden">
+                <div class="card-body">
+                    <h2 class="card-title">Procedure Results</h2>
+                    <div id="procedure-data" class="overflow-x-auto">
+                        <!-- Procedure data will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Display -->
+        <div id="error-container" class="alert alert-error shadow-lg mb-4 hidden">
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span id="error-message">An error occurred</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Load JavaScript -->
+    <script src="/static/app.js"></script>
+
+    <!-- Health Check on Load -->
+    <script>
+        // Check system health on page load
+        fetch('/health')
+            .then(res => res.json())
+            .then(data => {
+                const statusEl = document.getElementById('health-status');
+                if (data.status === 'healthy') {
+                    statusEl.textContent = 'System Ready';
+                    statusEl.className = 'badge badge-success';
+                } else {
+                    statusEl.textContent = 'System Degraded';
+                    statusEl.className = 'badge badge-warning';
+                }
+            })
+            .catch(err => {
+                const statusEl = document.getElementById('health-status');
+                statusEl.textContent = 'System Error';
+                statusEl.className = 'badge badge-error';
+            });
+    </script>
+</body>
+</html>

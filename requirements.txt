@@ -12,3 +12,12 @@ openai
 anthropic
 spacy
 negspacy
+fastapi
+uvicorn[standard]
+websockets
+python-multipart
+jinja2
+whisperx
+noisereduce
+soundfile
+pydub

@@ -314,6 +314,13 @@ async def websocket_transcribe(websocket: WebSocket):
                     })
                     print(f"Sent transcript: {transcript_text[:100]}...")
 
+                    # Send status update to clear processing state
+                    await websocket.send_json({
+                        "type": "status",
+                        "message": "Transcription complete",
+                        "session_id": session_id
+                    })
+
                 except Exception as e:
                     error_msg = f"Transcription error: {str(e)}"
                     print(error_msg)
@@ -405,7 +412,16 @@ async def process_transcript(request: ProcessRequest):
                     col_response = LLM_HANDLER.chat(col_messages)[0].outputs[0].text.strip()
 
                 # Parse JSON response
-                col_json = json.loads(col_response[col_response.find("{"): col_response.rfind("}") + 1])
+                # TODO: Remove this manual JSON validation once LLM is returning proper JSON
+                print(f"Col response: {col_response[:500]}")  # Log first 500 chars
+                start_idx = col_response.find("{")
+                end_idx = col_response.rfind("}")
+
+                if start_idx == -1 or end_idx == -1 or start_idx > end_idx:
+                    raise ValueError(f"No valid JSON found in response. Response: {col_response[:500]}")
+
+                json_str = col_response[start_idx:end_idx + 1]
+                col_json = json.loads(json_str)
                 col_data = processor.parse_validate_colonoscopy_response(col_json, row["participant_id"])
                 col_outputs.append(col_data)
 
@@ -422,7 +438,17 @@ async def process_transcript(request: ProcessRequest):
                 else:
                     polyp_response = LLM_HANDLER.chat(polyp_messages)[0].outputs[0].text.strip()
 
-                polyps_json = json.loads(polyp_response)
+                # Extract JSON array from response (handle cases where LLM adds explanatory text)
+                # TODO: Remove this manual JSON validation once LLM is returning proper JSON
+                print(f"Polyp response: {polyp_response[:500]}")  # Log first 500 chars
+                start_idx = polyp_response.find("[")
+                end_idx = polyp_response.rfind("]")
+
+                if start_idx == -1 or end_idx == -1 or start_idx > end_idx:
+                    raise ValueError(f"No valid JSON array found in polyp response. Response: {polyp_response[:500]}")
+
+                json_str = polyp_response[start_idx:end_idx + 1]
+                polyps_json = json.loads(json_str)
                 polyp_data = processor.parse_validate_polyp_response(polyps_json, row["participant_id"])
                 polyp_outputs.extend(polyp_data)
 

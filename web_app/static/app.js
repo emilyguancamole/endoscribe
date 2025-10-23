@@ -1,405 +1,368 @@
 /**
- * EndoScribe Web App - Frontend JavaScript
+ * EndoScribe Web App - Alpine.js Implementation
  * Handles audio recording, WebSocket communication, and UI updates
  */
 
-// Application state
-const state = {
-    recording: false,
-    paused: false,
-    mediaRecorder: null,
-    websocket: null,
-    sessionId: null,
-    fullTranscript: '',
-    audioChunks: []
-};
+document.addEventListener('alpine:init', () => {
+    Alpine.data('endoscribe', () => ({
+        // State
+        recording: false,
+        paused: false,
+        mediaRecorder: null,
+        websocket: null,
+        sessionId: null,
+        fullTranscript: '',
+        procedureType: 'col',
 
-// DOM elements
-const elements = {
-    startBtn: document.getElementById('start-recording'),
-    pauseBtn: document.getElementById('pause-recording'),
-    resumeBtn: document.getElementById('resume-recording'),
-    stopBtn: document.getElementById('stop-recording'),
-    submitBtn: document.getElementById('submit-transcript'),
-    recordingIndicator: document.getElementById('recording-indicator'),
-    recordingStatus: document.getElementById('recording-status'),
-    sessionInfo: document.getElementById('session-info'),
-    sessionIdEl: document.getElementById('session-id'),
-    transcriptionText: document.getElementById('transcription-text'),
-    transcriptionContainer: document.getElementById('transcription-container'),
-    processingStatus: document.getElementById('processing-status'),
-    resultsContainer: document.getElementById('results-container'),
-    errorContainer: document.getElementById('error-container'),
-    errorMessage: document.getElementById('error-message'),
-    procedureType: document.getElementById('procedure-type')
-};
+        // UI State
+        recordingStatus: '',
+        recordingStatusClass: 'badge badge-neutral',
+        errorMessage: '',
+        showError: false,
+        showProcessing: false,
+        showResults: false,
+        showColResults: false,
+        showOtherResults: false,
 
-// Utility functions
-function showElement(el) {
-    el?.classList.remove('hidden');
-}
+        // Results Data
+        colonoscopyData: {},
+        polypsData: [],
+        procedureData: {},
 
-function hideElement(el) {
-    el?.classList.add('hidden');
-}
+        // Computed Properties
+        get canSubmit() {
+            return !this.recording && this.fullTranscript.trim().length > 0;
+        },
 
-function showError(message) {
-    elements.errorMessage.textContent = message;
-    showElement(elements.errorContainer);
-    setTimeout(() => hideElement(elements.errorContainer), 5000);
-}
+        get showSubmitButton() {
+            return !this.recording && this.fullTranscript.trim().length > 0;
+        },
 
-function updateTranscript(text, append = true) {
-    if (append) {
-        state.fullTranscript += ' ' + text;
-    } else {
-        state.fullTranscript = text;
-    }
-    elements.transcriptionText.textContent = state.fullTranscript.trim();
-    // Auto-scroll to bottom
-    elements.transcriptionContainer.scrollTop = elements.transcriptionContainer.scrollHeight;
-}
+        get showSessionInfo() {
+            return this.sessionId !== null;
+        },
 
-// WebSocket functions
-function connectWebSocket() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/transcribe`;
+        get showRecordingIndicator() {
+            return this.recording && !this.paused;
+        },
 
-    console.log('Connecting to WebSocket:', wsUrl);
-    state.websocket = new WebSocket(wsUrl);
+        get transcriptionDisplay() {
+            return this.fullTranscript.trim() || 'Transcription will appear here as you speak...';
+        },
 
-    state.websocket.onopen = () => {
-        console.log('WebSocket connected');
-        // Send start message
-        state.websocket.send(JSON.stringify({
-            type: 'start',
-            session_id: state.sessionId
-        }));
-    };
+        // Lifecycle - Initialize
+        init() {
+            console.log('EndoScribe app initialized with Alpine.js');
+        },
 
-    state.websocket.onmessage = (event) => {
-        try {
-            const message = JSON.parse(event.data);
-            console.log('WebSocket message:', message);
-
-            switch (message.type) {
-                case 'status':
-                    if (message.session_id) {
-                        state.sessionId = message.session_id;
-                        elements.sessionIdEl.textContent = state.sessionId;
-                        showElement(elements.sessionInfo);
-                    }
-                    // Update recording status with processing message
-                    if (message.message && message.message.includes('Processing')) {
-                        elements.recordingStatus.textContent = message.message;
-                        elements.recordingStatus.className = 'badge badge-info';
-                    }
-                    break;
-
-                case 'transcript':
-                    const transcriptText = message.data?.text || '';
-                    if (transcriptText) {
-                        updateTranscript(transcriptText, true);
-                        // Reset status back to recording after transcript received
-                        if (state.recording && !state.paused) {
-                            elements.recordingStatus.textContent = 'Recording';
-                            elements.recordingStatus.className = 'badge badge-error';
-                        }
-                    }
-                    break;
-
-                case 'error':
-                    showError(message.message || 'WebSocket error occurred');
-                    break;
+        // Lifecycle - Cleanup
+        destroy() {
+            this.closeWebSocket();
+            if (this.mediaRecorder) {
+                this.mediaRecorder.stopRecording();
             }
-        } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
-        }
-    };
+        },
 
-    state.websocket.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        showError('WebSocket connection error - server may be processing audio');
-    };
+        // WebSocket Methods
+        connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/transcribe`;
 
-    state.websocket.onclose = (event) => {
-        console.log('WebSocket closed', event.code, event.reason);
-        if (event.code !== 1000 && event.code !== 1001 && state.recording) {
-            // Abnormal closure while recording
-            showError(`Connection closed unexpectedly (code: ${event.code}). Try again or reduce audio chunk length.`);
-        }
-    };
-}
+            console.log('Connecting to WebSocket:', wsUrl);
+            this.websocket = new WebSocket(wsUrl);
 
-function closeWebSocket() {
-    if (state.websocket) {
-        state.websocket.send(JSON.stringify({ type: 'end' }));
-        state.websocket.close();
-        state.websocket = null;
-    }
-}
+            this.websocket.onopen = () => {
+                console.log('WebSocket connected');
+                this.websocket.send(JSON.stringify({
+                    type: 'start',
+                    session_id: this.sessionId
+                }));
+            };
 
-// RecordRTC functions
-async function startRecording() {
-    try {
-        // Request microphone access
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.websocket.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    console.log('WebSocket message:', message);
 
-        // Connect WebSocket
-        connectWebSocket();
+                    switch (message.type) {
+                        case 'status':
+                            if (message.session_id) {
+                                this.sessionId = message.session_id;
+                            }
+                            // Only show processing status if currently recording and not paused
+                            if (message.message && message.message.includes('Processing') &&
+                                this.recording && !this.paused) {
+                                this.recordingStatus = message.message;
+                                this.recordingStatusClass = 'badge badge-info';
+                            }
+                            break;
 
-        // Create RecordRTC instance
-        state.mediaRecorder = new RecordRTC(stream, {
-            type: 'audio',
-            mimeType: 'audio/webm;codecs=opus',
-            recorderType: RecordRTC.StereoAudioRecorder,
-            timeSlice: 2000, // Send chunks every 2 seconds
-            ondataavailable: async (blob) => {
-                if (blob.size > 0 && state.websocket?.readyState === WebSocket.OPEN) {
-                    console.log('Sending audio chunk:', blob.size, 'bytes');
-                    // Send binary audio data via WebSocket
-                    state.websocket.send(blob);
+                        case 'transcript':
+                            const transcriptText = message.data?.text || '';
+                            if (transcriptText) {
+                                this.updateTranscript(transcriptText, true);
+                                if (this.recording && !this.paused) {
+                                    this.recordingStatus = 'Recording';
+                                    this.recordingStatusClass = 'badge badge-error';
+                                }
+                            }
+                            break;
+
+                        case 'error':
+                            this.displayError(message.message || 'WebSocket error occurred');
+                            break;
+                    }
+                } catch (error) {
+                    console.error('Error parsing WebSocket message:', error);
                 }
-            },
-            onstop: (blob) => {
-                console.log('RecordRTC stopped');
-                stream.getTracks().forEach(track => track.stop());
+            };
+
+            this.websocket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                this.displayError('WebSocket connection error - server may be processing audio');
+            };
+
+            this.websocket.onclose = (event) => {
+                console.log('WebSocket closed', event.code, event.reason);
+                if (event.code !== 1000 && event.code !== 1001 && this.recording) {
+                    this.displayError(`Connection closed unexpectedly (code: ${event.code}). Try again or reduce audio chunk length.`);
+                }
+            };
+        },
+
+        closeWebSocket() {
+            if (this.websocket) {
+                this.websocket.send(JSON.stringify({ type: 'end' }));
+                this.websocket.close();
+                this.websocket = null;
             }
-        });
+        },
 
-        // Start recording
-        state.mediaRecorder.startRecording();
-        state.recording = true;
-        state.paused = false;
+        // Transcript Management
+        updateTranscript(text, append = true) {
+            if (append) {
+                this.fullTranscript += ' ' + text;
+            } else {
+                this.fullTranscript = text;
+            }
 
-        // Update UI
-        updateUI();
-        updateTranscript('', false); // Clear previous transcript
-        elements.recordingStatus.textContent = 'Recording';
-        elements.recordingStatus.className = 'badge badge-error';
-        showElement(elements.recordingStatus);
+            // Auto-scroll to bottom
+            this.$nextTick(() => {
+                const container = this.$refs.transcriptionContainer;
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            });
+        },
 
-    } catch (error) {
-        console.error('Error starting recording:', error);
-        showError('Failed to start recording. Please check microphone permissions.');
-    }
-}
+        // Recording Methods
+        async startRecording() {
+            try {
+                // Request microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-function pauseRecording() {
-    if (state.mediaRecorder && state.recording) {
-        state.mediaRecorder.pauseRecording();
-        state.paused = true;
-        updateUI();
-        elements.recordingStatus.textContent = 'Paused';
-        elements.recordingStatus.className = 'badge badge-warning';
-    }
-}
+                // Connect WebSocket
+                this.connectWebSocket();
 
-function resumeRecording() {
-    if (state.mediaRecorder && state.paused) {
-        state.mediaRecorder.resumeRecording();
-        state.paused = false;
-        updateUI();
-        elements.recordingStatus.textContent = 'Recording';
-        elements.recordingStatus.className = 'badge badge-error';
-    }
-}
+                // Create RecordRTC instance
+                this.mediaRecorder = new RecordRTC(stream, {
+                    type: 'audio',
+                    mimeType: 'audio/webm;codecs=opus',
+                    recorderType: RecordRTC.StereoAudioRecorder,
+                    timeSlice: 2000,
+                    ondataavailable: async (blob) => {
+                        if (blob.size > 0 && this.websocket?.readyState === WebSocket.OPEN) {
+                            console.log('Sending audio chunk:', blob.size, 'bytes');
+                            this.websocket.send(blob);
+                        }
+                    },
+                    onstop: (blob) => {
+                        console.log('RecordRTC stopped');
+                        stream.getTracks().forEach(track => track.stop());
+                    }
+                });
 
-function stopRecording() {
-    if (state.mediaRecorder) {
-        state.mediaRecorder.stopRecording();
-        state.recording = false;
-        state.paused = false;
+                // Start recording
+                this.mediaRecorder.startRecording();
+                this.recording = true;
+                this.paused = false;
 
-        // Close WebSocket
-        closeWebSocket();
+                // Update status
+                this.updateTranscript('', false); // Clear previous transcript
+                this.recordingStatus = 'Recording';
+                this.recordingStatusClass = 'badge badge-error';
 
-        // Update UI
-        updateUI();
-        elements.recordingStatus.textContent = 'Stopped';
-        elements.recordingStatus.className = 'badge badge-neutral';
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                this.displayError('Failed to start recording. Please check microphone permissions.');
+            }
+        },
 
-        // Show submit button
-        showElement(elements.submitBtn);
-    }
-}
+        pauseRecording() {
+            if (this.mediaRecorder && this.recording) {
+                this.mediaRecorder.pauseRecording();
+                this.paused = true;
+                this.recordingStatus = 'Paused';
+                this.recordingStatusClass = 'badge badge-warning';
+            }
+        },
 
-// UI update function
-function updateUI() {
-    if (state.recording) {
-        hideElement(elements.startBtn);
-        showElement(elements.recordingIndicator);
+        resumeRecording() {
+            if (this.mediaRecorder && this.paused) {
+                this.mediaRecorder.resumeRecording();
+                this.paused = false;
+                this.recordingStatus = 'Recording';
+                this.recordingStatusClass = 'badge badge-error';
+            }
+        },
 
-        if (state.paused) {
-            hideElement(elements.pauseBtn);
-            showElement(elements.resumeBtn);
-            showElement(elements.stopBtn);
-        } else {
-            showElement(elements.pauseBtn);
-            hideElement(elements.resumeBtn);
-            showElement(elements.stopBtn);
+        stopRecording() {
+            if (this.mediaRecorder) {
+                this.mediaRecorder.stopRecording();
+                this.recording = false;
+                this.paused = false;
+
+                // Close WebSocket
+                this.closeWebSocket();
+
+                // Update status
+                this.recordingStatus = 'Stopped';
+                this.recordingStatusClass = 'badge badge-neutral';
+            }
+        },
+
+        // Process Transcript
+        async processTranscript() {
+            const transcript = this.fullTranscript.trim();
+
+            if (!transcript) {
+                this.displayError('No transcript available to process');
+                return;
+            }
+
+            // Show processing status
+            this.showProcessing = true;
+            this.showResults = false;
+
+            try {
+                const response = await fetch('/api/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        transcript: transcript,
+                        procedure_type: this.procedureType,
+                        session_id: this.sessionId
+                    })
+                });
+
+                const result = await response.json();
+
+                // Hide processing status
+                this.showProcessing = false;
+
+                if (result.success) {
+                    this.displayResults(result.data, result.procedure_type);
+                } else {
+                    this.displayError(result.error || 'Processing failed');
+                }
+
+            } catch (error) {
+                console.error('Error processing transcript:', error);
+                this.showProcessing = false;
+                this.displayError('Failed to process transcript: ' + error.message);
+            }
+        },
+
+        // Display Results
+        displayResults(data, procedureType) {
+            this.showResults = true;
+
+            if (procedureType === 'col') {
+                this.showColResults = true;
+                this.showOtherResults = false;
+                this.colonoscopyData = data.colonoscopy || {};
+                this.polypsData = data.polyps || [];
+            } else {
+                this.showColResults = false;
+                this.showOtherResults = true;
+                this.procedureData = data;
+            }
+        },
+
+        // Error Handling
+        displayError(message) {
+            this.errorMessage = message;
+            this.showError = true;
+            setTimeout(() => {
+                this.showError = false;
+            }, 5000);
+        },
+
+        // Helper: Create Data Table HTML
+        createDataTable(data) {
+            if (!data || Object.keys(data).length === 0) {
+                return '<p class="text-base-content/70">No data available</p>';
+            }
+
+            let html = '<table class="table table-zebra w-full"><tbody>';
+            for (const [key, value] of Object.entries(data)) {
+                const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                let displayValue = value;
+
+                if (Array.isArray(value)) {
+                    displayValue = '<ul class="list-disc list-inside">' +
+                        value.map(item => `<li>${item}</li>`).join('') +
+                        '</ul>';
+                } else if (typeof value === 'object' && value !== null) {
+                    displayValue = JSON.stringify(value, null, 2);
+                }
+
+                html += `<tr><th class="w-1/3">${displayKey}</th><td>${displayValue}</td></tr>`;
+            }
+            html += '</tbody></table>';
+            return html;
+        },
+
+        // Helper: Create Polyps Table HTML
+        createPolypsTable(polyps) {
+            if (!polyps || polyps.length === 0) {
+                return '<p class="text-base-content/70">No polyps detected</p>';
+            }
+
+            let html = `
+                <table class="table table-zebra w-full">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Size (mm)</th>
+                            <th>Location</th>
+                            <th>Resection</th>
+                            <th>Method</th>
+                            <th>NICE Class</th>
+                            <th>Paris Class</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            polyps.forEach((polyp, index) => {
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${polyp.size_min_mm || '-'} - ${polyp.size_max_mm || '-'}</td>
+                        <td>${polyp.location || '-'}</td>
+                        <td>${polyp.resection_performed ? 'Yes' : 'No'}</td>
+                        <td>${polyp.resection_method || '-'}</td>
+                        <td>${polyp.nice_class || '-'}</td>
+                        <td>${polyp.paris_class || '-'}</td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            return html;
         }
-    } else {
-        showElement(elements.startBtn);
-        hideElement(elements.pauseBtn);
-        hideElement(elements.resumeBtn);
-        hideElement(elements.stopBtn);
-        hideElement(elements.recordingIndicator);
-    }
-}
-
-// Process transcript function
-async function processTranscript() {
-    const transcript = state.fullTranscript.trim();
-    const procedureType = elements.procedureType.value;
-
-    if (!transcript) {
-        showError('No transcript available to process');
-        return;
-    }
-
-    // Show processing status
-    showElement(elements.processingStatus);
-    hideElement(elements.submitBtn);
-    hideElement(elements.resultsContainer);
-
-    try {
-        const response = await fetch('/api/process', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                transcript: transcript,
-                procedure_type: procedureType,
-                session_id: state.sessionId
-            })
-        });
-
-        const result = await response.json();
-
-        // Hide processing status
-        hideElement(elements.processingStatus);
-
-        if (result.success) {
-            displayResults(result.data, result.procedure_type);
-        } else {
-            showError(result.error || 'Processing failed');
-        }
-
-    } catch (error) {
-        console.error('Error processing transcript:', error);
-        hideElement(elements.processingStatus);
-        showError('Failed to process transcript: ' + error.message);
-    }
-}
-
-// Display results function
-function displayResults(data, procedureType) {
-    showElement(elements.resultsContainer);
-
-    if (procedureType === 'col') {
-        // Display colonoscopy results
-        displayColonoscopyResults(data);
-    } else {
-        // Display other procedure results
-        displayOtherResults(data, procedureType);
-    }
-}
-
-function displayColonoscopyResults(data) {
-    showElement(document.getElementById('col-results'));
-    hideElement(document.getElementById('other-results'));
-
-    // Display colonoscopy data
-    const colonoscopyData = data.colonoscopy || {};
-    const colonoscopyHTML = createDataTable(colonoscopyData);
-    document.getElementById('colonoscopy-data').innerHTML = colonoscopyHTML;
-
-    // Display polyps data
-    const polypsData = data.polyps || [];
-    const polypsHTML = createPolypsTable(polypsData);
-    document.getElementById('polyps-data').innerHTML = polypsHTML;
-}
-
-function displayOtherResults(data, procedureType) {
-    hideElement(document.getElementById('col-results'));
-    showElement(document.getElementById('other-results'));
-
-    const dataHTML = createDataTable(data);
-    document.getElementById('procedure-data').innerHTML = dataHTML;
-}
-
-function createDataTable(data) {
-    if (!data || Object.keys(data).length === 0) {
-        return '<p class="text-base-content/70">No data available</p>';
-    }
-
-    let html = '<table class="table table-zebra w-full"><tbody>';
-    for (const [key, value] of Object.entries(data)) {
-        const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-        let displayValue = value;
-
-        if (Array.isArray(value)) {
-            displayValue = '<ul class="list-disc list-inside">' +
-                value.map(item => `<li>${item}</li>`).join('') +
-                '</ul>';
-        } else if (typeof value === 'object' && value !== null) {
-            displayValue = JSON.stringify(value, null, 2);
-        }
-
-        html += `<tr><th class="w-1/3">${displayKey}</th><td>${displayValue}</td></tr>`;
-    }
-    html += '</tbody></table>';
-    return html;
-}
-
-function createPolypsTable(polyps) {
-    if (!polyps || polyps.length === 0) {
-        return '<p class="text-base-content/70">No polyps detected</p>';
-    }
-
-    let html = `
-        <table class="table table-zebra w-full">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Size (mm)</th>
-                    <th>Location</th>
-                    <th>Resection</th>
-                    <th>Method</th>
-                    <th>NICE Class</th>
-                    <th>Paris Class</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-
-    polyps.forEach((polyp, index) => {
-        html += `
-            <tr>
-                <td>${index + 1}</td>
-                <td>${polyp.size_min_mm || '-'} - ${polyp.size_max_mm || '-'}</td>
-                <td>${polyp.location || '-'}</td>
-                <td>${polyp.resection_performed ? 'Yes' : 'No'}</td>
-                <td>${polyp.resection_method || '-'}</td>
-                <td>${polyp.nice_class || '-'}</td>
-                <td>${polyp.paris_class || '-'}</td>
-            </tr>
-        `;
-    });
-
-    html += '</tbody></table>';
-    return html;
-}
-
-// Event listeners
-elements.startBtn.addEventListener('click', startRecording);
-elements.pauseBtn.addEventListener('click', pauseRecording);
-elements.resumeBtn.addEventListener('click', resumeRecording);
-elements.stopBtn.addEventListener('click', stopRecording);
-elements.submitBtn.addEventListener('click', processTranscript);
-
-// Initialize UI
-updateUI();
-console.log('EndoScribe app initialized');
+    }));
+});

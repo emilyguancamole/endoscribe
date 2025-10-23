@@ -76,7 +76,8 @@ class ColProcessor(BaseProcessor):
                 elif self.llm_handler.model_type in ["openai", "anthropic"]:
                     polyp_response = self.llm_handler.chat(polyp_messages)
                 try:
-                    polyps_json = json.loads(polyp_response)
+                    # Extract JSON array from response (handle cases where LLM adds explanatory text)
+                    polyps_json = json.loads(polyp_response[polyp_response.find("["): polyp_response.rfind("]") + 1])
                     polyp_outputs.extend(self.parse_validate_polyp_response(polyps_json, filename))
                     break
                 except (json.JSONDecodeError, ValueError):

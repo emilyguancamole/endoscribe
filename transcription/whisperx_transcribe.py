@@ -15,7 +15,11 @@ else:
 
 import noisereduce as nr
 import soundfile as sf
-from transcription.convert_to_mono import batch_convert
+import pandas as pd
+try:
+    from transcription.convert_to_mono import batch_convert
+except ModuleNotFoundError:
+    from convert_to_mono import batch_convert
 from dotenv import load_dotenv
 load_dotenv()
 hf_token = os.getenv("HF_TOKEN")
@@ -121,7 +125,7 @@ def transcribe_whisperx(audio_file, whisper_model="large-v3", device=None):
         return_char_alignments=False
     )
 
-    # Join all segments into one text string
+    # Join all segments into one text string, separated by single quote
     result_text = " '".join(seg["text"] for seg in aligned_result["segments"]).replace("  ", " ").strip()
 
     return {
@@ -145,11 +149,12 @@ if __name__ == "__main__":
     '''
     Run from endoscribe!! in IA1
     
-    python transcription/whisperx_transcribe-wip.py \
+    python -m transcription.whisperx_transcribe \
     --convert_to_mono \
-    x--save_filename=long-10-2025 \
+    --save_filename=long-10-2025 \
     --model=large-v3 \
-    --audio_dir=transcription/recordings/long
+    --audio_dir=transcription/recordings/long \
+    --procedures_data=data/procedures.csv
 
     Notes: 
         - for whisperx, model names don't have "openai/" or "whisper-" prefix
@@ -186,30 +191,26 @@ if __name__ == "__main__":
     print("Using model: ", args.model)
 
     # Transcribe each audio vocal file in directory
-    # for filename in os.listdir(vocals_dir):
-    #     if filename == ".DS_Store": continue
+    for filename in os.listdir(vocals_dir):
+        if filename == ".DS_Store": continue
 
-    #     participant_id = str('.'.join(filename.split("_")[1].split(".")[:-1]))
-    #     print("case name:", participant_id)
+        participant_id = str('.'.join(filename.split("_")[1].split(".")[:-1]))
+        print("case name:", participant_id)
+        if participant_id in transcribed_filenames:
+            print(f"Skipping {participant_id}, already transcribed")
+            continue
 
-    #     if participant_id in transcribed_filenames:
-    #         print(f"Skipping {participant_id}, already transcribed")
-    #         continue
+        # Infer procedure type by finding participant_id in procedures_df
+        proc_row = procedures_df[procedures_df['participant_id'] == participant_id]
+        procedure_type = get_procedure_type(proc_row)
+        print(f"Inferred procedure type as: {procedure_type}")
 
-    #     # Infer procedure type by finding participant_id in procedures_df
-    #     proc_row = procedures_df[procedures_df['participant_id'] == participant_id]
-    #     procedure_type = get_procedure_type(proc_row)
-    #     print(f"Inferred procedure type as: {procedure_type}")
+        audio_fp = os.path.join(vocals_dir, filename)
+        print(f"Transcribing {audio_fp}; use prompt: {args.use_prompt}")
+        transcript = transcribe_whisperx(audio_fp, args.model)['text']
+        transcribed_df.loc[len(transcribed_df)] = [participant_id, procedure_type, audio_fp, "", transcript]
 
-    #     #todo Noise suppression (optional) - creates a new file with _cleaned suffix
-    #     # audio_fp = suppress_noise(os.path.join(vocals_dir, filename), os.path.join(vocals_dir, filename.split(".")[0] + "_cleaned.wav"))
-
-    #     audio_fp = os.path.join(vocals_dir, filename)
-    #     print(f"Transcribing {audio_fp}; use prompt: {args.use_prompt}")
-    #     transcript = transcribe(audio_fp, args.model)
-    #     transcribed_df.loc[len(transcribed_df)] = [participant_id, procedure_type, audio_fp, "", transcript]
-
-    #     transcribed_df.to_csv(output_fp, index=False) # Save intermediate results
+        transcribed_df.to_csv(output_fp, index=False) # Save intermediate results
 
     print(f"Saved all procedure transcriptions to {args.save_filename}")
 

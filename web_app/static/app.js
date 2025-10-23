@@ -3,6 +3,8 @@
  * Handles audio recording, WebSocket communication, and UI updates
  */
 
+import { PROCESSING_TRANSCRIPTION_TIMEOUT_MS, ERROR_DISPLAY_DURATION_MS, WEBSOCKET_FINALIZING_TIMEOUT_MS, AUDIO_CHUNK_INTERVAL_MS } from './constants.js';
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('endoscribe', () => ({
         // State
@@ -10,6 +12,8 @@ document.addEventListener('alpine:init', () => {
         paused: false,
         mediaRecorder: null,
         websocket: null,
+        websocketClosingTimer: null,
+        isFinalizing: false,
         sessionId: null,
         fullTranscript: '',
         procedureType: 'col',
@@ -23,6 +27,8 @@ document.addEventListener('alpine:init', () => {
         showResults: false,
         showColResults: false,
         showOtherResults: false,
+        showProcessingTranscription: false,
+        processingTranscriptionTimer: null,
 
         // Results Data
         colonoscopyData: {},
@@ -35,7 +41,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         get showSubmitButton() {
-            return !this.recording && this.fullTranscript.trim().length > 0;
+            return !this.recording && !this.isFinalizing && this.fullTranscript.trim().length > 0;
         },
 
         get showSessionInfo() {
@@ -89,11 +95,21 @@ document.addEventListener('alpine:init', () => {
                             if (message.session_id) {
                                 this.sessionId = message.session_id;
                             }
-                            // Only show processing status if currently recording and not paused
+                            // Show processing transcription indicator when processing audio
                             if (message.message && message.message.includes('Processing') &&
                                 this.recording && !this.paused) {
-                                this.recordingStatus = message.message;
-                                this.recordingStatusClass = 'badge badge-info';
+                                this.showProcessingTranscription = true;
+
+                                // Clear existing timer if any
+                                if (this.processingTranscriptionTimer) {
+                                    clearTimeout(this.processingTranscriptionTimer);
+                                }
+
+                                // Hide indicator after timeout
+                                this.processingTranscriptionTimer = setTimeout(() => {
+                                    this.showProcessingTranscription = false;
+                                    this.processingTranscriptionTimer = null;
+                                }, PROCESSING_TRANSCRIPTION_TIMEOUT_MS);
                             }
                             break;
 
@@ -101,10 +117,36 @@ document.addEventListener('alpine:init', () => {
                             const transcriptText = message.data?.text || '';
                             if (transcriptText) {
                                 this.updateTranscript(transcriptText, true);
+
+                                // If finalizing, reset the closing timer to wait for more results
+                                if (this.isFinalizing) {
+                                    if (this.websocketClosingTimer) {
+                                        clearTimeout(this.websocketClosingTimer);
+                                    }
+                                    this.websocketClosingTimer = setTimeout(() => {
+                                        this.closeWebSocket(false);
+                                        this.recordingStatus = '';
+                                    }, WEBSOCKET_FINALIZING_TIMEOUT_MS);
+                                }
+
                                 if (this.recording && !this.paused) {
                                     this.recordingStatus = 'Recording';
                                     this.recordingStatusClass = 'badge badge-error';
                                 }
+
+                                // Show processing transcription indicator
+                                this.showProcessingTranscription = true;
+
+                                // Clear existing timer if any
+                                if (this.processingTranscriptionTimer) {
+                                    clearTimeout(this.processingTranscriptionTimer);
+                                }
+
+                                // Hide indicator after timeout
+                                this.processingTranscriptionTimer = setTimeout(() => {
+                                    this.showProcessingTranscription = false;
+                                    this.processingTranscriptionTimer = null;
+                                }, PROCESSING_TRANSCRIPTION_TIMEOUT_MS);
                             }
                             break;
 
@@ -130,11 +172,23 @@ document.addEventListener('alpine:init', () => {
             };
         },
 
-        closeWebSocket() {
-            if (this.websocket) {
-                this.websocket.send(JSON.stringify({ type: 'end' }));
-                this.websocket.close();
-                this.websocket = null;
+        closeWebSocket(graceful = true) {
+            if (graceful) {
+                // Graceful shutdown: send end signal but keep connection open for final results
+                if (this.websocket) {
+                    this.websocket.send(JSON.stringify({ type: 'end' }));
+                }
+            } else {
+                // Immediate shutdown: clear timer and close connection
+                if (this.websocketClosingTimer) {
+                    clearTimeout(this.websocketClosingTimer);
+                    this.websocketClosingTimer = null;
+                }
+                if (this.websocket) {
+                    this.websocket.close();
+                    this.websocket = null;
+                }
+                this.isFinalizing = false;
             }
         },
 
@@ -158,6 +212,13 @@ document.addEventListener('alpine:init', () => {
         // Recording Methods
         async startRecording() {
             try {
+                // Clear any pending finalizing timer from previous recording
+                if (this.websocketClosingTimer) {
+                    clearTimeout(this.websocketClosingTimer);
+                    this.websocketClosingTimer = null;
+                }
+                this.isFinalizing = false;
+
                 // Request microphone access
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
@@ -169,7 +230,7 @@ document.addEventListener('alpine:init', () => {
                     type: 'audio',
                     mimeType: 'audio/webm;codecs=opus',
                     recorderType: RecordRTC.StereoAudioRecorder,
-                    timeSlice: 2000,
+                    timeSlice: AUDIO_CHUNK_INTERVAL_MS,
                     ondataavailable: async (blob) => {
                         if (blob.size > 0 && this.websocket?.readyState === WebSocket.OPEN) {
                             console.log('Sending audio chunk:', blob.size, 'bytes');
@@ -222,12 +283,19 @@ document.addEventListener('alpine:init', () => {
                 this.recording = false;
                 this.paused = false;
 
-                // Close WebSocket
-                this.closeWebSocket();
+                // Enter finalizing mode - gracefully close WebSocket to wait for final results
+                this.isFinalizing = true;
+                this.closeWebSocket(); // Graceful mode by default: send end signal but keep connection open
 
-                // Update status
-                this.recordingStatus = 'Stopped';
-                this.recordingStatusClass = 'badge badge-neutral';
+                // Update status to show we're finalizing
+                this.recordingStatus = 'Finalizing...';
+                this.recordingStatusClass = 'badge badge-warning';
+
+                // Start timer to close WebSocket after timeout
+                this.websocketClosingTimer = setTimeout(() => {
+                    this.closeWebSocket(false); // Force close
+                    this.recordingStatus = '';
+                }, WEBSOCKET_FINALIZING_TIMEOUT_MS);
             }
         },
 
@@ -297,7 +365,7 @@ document.addEventListener('alpine:init', () => {
             this.showError = true;
             setTimeout(() => {
                 this.showError = false;
-            }, 5000);
+            }, ERROR_DISPLAY_DURATION_MS);
         },
 
         // Helper: Create Data Table HTML

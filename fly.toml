@@ -1,0 +1,54 @@
+# Fly.io configuration for EndoScribe with GPU support
+# Documentation: https://fly.io/docs/reference/configuration/
+
+app = "endoscribe"
+primary_region = "ord"  # Chicago - only region with A10 GPUs
+
+# Kill signal and grace period
+kill_signal = "SIGINT"
+kill_timeout = "60s"
+
+[build]
+
+[env]
+  PORT = "8000"
+  PYTHONUNBUFFERED = "1"
+
+# NVIDIA A10 GPU (24GB VRAM)
+# Sufficient for WhisperX large-v3 model
+[vm]
+  size = "a10"
+
+# Persistent volumes for model caching and data storage
+# Note: Volumes must be created with GPU constraints before deployment:
+#   fly volumes create data --size 30 --vm-gpu-kind a10 --region ord
+[[mounts]]
+  source = "data"
+  destination = "/data"
+
+# HTTP service configuration
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"   # Stop machines when idle
+  auto_start_machines = true     # Start machines on incoming requests
+  min_machines_running = 0       # Allow scale to zero
+
+  # Connection limits
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 10
+    soft_limit = 5
+
+  # HTTP checks for auto-start/stop
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "10s"
+    grace_period = "60s"
+    method = "GET"
+    path = "/health"
+    protocol = "http"
+    restart_limit = 0
+
+# WebSocket support for real-time transcription
+# Fly Proxy will handle WebSocket upgrades automatically

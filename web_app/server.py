@@ -39,8 +39,23 @@ import whisperx
 
 # Setup directories
 BASE_DIR = Path(__file__).parent
-UPLOAD_DIR = BASE_DIR / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
+
+# Use persistent volumes in production (Fly.io), local dirs in development
+if os.getenv("FLY_APP_NAME"):
+    # Production: use persistent volume
+    UPLOAD_DIR = Path("/data/uploads")
+    RESULTS_DIR = Path("/data/results")
+    MODELS_DIR = Path("/data/models")
+else:
+    # Development: use local directories
+    UPLOAD_DIR = BASE_DIR / "uploads"
+    RESULTS_DIR = BASE_DIR / "results"
+    MODELS_DIR = BASE_DIR / "models"
+
+# Ensure directories exist
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Global state
 WHISPER_MODEL = None
@@ -107,28 +122,28 @@ async def lifespan(app: FastAPI):
                 "col": ColProcessor(
                     procedure_type="col",
                     system_prompt_fp="prompts/col/system.txt",
-                    output_fp="web_app/results/col_results.csv",
+                    output_fp=str(RESULTS_DIR / "col_results.csv"),
                     llm_handler=LLM_HANDLER,
                     to_postgres=False
                 ),
                 "eus": EUSProcessor(
                     procedure_type="eus",
                     system_prompt_fp="prompts/eus/system.txt",
-                    output_fp="web_app/results/eus_results.csv",
+                    output_fp=str(RESULTS_DIR / "eus_results.csv"),
                     llm_handler=LLM_HANDLER,
                     to_postgres=False
                 ),
                 "ercp": ERCPProcessor(
                     procedure_type="ercp",
                     system_prompt_fp="prompts/ercp/system.txt",
-                    output_fp="web_app/results/ercp_results.csv",
+                    output_fp=str(RESULTS_DIR / "ercp_results.csv"),
                     llm_handler=LLM_HANDLER,
                     to_postgres=False
                 ),
                 "egd": EGDProcessor(
                     procedure_type="egd",
                     system_prompt_fp="prompts/egd/system.txt",
-                    output_fp="web_app/results/egd_results.csv",
+                    output_fp=str(RESULTS_DIR / "egd_results.csv"),
                     llm_handler=LLM_HANDLER,
                     to_postgres=False
                 ),
@@ -161,8 +176,19 @@ async def home(request: Request):
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint"""
+    # Check if volumes are accessible in production
+    volumes_ok = True
+    if os.getenv("FLY_APP_NAME"):
+        volumes_ok = (
+            Path("/data").exists() and
+            Path("/data/uploads").exists() and
+            Path("/data/results").exists()
+        )
+
+    status = "healthy" if (WHISPER_MODEL and LLM_HANDLER and volumes_ok) else "degraded"
+
     return HealthResponse(
-        status="healthy" if (WHISPER_MODEL and LLM_HANDLER) else "degraded",
+        status=status,
         whisper_loaded=WHISPER_MODEL is not None,
         llm_initialized=LLM_HANDLER is not None,
         supported_procedures=["col", "eus", "ercp", "egd"]

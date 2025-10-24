@@ -1,8 +1,18 @@
 ###################### https://huggingface.co/docs/transformers/en/model_doc/whisper#transformers.WhisperForConditionalGeneration.generate
 import argparse
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "6,7,8,9"
 import pandas as pd
+import torch
+
+# Dynamic CUDA configuration - only set if CUDA is available
+if torch.cuda.is_available():
+    # Use CUDA_VISIBLE_DEVICES env var if set, otherwise use default GPUs for transcription
+    if "CUDA_VISIBLE_DEVICES" not in os.environ:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "6,7,8,9"
+        print(f"CUDA detected. Setting CUDA_VISIBLE_DEVICES to: {os.environ['CUDA_VISIBLE_DEVICES']}")
+else:
+    print("CUDA not available. Whisper will run on CPU or MPS (Apple Silicon).")
+
 import librosa
 from transformers import WhisperProcessor, WhisperForConditionalGeneration, WhisperFeatureExtractor, WhisperTokenizer
 from .utils import process_predictions, compute_metrics, copy_process_streams, separate_vocals, move_vocals_files
@@ -11,29 +21,39 @@ from .utils import process_predictions, compute_metrics, copy_process_streams, s
 
 def transcribe(audio_file, whisper_model, prompt=None) -> str:
     """Given a (optional) prompt, transcribe the given audio file."""
-     
+
+    # Auto-detect best available device
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"  # Apple Silicon GPU acceleration
+    else:
+        device = "cpu"
+    print(f"Whisper using device: {device}")
+
     model = WhisperForConditionalGeneration.from_pretrained(whisper_model)
+    model = model.to(device)
     # model = whisperx.load_model(whisper_model, device="cuda")
 
     # Using pre-trained tokenizer# tokenizer = WhisperTokenizer.from_pretrained(whisper_model, language='English', task="transcribe")
     processor = WhisperProcessor.from_pretrained(whisper_model)
     feature_extractor = WhisperFeatureExtractor.from_pretrained(whisper_model)
 
-    # Use the model and processor to transcribe the audio. 
+    # Use the model and processor to transcribe the audio.
     audio, sr = librosa.load(audio_file, sr=16000) # librosa returns the audio as a numpy array and its sampling rate.
     inputs = processor(
-        audio, sampling_rate=sr, 
+        audio, sampling_rate=sr,
         return_tensors="pt", # Return PyTorch torch.Tensor objects.
-        truncation=False, 
-        padding="longest", 
+        truncation=False,
+        padding="longest",
         return_attention_mask=True,
-    ).input_features
+    ).input_features.to(device)
     if inputs.shape[-1] < 3000:
         # we in-fact have short-form -> pre-process accordingly
         inputs = processor(
             audio, sampling_rate=sr,
             return_tensors="pt",
-        ).input_features
+        ).input_features.to(device)
 
     decode_options = dict(language="en", 
                         num_beams=5, 
@@ -47,18 +67,18 @@ def transcribe(audio_file, whisper_model, prompt=None) -> str:
 
     if prompt:
         print("Using initial prompt")
-        prompt_ids = processor.get_prompt_ids(prompt, return_tensors="pt")
+        prompt_ids = processor.get_prompt_ids(prompt, return_tensors="pt").to(device)
         predicted_ids = model.generate(inputs,
             prompt_ids=prompt_ids,
             **transcribe_options,
-            ) 
-        transcription = processor.batch_decode(predicted_ids, prompt_ids=prompt_ids, skip_special_tokens=True)[0]   
+            )
+        transcription = processor.batch_decode(predicted_ids, prompt_ids=prompt_ids, skip_special_tokens=True)[0]
     else:
         print("No prompt")
         predicted_ids = model.generate(inputs,
             **transcribe_options,
             return_timestamps=True
-            ) 
+            )
         transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]   
 
     print("TRANSCRIPT:\n",transcription)

@@ -9,6 +9,9 @@ transcription/finetune_data
 transcription/recordings
 transcription/fine_tune_whisper.ipynb
 
+transcription/results
+web_app/uploads
+
 pep_risk/recordings
 ground_truth.csv
 

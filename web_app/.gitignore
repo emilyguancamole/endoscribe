@@ -1,0 +1,32 @@
+# Temporary audio uploads
+uploads/
+*.webm
+*.wav
+*.mp3
+*.m4a
+
+# Processing results
+results/*.csv
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Environment
+.env
+.venv
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

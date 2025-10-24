@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EndoScribe - Medical Transcription & Extraction</title>
+
+    <!-- Tailwind CSS + DaisyUI (minified) -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    <style>
+        html, body {
+            min-height: 100vh;
+        }
+        .transcript-text {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body class="bg-base-200">
+    <!-- Main Container -->
+    <div class="container mx-auto p-4 max-w-6xl" x-data="endoscribe()">
+
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold">endoscribe</h1>
+            <span id="health-status" class="badge badge-success">System Ready</span>
+        </div>
+
+        <!-- Procedure Type Selection -->
+        <div class="card bg-base-100 shadow-xl mb-4">
+            <div class="card-body">
+                <h2 class="card-title">Select Procedure Type</h2>
+                <select x-model="procedureType" class="select select-bordered w-full max-w-xs">
+                    <option value="col">Colonoscopy</option>
+                    <option value="eus">Endoscopic Ultrasound (EUS)</option>
+                    <option value="ercp">ERCP</option>
+                    <option value="egd">Esophagogastroduodenoscopy (EGD)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Recording Section -->
+        <div class="card bg-base-100 shadow-xl mb-4">
+            <div class="card-body">
+                <h2 class="card-title flex justify-between items-center w-full">
+                    <span>Audio Recording</span>
+                    <span x-show="recordingStatus" x-text="recordingStatus" :class="recordingStatusClass"></span>
+                </h2>
+
+                <!-- Recording Controls -->
+                <div class="flex gap-4 items-center">
+                    <button @click="startRecording" x-show="!recording" class="btn btn-primary">
+                        Start Recording
+                    </button>
+
+                    <button @click="pauseRecording" x-show="recording && !paused" class="btn btn-warning">
+                        Pause
+                    </button>
+
+                    <button @click="resumeRecording" x-show="recording && paused" class="btn btn-success">
+                        Resume
+                    </button>
+
+                    <button @click="stopRecording" x-show="recording && paused" class="btn btn-error">
+                        Finish
+                    </button>
+                </div>
+
+                <!-- Session Info -->
+                <div x-show="showSessionInfo" class="text-sm text-base-content/70">
+                    Session ID: <span x-text="sessionId" class="font-mono"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transcription Display -->
+        <div class="card bg-base-100 shadow-xl mb-4">
+            <div class="card-body">
+                <h2 class="card-title flex justify-between items-center w-full">
+                    <span>Real-time Transcription</span>
+                    <span x-show="showProcessingTranscription" class="loading loading-dots loading-sm"></span>
+                </h2>
+                <div x-ref="transcriptionContainer" class="bg-base-200 p-4 rounded-lg min-h-[200px] max-h-[400px] overflow-y-auto">
+                    <p x-text="transcriptionDisplay" class="transcript-text text-base-content/70"></p>
+                </div>
+
+                <!-- Submit Button (shown after recording) -->
+                <button @click="processTranscript" x-show="showSubmitButton" :disabled="showProcessing" class="btn btn-primary mt-4">
+                    <span x-show="showProcessing" class="loading loading-spinner"></span>
+                    <span x-text="showProcessing ? 'Processing...' : 'Submit for Processing'"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Results Display -->
+        <div x-show="showResults">
+            <!-- Colonoscopy Results -->
+            <div x-show="showColResults">
+                <div class="card bg-base-100 shadow-xl mb-4">
+                    <div class="card-body">
+                        <h2 class="card-title">Colonoscopy Results</h2>
+                        <div x-html="createDataTable(colonoscopyData)" class="overflow-x-auto">
+                            <!-- Colonoscopy data will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-100 shadow-xl mb-4">
+                    <div class="card-body">
+                        <h2 class="card-title">Polyps Detected</h2>
+                        <div x-html="createPolypsTable(polypsData)" class="overflow-x-auto">
+                            <!-- Polyps data will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Other Procedure Results -->
+            <div x-show="showOtherResults" class="card bg-base-100 shadow-xl mb-4">
+                <div class="card-body">
+                    <h2 class="card-title">Procedure Results</h2>
+                    <div x-html="createDataTable(procedureData)" class="overflow-x-auto">
+                        <!-- Procedure data will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Display -->
+        <div x-show="showError" class="alert alert-error shadow-lg mb-4">
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span x-text="errorMessage"></span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- RecordRTC Library -->
+    <script src="https://cdn.jsdelivr.net/npm/recordrtc@5.6.2/RecordRTC.min.js"></script>
+
+    <!-- Load JavaScript first to register alpine:init listener -->
+    <script type="module" src="/static/app.js"></script>
+
+    <!-- Alpine.js (loads after app.js registers the component) -->
+    <script src="//unpkg.com/alpinejs" defer></script>
+
+    <!-- Health Check on Load -->
+    <script>
+        // Check system health on page load
+        fetch('/health')
+            .then(res => res.json())
+            .then(data => {
+                const statusEl = document.getElementById('health-status');
+                if (data.status === 'healthy') {
+                    statusEl.textContent = 'System Ready';
+                    statusEl.className = 'badge badge-success';
+                } else {
+                    statusEl.textContent = 'System Degraded';
+                    statusEl.className = 'badge badge-warning';
+                }
+            })
+            .catch(err => {
+                const statusEl = document.getElementById('health-status');
+                statusEl.textContent = 'System Error';
+                statusEl.className = 'badge badge-error';
+            });
+    </script>
+</body>
+</html>

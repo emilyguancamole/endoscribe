@@ -1,9 +1,17 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "5,6,7"
 import sys
 import logging
 import torch
 import argparse
+
+# Dynamic CUDA configuration - only set if CUDA is available
+if torch.cuda.is_available():
+    # Use CUDA_VISIBLE_DEVICES env var if set, otherwise use default GPUs for fine-tuning
+    if "CUDA_VISIBLE_DEVICES" not in os.environ:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "5,6,7"
+        print(f"CUDA detected. Setting CUDA_VISIBLE_DEVICES to: {os.environ['CUDA_VISIBLE_DEVICES']}")
+else:
+    print("CUDA not available. Fine-tuning will run on CPU or MPS (Apple Silicon) - this may be slow.")
 import evaluate
 from dataclasses import dataclass
 from typing import Any, Dict, List, Union

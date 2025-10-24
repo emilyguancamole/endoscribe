@@ -1,14 +1,21 @@
 
 
 import os
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "6,9"
 import argparse
 import pandas as pd
+import torch
+
+# Dynamic CUDA configuration - only set if CUDA is available
+if torch.cuda.is_available():
+    # Use CUDA_VISIBLE_DEVICES env var if set, otherwise use default GPUs
+    if "CUDA_VISIBLE_DEVICES" not in os.environ:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "6,9"
+        print(f"CUDA detected. Setting CUDA_VISIBLE_DEVICES to: {os.environ['CUDA_VISIBLE_DEVICES']}")
+else:
+    print("CUDA not available. Running on CPU or MPS (Apple Silicon).")
+
 from llm.llm_client import LLMClient
 from processors import ColProcessor, ERCPProcessor, EUSProcessor, EGDProcessor
-import torch
-import argparse
 
 def infer_procedure_type(row):
         for proc in ['egd', 'eus', 'ercp', 'colonoscopy', 'endoflip', 'sigmoidoscopy']:
@@ -26,10 +33,10 @@ def main():
     parser.add_argument('--files_to_process', nargs='*', help="List of filenames to process; 'all' to process all files")
     
     # Model config options
-    parser.add_argument('--model_config', choices=['local_llama', 'openai_gpt4o'], 
+    parser.add_argument('--model_config', choices=['local_llama', 'openai_gpt4o', 'anthropic_claude'],
                        default='local_llama', help="Predefined model configuration to use")
-    parser.add_argument('--model_type', choices=['local', 'openai'], help="Override model type (local or openai)")
-    parser.add_argument('--model_path', help="Override model path or OpenAI model name")
+    parser.add_argument('--model_type', choices=['local', 'openai', 'anthropic'], help="Override model type (local, openai, or anthropic)")
+    parser.add_argument('--model_path', help="Override model path, OpenAI model name, or Anthropic model name")
     
     args = parser.parse_args()
 
@@ -56,8 +63,8 @@ def main():
         llm_handler = LLMClient(
             model_path=args.model_path or "RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16",
             model_type=args.model_type or "local",
-            quant="compressed-tensors" if args.model_type != "openai" else None,
-            tensor_parallel_size=4 if args.model_type != "openai" else None,
+            quant="compressed-tensors" if args.model_type == "local" else None,
+            tensor_parallel_size=4 if args.model_type == "local" else None,
             **llm_kwargs
         )
         print(f"Using custom model config: {args.model_type or 'local'} - {args.model_path or 'RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16'}")
@@ -72,6 +79,11 @@ def main():
 
     processor_class = processor_map[args.procedure_type]
     transcripts_df = pd.read_csv(f"transcription/results/{args.procedure_type}/{args.transcripts_fp}")
+
+    # Handle both 'file' and 'participant_id' column names
+    if "file" in transcripts_df.columns and "participant_id" not in transcripts_df.columns:
+        transcripts_df = transcripts_df.rename(columns={"file": "participant_id"})
+
     transcripts_df["participant_id"] = transcripts_df["participant_id"].astype(str)
     processor = processor_class(args.procedure_type, system_prompt_fp, output_fp, llm_handler, args.to_postgres)
     processor.process_transcripts(args.files_to_process, transcripts_df)

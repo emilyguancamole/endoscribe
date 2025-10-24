@@ -23,6 +23,15 @@
                 "temperature": 0.15,
                 "top_p": 0.95
             }
+        },
+        "anthropic_claude": {
+            "model_type": "anthropic",
+            "model_path": "claude-3-5-sonnet-20241022",
+            "anthropic_params": {
+                "max_tokens": 8000,
+                "temperature": 0.15,
+                "top_p": 0.95
+            }
         }
     },
     "default_config": "local_llama"

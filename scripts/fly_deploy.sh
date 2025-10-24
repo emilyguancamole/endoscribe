@@ -47,6 +47,10 @@ VOLUME_EXISTS=$(fly volumes list --app "${APP_NAME}" 2>/dev/null | grep -c "data
 if [ "$VOLUME_EXISTS" -eq 0 ]; then
     echo -e "${YELLOW}Volume 'data' does not exist${NC}"
     echo "Creating 30GB volume with A10 GPU constraints..."
+    echo ""
+    echo -e "${YELLOW}NOTE: Fly.io will warn about using a single volume.${NC}"
+    echo "Answer 'y' to proceed - a single volume is appropriate for this GPU deployment."
+    echo ""
     fly volumes create data \
       --size 30 \
       --vm-gpu-kind a10 \

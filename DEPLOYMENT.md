@@ -71,6 +71,16 @@ fly volumes create data \
   --app your-app-name-here
 ```
 
+**Volume Warning:**
+Fly.io will warn you that volumes are pinned to specific hosts and recommend creating multiple volumes for high availability. For this GPU deployment, **answer `y` to proceed with a single volume**. Here's why:
+
+- **Single GPU Architecture**: You're only running one A10 GPU machine at a time (multiple would cost ~$4-6/hour)
+- **Scale-to-Zero Design**: The app scales to zero when idle, so brief downtime during restarts is acceptable
+- **Auto-Recovery**: If the host fails, Fly.io will restart your machine on a different host and reattach the volume (data preserved)
+- **Cost Effective**: Multiple volumes would require multiple expensive GPU machines running simultaneously
+
+If you need true 24/7 high availability later, you can migrate to multiple volumes with external storage (S3/R2), but this is rarely necessary for WhisperX transcription workloads.
+
 **Important Notes:**
 - Volume size: 30GB (enough for WhisperX models ~5GB + data)
 - Must use `--vm-gpu-kind a10` to match your VM type
@@ -96,10 +106,11 @@ fly deploy --app your-app-name-here
 ```
 
 **First deployment notes:**
-- Build will take 10-15 minutes (installing CUDA, Python packages, etc.)
+- Build will take 5-10 minutes (using uv for fast dependency installation)
 - WhisperX models (~5GB) will download on first startup
 - Initial startup will take 5-10 minutes for model downloads
 - Subsequent starts will be faster (models cached in volume)
+- **Note:** The project uses `uv` instead of `pip` for 10-100x faster dependency resolution
 
 ### 7. Monitor Deployment
 
@@ -147,6 +158,29 @@ Expected response:
 }
 ```
 
+### Check GPU Status
+
+```bash
+curl https://your-app-name-here.fly.dev/gpu-info
+```
+
+Expected response (with GPU working):
+```json
+{
+  "pytorch_version": "2.1.0+cu121",
+  "cuda_available": true,
+  "device": "cuda",
+  "cuda_version": "12.1",
+  "gpu_name": "NVIDIA A10",
+  "gpu_memory_total_gb": 22.73,
+  "gpu_memory_allocated_gb": 5.2,
+  "gpu_memory_reserved_gb": 5.5,
+  "gpu_count": 1
+}
+```
+
+**Important:** If `cuda_available` is `false`, transcription will be very slow (CPU-only). See GPU_OPTIMIZATION.md for troubleshooting.
+
 ### Test Transcription
 
 1. Open the web interface
@@ -160,12 +194,31 @@ Expected response:
 
 ## Auto-Scaling Behavior
 
-The app is configured to **scale to zero** when idle:
+The app is configured to **scale to zero** when idle with **custom 60-second timeout**:
 
 - **Active state**: When receiving requests, one A10 GPU machine runs (~$2.08/hour)
-- **Idle state**: After ~5 minutes of no traffic, machine automatically stops ($0/hour)
-- **Wake-up**: Incoming requests automatically start the machine
+- **Idle state**: After 60 seconds of no WebSocket/API activity, app exits and machine stops ($0/hour)
+- **Wake-up**: Incoming requests automatically start the machine via Fly Proxy
 - **Cold start time**: ~30-60 seconds (models loaded from volume, not downloaded)
+
+### How Scale-to-Zero Works
+
+The app implements **app-level idle shutdown** for optimal cost savings:
+
+1. **Activity Tracking**: Updates timestamp on every WebSocket message and API call
+2. **Background Monitor**: Checks idle time every 10 seconds
+3. **Graceful Exit**: After 60s of inactivity, process exits cleanly
+4. **Auto-Restart**: Fly Proxy detects new traffic and restarts the machine
+
+**Benefits over Fly.io's default ~5 minute timeout:**
+- Faster shutdown = lower costs (~$40-50/month savings)
+- Only pay for actual usage time, not idle waiting
+- Health checks disabled to prevent false activity
+
+**Environment Variables:**
+- `IDLE_TIMEOUT_SECONDS`: Customize timeout (default: 60)
+- Only enabled on Fly.io (detected via `FLY_APP_NAME` env var)
+- Disabled locally for development convenience
 
 ### Cost Implications
 

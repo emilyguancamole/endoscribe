@@ -1,7 +1,7 @@
 # Fly.io configuration for EndoScribe with GPU support
 # Documentation: https://fly.io/docs/reference/configuration/
 
-app = "endoscribe"
+app = "endo2"
 primary_region = "ord"  # Chicago - only region with A10 GPUs
 
 # Kill signal and grace period
@@ -35,20 +35,15 @@ kill_timeout = "60s"
   min_machines_running = 0       # Allow scale to zero
 
   # Connection limits
+  # soft_limit = 1 for scale-to-zero: wake single machine faster
   [http_service.concurrency]
     type = "requests"
     hard_limit = 10
-    soft_limit = 5
-
-  # HTTP checks for auto-start/stop
-  [[http_service.checks]]
-    interval = "30s"
-    timeout = "10s"
-    grace_period = "60s"
-    method = "GET"
-    path = "/health"
-    protocol = "http"
-    restart_limit = 0
+    soft_limit = 1
 
 # WebSocket support for real-time transcription
 # Fly Proxy will handle WebSocket upgrades automatically
+
+# Note: Health checks removed to prevent keeping machine alive
+# App implements custom idle timeout (60s) for faster scale-down
+# See web_app/server.py for idle shutdown logic

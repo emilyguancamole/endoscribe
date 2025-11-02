@@ -47,11 +47,12 @@ class BaseProcessor:
         )
         messages = [{"role": "system", "content": system_prompt}]
 
-        #!to add back in for pep risk: 
-        # fewshot_examples = self.load_fewshot_examples(fewshot_examples_dir, prefix)
-        # for ex in fewshot_examples:
-        #     messages.append({"role": "user", "content": ex["user"]})
-        #     messages.append({"role": "assistant", "content": ex["assistant"]})
+        # Load and add few-shot examples
+        fewshot_examples = self.load_fewshot_examples(fewshot_examples_dir, prefix)
+        for ex in fewshot_examples:
+            messages.append({"role": "user", "content": ex["user"]})
+            messages.append({"role": "assistant", "content": ex["assistant"]})
+        
         # Final, actual task
         messages.append({"role": "user", 
                     "content": f"""Extract procedure entities from the following transcript:\n\n{transcript}"""

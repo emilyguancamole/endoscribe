@@ -19,17 +19,37 @@ WhisperX transcription needs GPUs. I run the PEP server on a remote server with 
 uvicorn pep_risk.server:app --host 0.0.0.0 --port 8000
 ```
 
-### 2. Live recording (chunked upload)
+### 2.1 Live recording (chunked upload)
 ```bash
 python pep_risk/record_and_upload.py
 ```
 - Press Ctrl+C to finalize and trigger LLM extraction.
 
-### 3. Process a pre-recorded file (server-side)
+### 2.2 Pre-recorded file (server-side)
 Place your file in `pep_risk/recordings/` and run:
 ```bash
 curl -F "filename=yourfile.mp3" http://localhost:8000/process_local
 ```
+Response includes: session_id, transcript (full), extraction dict, finalized=true, and the server has already saved the row in pep_risk/results_longform/ercp_sessions.csv. evaluation: overall_accuracy + per_field metrics, matched by column audio_recording.
+If you want to process multiple files under one session, you can pass session_id in the form and call /process_local repeatedly; it will concatenate the transcripts across those calls before extraction. If you want each file independent, omit session_id each time.
+
+### 3. Evaluation against ground truth
+Evaluation is done using functions in `pep_risk/evaluation.py`. Can either run as part of the server, or separately using saved extraction csvs (via `pep_risk/evaluate_only.py`).
+
+Evaluate using saved extraction from sessions CSV
+`python pep_risk/evaluate_only.py 1234`
+
+Provide extraction JSON directly
+`python pep_risk/evaluate_only.py 1234 --extraction-json path/to/extraction.json`
+
+Save results to JSON
+`python pep_risk/evaluate_only.py 1234 --out-json results/eval.json`
+
+Custom paths
+python pep_risk/evaluate_only.py 1234 \
+  --sessions-csv my_results/sessions.csv \
+  --ground-truth my_data/ground_truth.csv
+
 
 ## Outputs
 - Extracted results: `pep_risk/results_longform/pep_eval.csv`

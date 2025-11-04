@@ -52,11 +52,16 @@ NOTE: A case example is found in `demo.ipynb`, using one procedure to run the fu
 Prerequisites
 - Python 3.10+ (project uses 3.10 in development)
 - GPU + CUDA for local Llama/Whisper acceleration
+- [uv](https://github.com/astral-sh/uv) - Fast Python package installer (install via `pip install uv` or `brew install uv`)
 
 Install dependencies. Note that `requirements.txt` includes heavy packages like `vllm` and `torch`:
 
 ```bash
-pip install -r requirements.txt
+# Install uv if you haven't already
+pip install uv
+
+# Install dependencies (much faster than pip)
+uv pip install -r requirements.txt
 python -m spacy download en_core_web_sm
 ```
 

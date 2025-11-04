@@ -4,6 +4,10 @@
 environment.yml
 __pycache__
 
+# Fly.io
+.fly/
+fly.toml.local
+
 transcription/*.txt
 transcription/finetune_data
 transcription/recordings

@@ -37,6 +37,14 @@ from llm.llm_client import LLMClient
 from processors import ColProcessor, ERCPProcessor, EUSProcessor, EGDProcessor
 from transcription.whisperx_transcribe import transcribe_whisperx
 import whisperx
+from data_models.data_models import (
+    ColonoscopyData,
+    PolypData,
+    EUSData,
+    ERCPData,
+    EGDData
+)
+from pydantic import ValidationError
 
 # Setup directories
 BASE_DIR = Path(__file__).parent
@@ -92,56 +100,87 @@ if hasattr(torch.backends, "mps"):
     print(f"MPS available: {torch.backends.mps.is_available()}")
 print(f"Using device: {DEVICE}")
 
-if DEVICE == "cuda":
-    print(f"CUDA version: {torch.version.cuda}")
-    print(f"GPU device: {torch.cuda.get_device_name(0)}")
-    print(f"GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
-    print(f"Number of GPUs: {torch.cuda.device_count()}")
-elif DEVICE == "mps":
-    print(f"Running on Apple Silicon GPU (MPS)")
-    print(f"Note: MPS provides ~2-3x speedup over CPU on M1/M2/M3 Macs")
-else:
-    print("WARNING: No GPU acceleration! Transcription will be SLOW on CPU.")
-    print("For faster performance:")
-    print("  - Production: Use Fly.io with A10 GPU")
-    print("  - Mac: Ensure PyTorch with MPS support is installed")
-print(f"{'='*60}\n")
+# Buffering config: WhisperX performs better with longer audio segments >30 sec
+TRANSCRIPTION_BUFFER_DURATION_MS = 30000
+TRANSCRIPTION_BUFFER_OVERLAP_MS = 3000 # overlap between segments
 
 
-# Scale-to-zero helper functions
-def update_activity():
-    """Update last activity timestamp"""
-    global last_activity_time
-    last_activity_time = time.time()
+def concatenate_audio_chunks(chunk_paths, output_path):
+    """
+    Concatenate multiple audio chunks into a single audio file.
+    From the pep_risk approach where complete audio files are transcribed rather than tiny chunks. 
+    Uses pydub to concatenate webm/wav files.
+    
+    Args:
+        chunk_paths: List of paths to audio chunks
+        output_path: Path to save concatenated audio
+    Returns:
+        Path to concatenated audio file
+    """
+    try:
+        from pydub import AudioSegment
+        
+        if not chunk_paths:
+            raise ValueError("No audio chunks to concatenate")
+        
+        # Load first chunk
+        combined = AudioSegment.from_file(chunk_paths[0])
+        
+        # Concatenate remaining chunks
+        for chunk_path in chunk_paths[1:]:
+            audio = AudioSegment.from_file(chunk_path)
+            combined += audio
+        
+        # Export as WAV for better compatibility with WhisperX
+        combined.export(output_path, format="wav")
+        print(f"Concatenated {len(chunk_paths)} chunks into {output_path}")
+        return output_path
+        
+    except Exception as e:
+        print(f"Error concatenating audio chunks: {e}")
+        traceback.print_exc()
+        return chunk_paths[0] if chunk_paths else None # Fallback: return first chunk
 
 
-async def check_idle_and_shutdown():
-    """Background task that checks for idle time and shuts down if necessary"""
-    global idle_check_task
-
-    if not ENABLE_IDLE_SHUTDOWN:
-        print("Idle shutdown disabled (not on Fly.io)")
-        return
-
-    print(f"Idle shutdown enabled: will exit after {IDLE_TIMEOUT_SECONDS}s of inactivity")
-
-    while True:
-        await asyncio.sleep(10)  # Check every 10 seconds
-
-        idle_time = time.time() - last_activity_time
-
-        if idle_time >= IDLE_TIMEOUT_SECONDS:
-            print(f"\n{'='*60}")
-            print(f"IDLE SHUTDOWN TRIGGERED")
-            print(f"{'='*60}")
-            print(f"Idle time: {idle_time:.1f}s (threshold: {IDLE_TIMEOUT_SECONDS}s)")
-            print(f"Shutting down to save GPU costs...")
-            print(f"Fly Proxy will restart on next request")
-            print(f"{'='*60}\n")
-
-            # Graceful shutdown
-            os.kill(os.getpid(), signal.SIGTERM)
-            break
+def transcribe_with_whisperx(audio_path, model, align_model, align_metadata, device):
+    """
+    Transcribe audio using WhisperX with alignment. From pep risk.
+    Args:
+        audio_path: Path to audio file
+        model: Pre-loaded WhisperX model
+        align_model: Pre-loaded alignment model
+        align_metadata: Alignment metadata
+        device: Device to use (cuda/cpu)
+    Returns:
+        dict with "text" and "segments" keys
+    """
+    # from whisperx_transcribe.py
+    audio = whisperx.load_audio(str(audio_path))
+    
+    print("Transcribing...")
+    result = model.transcribe(audio, batch_size=8, language="en")
+    if align_model is not None and align_metadata is not None:
+        aligned_result = whisperx.align(
+            result["segments"],
+            align_model,
+            align_metadata,
+            audio,
+            device,
+            return_char_alignments=False
+        )
+        segments = aligned_result["segments"]
+    else:
+        print("Warning: Using unaligned transcription (alignment model not loaded)")
+        segments = result["segments"]
+    
+    # from whisperx_transcribe.py: Join segments with single quote separator, which is what I used in pep risk
+    result_text = " '".join(seg["text"] for seg in segments).replace("  ", " ").strip()
+    
+    print(f"Final transcript length: {len(result_text)} chars")
+    return {
+        "text": result_text,
+        "segments": segments
+    }
 
 
 @asynccontextmanager
@@ -188,7 +227,7 @@ async def lifespan(app: FastAPI):
     print("Initializing LLM handler...")
     try:
         # Use anthropic_claude config as specified in your command
-        LLM_HANDLER = LLMClient.from_config("anthropic_claude")
+        LLM_HANDLER = LLMClient.from_config("openai_gpt4o") # anthropic_claude, openai_gpt4o
         print("LLM handler initialized successfully")
     except Exception as e:
         print(f"Failed to initialize LLM handler: {e}")
@@ -354,9 +393,12 @@ async def websocket_transcribe(websocket: WebSocket):
                     if msg_type == "start":
                         session_id = message.get("session_id") or str(uuid.uuid4())
                         SESSIONS[session_id] = {
-                            "chunks": [],
-                            "transcripts": [],
-                            "started_at": datetime.now()
+                            "chunks": [],                    # all chunks
+                            "transcripts": [],               # all transcript texts
+                            "started_at": datetime.now(),
+                            "buffer_chunks": [],             # chunks waiting to be transcribed
+                            "buffer_start_time": None,
+                            "last_transcribed_idx": 0,
                         }
                         await websocket.send_json({
                             "type": "status",
@@ -406,90 +448,110 @@ async def websocket_transcribe(websocket: WebSocket):
                 with open(audio_path, "wb") as f:
                     f.write(audio_data)
 
-                SESSIONS[session_id]["chunks"].append(str(audio_path))
+                session = SESSIONS[session_id]
+                session["chunks"].append(str(audio_path))
+                session["buffer_chunks"].append(str(audio_path))
+                
+                # Initialize buffer start time on first chunk
+                if session["buffer_start_time"] is None:
+                    session["buffer_start_time"] = time.time()
 
-                # Transcribe the audio chunk
-                try:
-                    print(f"Transcribing audio chunk {chunk_id}...")
+                # NEW BUFFERING LOGIC (similar to pep_risk's approach of transcribing complete files)
+                # Check if we should transcribe the buffered chunks
+                buffer_duration = (time.time() - session["buffer_start_time"]) * 1000
+                should_transcribe = buffer_duration >= TRANSCRIPTION_BUFFER_DURATION_MS
+                
+                print(f"Buffer: {len(session['buffer_chunks'])} chunks, {buffer_duration:.0f}ms (threshold: {TRANSCRIPTION_BUFFER_DURATION_MS}ms)")
+                
+                if should_transcribe and len(session["buffer_chunks"]) > 0:
+                    try:
+                        print(f"Transcribing {len(session['buffer_chunks'])} buffered chunks...")
 
-                    # Send processing status to client
-                    await websocket.send_json({
-                        "type": "status",
-                        "message": "Processing audio chunk...",
-                        "session_id": session_id
-                    })
+                        # Send processing status to client
+                        await websocket.send_json({
+                            "type": "status",
+                            "message": f"Processing {len(session['buffer_chunks'])} chunks...",
+                            "session_id": session_id
+                        })
 
-                    # Use the pre-loaded global model instead of loading a new one
-                    if WHISPER_MODEL is None:
-                        raise Exception("WhisperX model not initialized")
+                        # Use the pre-loaded global model instead of loading a new one
+                        if WHISPER_MODEL is None:
+                            raise Exception("WhisperX model not initialized")
 
-                    # Define transcription function to run in thread
-                    def transcribe_audio():
-                        import whisperx
-                        audio = whisperx.load_audio(str(audio_path))
-                        # Use larger batch size on GPU for better performance
-                        if DEVICE == "cuda":
-                            batch_size = 16  # Large batch for NVIDIA GPU
-                        elif DEVICE == "mps":
-                            batch_size = 8   # Medium batch for Apple Silicon
-                        else:
-                            batch_size = 4   # Small batch for CPU
-                        print(f"Transcribing with batch_size={batch_size} on {DEVICE}")
-                        result_raw = WHISPER_MODEL.transcribe(audio, batch_size=batch_size, language="en")
-
-                        # Align for better accuracy using cached alignment model
-                        if WHISPER_ALIGN_MODEL is not None and WHISPER_ALIGN_METADATA is not None:
-                            aligned_result = whisperx.align(
-                                result_raw["segments"],
+                        # NEW: Concatenate buffered chunks for better transcription
+                        # This is KEY to improving accuracy - same as pep_risk approach
+                        concat_path = UPLOAD_DIR / f"{session_id}_buffer_{int(time.time())}.wav"
+                        
+                        # Define transcription function to run in thread
+                        def transcribe_buffered_audio():
+                            # Concatenate chunks into one file (like pep_risk does)
+                            audio_file = concatenate_audio_chunks(
+                                session["buffer_chunks"], 
+                                str(concat_path)
+                            )
+                            
+                            if audio_file is None:
+                                raise Exception("Failed to concatenate audio chunks")
+                            
+                            # Reuse transcription logic
+                            return transcribe_with_whisperx(
+                                audio_file,
+                                WHISPER_MODEL,
                                 WHISPER_ALIGN_MODEL,
                                 WHISPER_ALIGN_METADATA,
-                                audio,
-                                WHISPER_DEVICE,  # Use WhisperX device (cpu for MPS, cuda for CUDA)
-                                return_char_alignments=False
+                                DEVICE
                             )
-                            return aligned_result["segments"]
+
+                        # Run transcription in thread pool to avoid blocking event loop
+                        loop = asyncio.get_event_loop()
+                        result = await loop.run_in_executor(None, transcribe_buffered_audio)
+                        
+                        transcript_text = result["text"]
+                        session["transcripts"].append(transcript_text)
+
+                        # Send transcription back to client
+                        await websocket.send_json({
+                            "type": "transcript",
+                            "data": {
+                                "text": transcript_text,
+                                "session_id": session_id,
+                                "chunk_count": len(session["buffer_chunks"]),
+                                "timestamp": time.time()
+                            }
+                        })
+                        print(f"Sent buffered transcript ({len(transcript_text)} chars): {transcript_text[:100]}...")
+
+                        # Reset buffer for next transcription with overlap
+                        # Keep last few chunks for context continuity (overlap)
+                        overlap_chunks = int(TRANSCRIPTION_BUFFER_OVERLAP_MS / 2000)  # Assuming 2s chunks
+                        if overlap_chunks > 0 and len(session["buffer_chunks"]) > overlap_chunks:
+                            session["buffer_chunks"] = session["buffer_chunks"][-overlap_chunks:]
                         else:
-                            # Fallback to unaligned if alignment model not available
-                            print("Warning: Using unaligned transcription (alignment model not loaded)")
-                            return result_raw["segments"]
+                            session["buffer_chunks"] = []
+                        session["buffer_start_time"] = time.time()
+                        
+                        # Clean up concatenated file
+                        try:
+                            os.remove(concat_path)
+                        except:
+                            pass
 
-                    # Run transcription in thread pool to avoid blocking event loop
-                    loop = asyncio.get_event_loop()
-                    segments = await loop.run_in_executor(None, transcribe_audio)
-
-                    # Join segments into text
-                    transcript_text = " ".join(seg["text"] for seg in segments).replace("  ", " ").strip()
-
-                    SESSIONS[session_id]["transcripts"].append(transcript_text)
-
-                    # Send transcription back to client
-                    await websocket.send_json({
-                        "type": "transcript",
-                        "data": {
-                            "text": transcript_text,
-                            "session_id": session_id,
-                            "chunk_id": chunk_id,
-                            "timestamp": time.time()
-                        }
-                    })
-                    print(f"Sent transcript: {transcript_text[:100]}...")
-
-                    # Send status update to clear processing state
-                    await websocket.send_json({
-                        "type": "status",
-                        "message": "Transcription complete",
-                        "session_id": session_id
-                    })
-
-                except Exception as e:
-                    error_msg = f"Transcription error: {str(e)}"
-                    print(error_msg)
-                    traceback.print_exc()
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": error_msg,
-                        "session_id": session_id
-                    })
+                        # Send status update to clear processing state
+                        await websocket.send_json({
+                            "type": "status",
+                            "message": "Transcription complete",
+                            "session_id": session_id
+                        })
+                    
+                    except Exception as e:
+                        error_msg = f"Transcription error: {str(e)}"
+                        print(error_msg)
+                        traceback.print_exc()
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": error_msg,
+                            "session_id": session_id
+                        })
 
     except Exception as e:
         error_msg = f"WebSocket error: {str(e)}"
@@ -583,7 +645,17 @@ async def process_transcript(request: ProcessRequest):
 
                 json_str = col_response[start_idx:end_idx + 1]
                 col_json = json.loads(json_str)
-                col_data = processor.parse_validate_colonoscopy_response(col_json, row["participant_id"])
+                
+                # validate with Pydantic model
+                try:
+                    col_data_validated = ColonoscopyData(**col_json)
+                    col_data = col_data_validated.model_dump()
+                    col_data["participant_id"] = row["participant_id"]
+                except ValidationError as e:
+                    print(f"Colonoscopy validation errors: {e}")
+                    # Fall back to basic validation
+                    col_data = processor.parse_validate_colonoscopy_response(col_json, row["participant_id"])
+                
                 col_outputs.append(col_data)
 
                 # Polyp-level processing
@@ -610,8 +682,25 @@ async def process_transcript(request: ProcessRequest):
 
                 json_str = polyp_response[start_idx:end_idx + 1]
                 polyps_json = json.loads(json_str)
-                polyp_data = processor.parse_validate_polyp_response(polyps_json, row["participant_id"])
-                polyp_outputs.extend(polyp_data)
+                
+                # validate with Pydantic model
+                validated_polyps = []
+                for idx, polyp_json in enumerate(polyps_json):
+                    try:
+                        polyp_validated = PolypData(**polyp_json)
+                        polyp_dict = polyp_validated.model_dump()
+                        polyp_dict["participant_id"] = row["participant_id"]
+                        polyp_dict["polyp_id"] = idx
+                        validated_polyps.append(polyp_dict)
+                    except ValidationError as e:
+                        print(f"Polyp {idx+1} validation errors: {e}")
+                        # Fall back to basic validation if Pydantic validation fails
+                        polyp_dict = polyp_json.copy()
+                        polyp_dict["participant_id"] = row["participant_id"]
+                        polyp_dict["polyp_id"] = idx
+                        validated_polyps.append(polyp_dict)
+                
+                polyp_outputs.extend(validated_polyps)
 
             result_data = {
                 "colonoscopy": col_outputs[0] if col_outputs else {},
@@ -645,11 +734,36 @@ async def process_transcript(request: ProcessRequest):
 
                 # Parse JSON response
                 response_json = json.loads(response[response.find("{"): response.rfind("}") + 1])
-                outputs.append({
-                    "id": row["participant_id"],
-                    "model": LLM_HANDLER.model_type,
-                    **response_json
-                })
+                
+                # VALIDATE with appropriate Pydantic model
+                procedure_models = {
+                    "eus": EUSData,
+                    "ercp": ERCPData,
+                    "egd": EGDData
+                }
+                
+                model_class = procedure_models.get(request.procedure_type.value)
+                if model_class:
+                    try:
+                        validated_data = model_class(**response_json)
+                        result_dict = validated_data.model_dump()
+                        result_dict["id"] = row["participant_id"]
+                        result_dict["model"] = LLM_HANDLER.model_type
+                        outputs.append(result_dict)
+                    except ValidationError as e:
+                        print(f"{request.procedure_type.value.upper()} validation errors: {e}")
+                        # fall back to unvalidated
+                        outputs.append({
+                            "id": row["participant_id"],
+                            "model": LLM_HANDLER.model_type,
+                            **response_json
+                        })
+                else: # no model available, use unvalidated data
+                    outputs.append({
+                        "id": row["participant_id"],
+                        "model": LLM_HANDLER.model_type,
+                        **response_json
+                    })
 
             result_data = outputs[0] if outputs else {}
 

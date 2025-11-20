@@ -6,6 +6,7 @@ import time
 import asyncio
 import traceback
 import warnings
+import signal
 from pathlib import Path
 from typing import Dict, Optional
 from datetime import datetime
@@ -47,19 +48,56 @@ from pydantic import ValidationError
 
 # Setup directories
 BASE_DIR = Path(__file__).parent
-UPLOAD_DIR = BASE_DIR / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
+
+# Use persistent volumes in production (Fly.io), local dirs in development
+if os.getenv("FLY_APP_NAME"):
+    # Production: use persistent volume
+    UPLOAD_DIR = Path("/data/uploads")
+    RESULTS_DIR = Path("/data/results")
+    MODELS_DIR = Path("/data/models")
+else:
+    # Development: use local directories
+    UPLOAD_DIR = BASE_DIR / "uploads"
+    RESULTS_DIR = BASE_DIR / "results"
+    MODELS_DIR = BASE_DIR / "models"
+
+# Ensure directories exist
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Global state
 WHISPER_MODEL = None
 WHISPER_ALIGN_MODEL = None
 WHISPER_ALIGN_METADATA = None
+WHISPER_DEVICE = None  # Actual device WhisperX is using (cpu for MPS, cuda for CUDA)
 LLM_HANDLER = None
 PROCESSOR_MAP = {}
 SESSIONS: Dict[str, Dict] = {}
 
-# Device configuration
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+# Scale-to-zero: Idle timeout configuration
+# Enable on Fly.io to reduce GPU costs; disable locally for development
+IDLE_TIMEOUT_SECONDS = int(os.getenv("IDLE_TIMEOUT_SECONDS", "60"))  # Default: 60 seconds
+ENABLE_IDLE_SHUTDOWN = os.getenv("FLY_APP_NAME") is not None  # Only on Fly.io
+last_activity_time = time.time()
+idle_check_task = None
+
+# Device configuration with detailed diagnostics
+# Priority: CUDA (Fly.io/Linux) > MPS (Apple Silicon) > CPU
+if torch.cuda.is_available():
+    DEVICE = "cuda"
+elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+    DEVICE = "mps"
+else:
+    DEVICE = "cpu"
+
+print(f"\n{'='*60}")
+print(f"GPU DIAGNOSTICS")
+print(f"{'='*60}")
+print(f"PyTorch version: {torch.__version__}")
+print(f"CUDA available: {torch.cuda.is_available()}")
+if hasattr(torch.backends, "mps"):
+    print(f"MPS available: {torch.backends.mps.is_available()}")
 print(f"Using device: {DEVICE}")
 
 # Buffering config: WhisperX performs better with longer audio segments >30 sec
@@ -148,28 +186,34 @@ def transcribe_with_whisperx(audio_path, model, align_model, align_metadata, dev
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize models on startup and cleanup on shutdown"""
-    global WHISPER_MODEL, WHISPER_ALIGN_MODEL, WHISPER_ALIGN_METADATA, LLM_HANDLER, PROCESSOR_MAP
+    global WHISPER_MODEL, WHISPER_ALIGN_MODEL, WHISPER_ALIGN_METADATA, WHISPER_DEVICE, LLM_HANDLER, PROCESSOR_MAP, idle_check_task
 
     # Startup
     print("Initializing WhisperX model...")
     try:
         # Use appropriate compute type based on device
+        # WhisperX doesn't support MPS directly, so fall back to CPU for MPS
+        WHISPER_DEVICE = DEVICE if DEVICE == "cuda" else "cpu"
+
         if DEVICE == "cuda":
             compute_type = "float16"
+        elif DEVICE == "mps":
+            compute_type = "int8"
+            print("Note: WhisperX doesn't support MPS directly, using CPU with int8")
+            print("For best performance on Mac, consider using faster-whisper directly")
         else:
-            # For CPU/MPS, use int8 or default
             compute_type = "int8"
 
-        print(f"Loading WhisperX with device={DEVICE}, compute_type={compute_type}")
+        print(f"Loading WhisperX with device={WHISPER_DEVICE}, compute_type={compute_type}")
         print("Note: First-time download of large-v3 model (~5GB) may take several minutes...")
-        WHISPER_MODEL = whisperx.load_model("large-v3", DEVICE, compute_type=compute_type)
+        WHISPER_MODEL = whisperx.load_model("large-v3", WHISPER_DEVICE, compute_type=compute_type)
         print("WhisperX model loaded successfully!")
 
         # Load alignment model once during startup
         print("Loading WhisperX alignment model...")
         WHISPER_ALIGN_MODEL, WHISPER_ALIGN_METADATA = whisperx.load_align_model(
             language_code="en",
-            device=DEVICE
+            device=WHISPER_DEVICE
         )
         print("WhisperX alignment model loaded successfully!")
     except Exception as e:
@@ -197,28 +241,28 @@ async def lifespan(app: FastAPI):
                 "col": ColProcessor(
                     procedure_type="col",
                     system_prompt_fp="prompts/col/system.txt",
-                    output_fp="web_app/results/col_results.csv",
+                    output_fp=str(RESULTS_DIR / "col_results.csv"),
                     llm_handler=LLM_HANDLER,
                     to_postgres=False
                 ),
                 "eus": EUSProcessor(
                     procedure_type="eus",
                     system_prompt_fp="prompts/eus/system.txt",
-                    output_fp="web_app/results/eus_results.csv",
+                    output_fp=str(RESULTS_DIR / "eus_results.csv"),
                     llm_handler=LLM_HANDLER,
                     to_postgres=False
                 ),
                 "ercp": ERCPProcessor(
                     procedure_type="ercp",
                     system_prompt_fp="prompts/ercp/system.txt",
-                    output_fp="web_app/results/ercp_results.csv",
+                    output_fp=str(RESULTS_DIR / "ercp_results.csv"),
                     llm_handler=LLM_HANDLER,
                     to_postgres=False
                 ),
                 "egd": EGDProcessor(
                     procedure_type="egd",
                     system_prompt_fp="prompts/egd/system.txt",
-                    output_fp="web_app/results/egd_results.csv",
+                    output_fp=str(RESULTS_DIR / "egd_results.csv"),
                     llm_handler=LLM_HANDLER,
                     to_postgres=False
                 ),
@@ -228,10 +272,23 @@ async def lifespan(app: FastAPI):
             print(f"Failed to initialize processors: {e}")
             traceback.print_exc()
 
+    # Start idle shutdown checker (only on Fly.io)
+    if ENABLE_IDLE_SHUTDOWN:
+        print(f"\nStarting idle shutdown monitor ({IDLE_TIMEOUT_SECONDS}s timeout)...")
+        idle_check_task = asyncio.create_task(check_idle_and_shutdown())
+
     yield  # Application runs here
 
     # Shutdown (cleanup if needed)
     print("Shutting down...")
+
+    # Cancel idle check task if running
+    if idle_check_task and not idle_check_task.done():
+        idle_check_task.cancel()
+        try:
+            await idle_check_task
+        except asyncio.CancelledError:
+            pass
 
 
 # Initialize FastAPI app with lifespan handler
@@ -245,18 +302,60 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """Serve the main UI"""
+    update_activity()
     return templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint"""
+    # Check if volumes are accessible in production
+    volumes_ok = True
+    if os.getenv("FLY_APP_NAME"):
+        volumes_ok = (
+            Path("/data").exists() and
+            Path("/data/uploads").exists() and
+            Path("/data/results").exists()
+        )
+
+    status = "healthy" if (WHISPER_MODEL and LLM_HANDLER and volumes_ok) else "degraded"
+
     return HealthResponse(
-        status="healthy" if (WHISPER_MODEL and LLM_HANDLER) else "degraded",
+        status=status,
         whisper_loaded=WHISPER_MODEL is not None,
         llm_initialized=LLM_HANDLER is not None,
         supported_procedures=["col", "eus", "ercp", "egd"]
     )
+
+
+@app.get("/gpu-info")
+async def gpu_info():
+    """GPU diagnostics endpoint"""
+    info = {
+        "pytorch_version": torch.__version__,
+        "cuda_available": torch.cuda.is_available(),
+        "mps_available": hasattr(torch.backends, "mps") and torch.backends.mps.is_available(),
+        "device": DEVICE,
+        "whisperx_device": WHISPER_DEVICE,  # Actual device WhisperX is using
+    }
+
+    if DEVICE == "cuda":
+        info.update({
+            "cuda_version": torch.version.cuda,
+            "gpu_name": torch.cuda.get_device_name(0),
+            "gpu_memory_total_gb": round(torch.cuda.get_device_properties(0).total_memory / 1e9, 2),
+            "gpu_memory_allocated_gb": round(torch.cuda.memory_allocated(0) / 1e9, 2),
+            "gpu_memory_reserved_gb": round(torch.cuda.memory_reserved(0) / 1e9, 2),
+            "gpu_count": torch.cuda.device_count(),
+        })
+    elif DEVICE == "mps":
+        info.update({
+            "platform": "Apple Silicon",
+            "note": "WhisperX uses CPU on MPS (MPS not directly supported by WhisperX)",
+            "recommendation": "Use faster-whisper for native MPS support on Mac"
+        })
+
+    return info
 
 
 @app.websocket("/ws/transcribe")
@@ -271,6 +370,7 @@ async def websocket_transcribe(websocket: WebSocket):
     4. Client sends JSON: {"type": "end"} to finalize
     """
     await websocket.accept()
+    update_activity()  # Track WebSocket connection for idle shutdown
     session_id = None
     audio_chunks = []
 
@@ -279,6 +379,7 @@ async def websocket_transcribe(websocket: WebSocket):
             # Receive data (can be text or bytes)
             try:
                 data = await websocket.receive()
+                update_activity()  # Track activity on every message
             except WebSocketDisconnect:
                 print(f"WebSocket disconnected for session {session_id}")
                 break
@@ -487,6 +588,7 @@ async def process_transcript(request: ProcessRequest):
     Returns:
         ProcessResponse with extracted structured data
     """
+    update_activity()  # Track API activity for idle shutdown
     start_time = time.time()
 
     # Validate LLM is initialized

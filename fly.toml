@@ -1,7 +1,7 @@
 # Fly.io configuration for EndoScribe with GPU support
 # Documentation: https://fly.io/docs/reference/configuration/
 
-app = "endo2"
+app = "endo-local"
 primary_region = "ord"  # Chicago - only region with A10 GPUs
 
 # Kill signal and grace period

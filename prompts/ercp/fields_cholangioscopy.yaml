@@ -1,0 +1,163 @@
+# ERCP Cholangioscopy - Extends ERCP Base
+# Adds cholangioscopy-specific fields and overrides
+
+$extends: ./fields_base.yaml
+
+# Override metadata for this specific subtype
+meta:
+  procedure_type: ercp_cholangioscopy
+  title: ERCP with Cholangioscopy
+
+# Overrides/additions
+field_groups:
+  patient_demographics:
+    template: "{{ age }} year old {{ sex }} is here for an ERCP with Cholangioscopy for the evaluation of {{ chief_complaints }}."
+
+  # Fields from base (upper_gi_examination, upper_gi_findings) are inherited automatically
+  
+  other_findings: # Add new fields to this existing section
+    #The major papilla was visualized. If normal: It appeared normal in position and morphology, without erythema, edema, or distortion. Optional findings: prominent papilla, intradiverticular location, post-sphincterotomy appearance, erythematous or edematous mucosa, or scarred orifice. If not found: Papilla could not be identified because of duodenal deformity or inflammation and ERCP aborted. 
+    # Given the plan for direct cholangioscopy direct examination of the biliary tree prior to contrast injection was performed, the sphincterotome was exchanged over the wire for a digital cholangioscope (SpyGlass DS II / SpyScope DS / EyeMax / other).
+    fields:
+      - name: major_papilla_findings
+        type: string
+        prompt_instruction: "If normal, record 'normal'. If papilla could not be found, record 'not found'. Else describe findings as detailed by the transcript (e.g., prominent papilla, intradiverticular location, post-sphincterotomy appearance, erythematous or edematous mucosa, or scarred orifice)."
+  
+  cholangioscopy_exam:
+    description: "Cholangioscopy examination findings"
+    report_section: "findings"
+    report_subsection: "cholangioscopy"
+    template: |
+      {% set scope_type = digital_cholangioscope_type | default('') | skip_unknown %}
+      {% set viz_quality = visualization_quality | default('') | skip_unknown %}
+      {% set papilla = major_papilla_findings | default('') | skip_unknown %}
+      {% set normal = cholangioscopy_normal | default(false) %}
+      {% set ducts = hepatic_ducts_findings | default('') | skip_unknown %}
+      
+      {% if papilla == 'not found' %}
+      The major papilla could not be identified because of duodenal deformity or inflammation and ERCP was aborted.
+      {% else %}
+        {% if papilla == 'normal' %}
+      The major papilla appeared normal in position and morphology, without erythema, edema, or distortion.
+        {% elif papilla %}
+      The major papilla: {{ papilla | capfirst }}.
+        {% endif %}
+      
+        {% if scope_type %}
+      Given the plan for direct cholangioscopy, direct examination of the biliary tree prior to contrast injection was performed. The sphincterotome was exchanged over the wire for a digital cholangioscope ({{ scope_type }}).
+        {% endif %}
+      
+      The cholangioscope was advanced into the bile duct.{% if viz_quality %} Visualization quality was {{ viz_quality }}.{% endif %}
+      
+      The cholangioscope was advanced up to the biliary bifurcation. The right and left hepatic ducts were examined sequentially under direct vision.
+      
+        {% if normal %}
+      The ductal mucosa appeared smooth, glistening, and pale with normal vascular markings and no erythema, nodularity, or friability. There were no stones, strictures, or other abnormalities seen in the biliary tree.
+        {% elif ducts %}
+      {{ ducts | capfirst }}
+        {% endif %}
+      {% endif %}
+    fields:
+      - name: digital_cholangioscope_type
+        type: string
+        prompt_instruction: "Type of cholangioscope used: 'SpyGlass DS II' / 'SpyScope DS' / 'EyeMax' / other brand/model"
+    
+      - name: visualization_quality
+        type: enum
+        enum_values: ["excellent", "good", "fair", "poor"]
+        prompt_instruction: "'excellent' / 'good' / 'fair' / 'poor' depending on bile clarity"
+        
+      - name: cholangioscopy_normal
+        type: boolean
+        prompt_instruction: "true if cholangioscopy was completely normal (no abnormalities), false if any abnormalities were found"
+      
+      - name: hepatic_ducts_findings
+        type: string
+        prompt_instruction: "Only if cholangioscopy_normal is false: Detailed description to the extent of the transcript, including: Mucosal abnormalities (erythema, edema, scarred pale mucosa, villous/papillary projections, nodularity, granular surface, friable mucosa, ulceration). Intraluminal contents (bile crystals, sludge, debris, pus, blood clots, migrated stent fragment, air bubbles). Stones (count, size in mm, location: distal CBD/mid CBD/proximal CBD/hilar region; appearance: cholesterol/brown/black/mixed). Strictures (length in mm, appearance: benign concentric/malignant irregular/indeterminate/post-surgical anastomotic; location). Masses or lesions (type: polypoid/sessile/frond-like/infiltrative; features: ulceration, vascularity; location). Bile leak (contrast extravasation location: duct/cystic duct stump/anastomosis)"
+  
+  cholangioscopy_interventions:
+    description: "Therapeutic interventions performed during cholangioscopy"
+    report_section: "findings"
+    report_subsection: "cholangioscopy_therapy"
+    template: |
+      {% set normal = cholangioscopy_normal | default(false) %}
+      {% set stones = stones_extracted | default(false) %}
+      {% set balloon_size = balloon_sweep_size | default('') | skip_unknown %}
+      {% set balloon_passes = balloon_sweep_passes | default('') | skip_unknown %}
+      {% set stricture = stricture_treated | default(false) %}
+      {% set dilation_size = balloon_dilation_size | default('') | skip_unknown %}
+      {% set dilation_time = balloon_dilation_time | default('') | skip_unknown %}
+      {% set stent = stent_placed | default(false) %}
+      {% set stent_type = stent_type | default('') | skip_unknown %}
+      {% set stent_size = stent_size | default('') | skip_unknown %}
+      {% set stent_length = stent_length | default('') | skip_unknown %}
+      {% set stent_location = stent_location | default('') | skip_unknown %}
+      {% set sems_brand = sems_brand | default('') | skip_unknown %}
+      
+      {% if normal %}
+      No additional therapy required; bile drained freely.
+      {% else %}
+        {% if stones %}
+      Balloon sweep performed with {% if balloon_size %}{{ balloon_size }} mm {% endif %}balloon{% if balloon_passes %} for {{ balloon_passes }} passes{% endif %} until duct cleared; complete clearance confirmed cholangioscopically.
+        {% endif %}
+        
+        {% if stricture %}
+      Balloon dilation{% if dilation_size %} to {{ dilation_size }} mm{% endif %}{% if dilation_time %} for {{ dilation_time }} seconds{% endif %} performed; good expansion achieved.
+        {% endif %}
+        
+        {% if stent %}
+          {% if stent_type == 'plastic' %}
+      Plastic biliary stent{% if stent_size %} {{ stent_size }}{% endif %}{% if stent_length %} x {{ stent_length }} cm{% endif %}{% if stent_location %} across {{ stent_location }} segment{% endif %} with excellent drainage.
+          {% elif stent_type == 'sems' %}
+      Fully-covered SEMS{% if stent_size %} {{ stent_size }} mm{% endif %}{% if stent_length %} x {{ stent_length }} mm{% endif %}{% if sems_brand %} ({{ sems_brand }}){% endif %} deployed successfully.
+          {% endif %}
+        {% endif %}
+      {% endif %}
+    fields:
+      - name: stones_extracted
+        type: boolean
+        prompt_instruction: "true if stones were extracted during cholangioscopy, false otherwise"
+      - name: balloon_sweep_size
+        type: enum
+        enum_values: ["8.5", "11.5", "12", "15", "18"]
+        prompt_instruction: "Only if stones_extracted is true: Size of balloon used for sweep in mm: '8.5' / '11.5' / '12' / '15' / '18'"
+      - name: balloon_sweep_passes
+        type: string
+        prompt_instruction: "Only if stones_extracted is true: Number of balloon passes performed, e.g. '1' / '2' / '3' / '4'"
+      - name: stricture_treated
+        type: boolean
+        prompt_instruction: "true if a stricture was dilated during cholangioscopy, false otherwise"
+      - name: balloon_dilation_size
+        type: enum
+        enum_values: ["6", "8", "10", "12"]
+        prompt_instruction: "Only if stricture_treated is true: Size of balloon dilation in mm: '6' / '8' / '10' / '12'"
+      
+      - name: balloon_dilation_time
+        type: enum
+        enum_values: ["30", "60", "90"]
+        prompt_instruction: "Only if stricture_treated is true: Duration of balloon dilation in seconds: '30' / '60' / '90'"
+      
+      - name: stent_placed
+        type: boolean
+        prompt_instruction: "true if a biliary stent was placed, false otherwise"
+      
+      - name: stent_type
+        type: enum
+        enum_values: ["plastic", "fcsems"]
+        prompt_instruction: "Only if stent_placed is true: Type of stent: 'plastic' or 'fcsems' (fully-covered self expanding metal stent)"
+      
+      - name: stent_size
+        type: string
+        prompt_instruction: "Only if stent_placed is true: For plastic: '5F' / '7F' / '10F'. For FCSEMS: '8' / '10' (in mm)"
+      
+      - name: stent_length
+        type: integer
+        prompt_instruction: "Length as an integer, only if stent_placed is true. For plastic: '5' / '7' / '9' / '12' / '15' (in cm). For FCSEMS: '40' / '60' / '80' / '100' (in mm)"
+      
+      - name: stent_location
+        type: string
+        prompt_instruction: "Only if stent_placed is true: Location of stent placement: 'distal CBD' / 'CHD' / 'hilar' / 'anastomotic' / other specific location"
+  
+      - name: fcsems_brand
+        type: string
+        prompt_instruction: "Only if stent_type is 'FCSEMS': Brand of FCSEMS used: 'WallFlex' / 'Viabil' / 'Evolution' / other"

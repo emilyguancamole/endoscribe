@@ -1,7 +1,8 @@
 import json
 from .base_processor import BaseProcessor
 import pandas as pd
-from data_models.data_models import ERCPData, PEPRiskData
+from data_models.generated_ercp_base_model import ErcpBaseData
+from data_models.data_models import PEPRiskData
 
 
 class ERCPProcessor(BaseProcessor):
@@ -62,12 +63,13 @@ class ERCPProcessor(BaseProcessor):
                 prefix="ercp"
             )
             if self.llm_handler.model_type == "local": #! diff response processing for local vs openai
-                response = self.llm_handler.chat(messages)[0].outputs[0].text.strip()
+                pass
+                # response = self.llm_handler.chat(messages)[0].outputs[0].text.strip()
             elif self.llm_handler.model_type in ["openai", "anthropic"]:
                 response = self.llm_handler.chat(messages)
             try:
                 json_response = json.loads(response[response.find("{"): response.rfind("}") + 1])
-                validated = ERCPData(**json_response)
+                validated = ErcpBaseData(**json_response)
             except json.JSONDecodeError:
                 continue
             

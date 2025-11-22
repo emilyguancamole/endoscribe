@@ -22,25 +22,58 @@ class EndoscopyDrafter(ABC):
   # 10/20 comment out for quick egd testing #todo implement method for egddrafter
    @abstractmethod
    def get_indications(self):
-        """{age} year old {sex} here for an {procedure type} for {indication}"""
-        age = int(self.patients_df.loc[self.sample].get('age', ''))
-        sex = self.patients_df.loc[self.sample].get('sex', '').lower()
-        # get indication: first find "Explain indication in detail". If none, find all True from indication_* and join with commas
-        indications = str(self.procedures_df.loc[self.sample].get("indication_details", ""))
-        if indications != "nan" and indications.strip() != "": 
+      """Return (age, sex, indication_string)"""
+      # Prefer patient CSV values, fall back to LLM-extracted sample row if patient row missing
+      age = ''
+      sex = ''
+      try:
+         patient_row = self.patients_df.loc[self.sample]
+      except Exception:
+         patient_row = None
+
+      if patient_row is not None:
+         age_raw = patient_row.get('age', '')
+         sex = str(patient_row.get('sex', '')).lower()
+      else:
+         age_raw = self.sample_df.get('age', '')
+         sex = str(self.sample_df.get('sex', '')).lower()
+
+      # Safe coerce age to int
+      try:
+         age = int(float(age_raw)) if str(age_raw).strip() and str(age_raw).strip().lower() != 'nan' else ''
+      except Exception:
+         age = age_raw
+
+      # Try procedures_df for explicit indication details
+      try:
+         proc_row = self.procedures_df.loc[self.sample]
+      except Exception:
+         proc_row = None
+
+      if proc_row is not None:
+         indications = str(proc_row.get('indication_details', '') or '')
+         if indications and indications.strip().lower() != 'nan':
             return age, sex, indications
-        indications = []
-        for col in self.procedures_df.columns:
-            if col.startswith('indication_') and self.procedures_df.loc[self.sample].get(col, False) and col != 'indication_details':
-                indications.append(col.replace('indication_', '').replace('__', '/').replace('_', ' '))
-        # join indications with commas and "and" before last one
-        if len(indications) == 0:
-            indication_str = ""
-        elif len(indications) == 1:
-            indication_str = indications[0]
-        else:
-            indication_str = ', '.join(indications[:-1]) + ', and ' + indications[-1]
-        return age, sex, indication_str
+
+         # otherwise collect boolean indicator_* columns if present
+         indications_list = []
+         for col in self.procedures_df.columns:
+            if col.startswith('indication_') and col != 'indication_details':
+               try:
+                  val = proc_row.get(col, False)
+               except Exception:
+                  val = False
+               if val:
+                  indications_list.append(col.replace('indication_', '').replace('__', '/').replace('_', ' '))
+         if indications_list:
+            if len(indications_list) == 1:
+               return age, sex, indications_list[0]
+            return age, sex, ', '.join(indications_list[:-1]) + ', and ' + indications_list[-1]
+
+      # Final fallback: use sample_df fields if available (look for common names)
+      indications = self.sample_df.get('indications') or self.sample_df.get('indication_details') or self.sample_df.get('chief_complaints') or ''
+      indications = str(indications or '')
+      return age, sex, indications
 
 
    @abstractmethod

@@ -1,22 +1,24 @@
-pandas
-pydantic
+pandas==2.2.2
+pydantic==2.11.3
 python-docx
 pytest
 transformers
 librosa
-vllm
-psycopg2-binary
-python-dotenv
+torch==2.5.0
+# vllm
+# psycopg2-binary
+python-dotenv==1.0.1
 openai
 anthropic
-spacy
-negspacy
-fastapi
+spacy==3.8.7
+negspacy==1.0.4
+fastapi==0.115.12
 uvicorn[standard]
 websockets
 python-multipart
-jinja2
+jinja2==3.1.4
 whisperx
 noisereduce
 soundfile
 pydub
+pyyaml

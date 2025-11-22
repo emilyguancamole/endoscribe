@@ -1,0 +1,111 @@
+meta:
+  procedure_group: ercp
+  title: Endoscopic Retrograde Cholangiopancreatography
+
+field_groups: # Include this section header in all files
+  patient_demographics: # Headers at this indentation level are logically-grouped sections.
+    description: "Basic patient information (common to all ERCPs)" # description is informational, not super important
+    report_section: "indications" # The report section this corresponds to in the Word doc templates
+    template: |
+    fields:
+      - name: name_of_field_for_llm_to_extract
+        type: string
+        prompt_instruction: "Instruction for llm"
+
+  patient_history:
+    description: "Patient medical and social history"
+    report_section: "history"
+    template: |
+    fields:
+      - name: name_of_field_for_llm_to_extract
+        type: string
+        prompt_instruction: "Instruction for llm"
+
+  procedure_description:
+    description: "Equipment and procedure specifics"
+    report_section: "description_of_procedure"
+    template: |
+    fields:
+      - name: name_of_field_for_llm_to_extract
+        type: string
+        prompt_instruction: "Instruction for llm"
+
+  quality_metrics:
+    description: "ERCP quality and technical details"
+    report_section: "ercp_quality_metrics"
+    template: |
+    fields:
+      - name: name_of_field_for_llm_to_extract
+        type: string
+        prompt_instruction: "Instruction for llm"
+
+  scout_film:
+    description: "Abdominal scout film findings"
+    report_section: "findings"
+    report_subsection: "scout_film" # Findings can have subsections to logically group them. This is mostly for our organization; not important for the llm.
+    template: |
+    fields:
+      - name: name_of_field_for_llm_to_extract
+        type: string
+        prompt_instruction: "Instruction for llm"
+        
+  scope_advancement:
+    description: "Scope advancement"
+    report_section: "findings"
+    report_subsection: "scope_advancement"
+    template: |
+    fields:
+      - name: scope_advancement_difficulty
+        type: enum
+        enum_values: ["easy", "difficult"]
+        prompt_instruction: "'easy' or 'difficult'"
+  
+  esd:
+    description: "Esophagus, stomach, duodenum findings"
+    report_section: "findings"
+    template: |
+    fields:
+      - name: name_of_field_for_llm_to_extract
+        type: string
+        prompt_instruction: "Instruction for llm"
+
+  other_findings:
+    description: "Cannulation and sphincterotomy findings"
+    report_section: "findings"
+    report_subsection: "ercp_findings"
+    template: |
+    fields:
+      - name: name_of_field_for_llm_to_extract
+        type: string
+        prompt_instruction: "Instruction for llm"
+
+  blood_loss:
+    description: "Estimated blood loss"
+    report_section: "findings"
+    report_subsection: "blood_loss"
+    template: |
+    fields:
+      - name: name_of_field_for_llm_to_extract
+        type: string
+        prompt_instruction: "Instruction for llm"
+
+  specimens_removed:
+    description: "Specimens removed"
+    report_section: "findings"
+    report_subsection: "specimens"
+    template: |
+    fields:
+      - name: name_of_field_for_llm_to_extract
+        type: string
+        prompt_instruction: "Instruction for llm"
+        
+  complications:
+    description: "Complications from procedure"
+    report_section: "findings"
+    report_subsection: "complications"
+    template: |
+    fields:
+      - name: name_of_field_for_llm_to_extract
+        type: string
+        prompt_instruction: "Instruction for llm"
+  

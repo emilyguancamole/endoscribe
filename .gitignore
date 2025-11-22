@@ -3,6 +3,7 @@
 .gradio
 environment.yml
 __pycache__
+.github
 
 # Fly.io
 .fly/
@@ -26,6 +27,9 @@ data
 tests
 uploads
 chunks
+
+# note drafts
+drafters/results
 
 # old files/folders
 05_col_experiments

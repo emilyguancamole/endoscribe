@@ -2,6 +2,7 @@ I am giving you a transcript from an ERCP procedure. The task is to extract proc
 The entities you must extract are listed below with descriptions. If the description says "0/1", record "0" if false/not performed, "1" if true/performed.
 Follow the instructions. Make sure you are accurate. If an entity is not clear from the transcript, record "N/A".
 
+bmi: 
 pancreatic_sphincterotomy: 0/1
 precut_sphincterotomy: 0/1
 minor_papilla_sphincterotomy: 0/1

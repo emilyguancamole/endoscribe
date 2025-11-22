@@ -28,7 +28,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--procedure_type', choices=['col', 'eus', 'ercp', 'egd'], required=True, help="Type of procedure to process")
     parser.add_argument('--transcripts_fp', required=True, help="Relative path to transcripts csv file within transcription/results/{args.procedure_type} folder")
-    parser.add_argument('--output_filename', required=True, help="File name to save the extracted outputs. Will be saved as a .csv in ./results/{args.procedure_type}")
+    parser.add_argument('--output_filename', required=True, help="File name to save the extracted outputs. Will be saved as a .csv in ./results/{args.procedure_type}/extractions")
     parser.add_argument('--to_postgres', action='store_true', help="If set, write extracted outputs directly to Postgres") # TODO
     parser.add_argument('--files_to_process', nargs='*', help="List of filenames to process; 'all' to process all files")
     
@@ -37,12 +37,13 @@ def main():
                        default='local_llama', help="Predefined model configuration to use")
     parser.add_argument('--model_type', choices=['local', 'openai', 'anthropic'], help="Override model type (local, openai, or anthropic)")
     parser.add_argument('--model_path', help="Override model path, OpenAI model name, or Anthropic model name")
+    parser.add_argument('--system_prompt_fp', help="Path to system prompt file")
     
     args = parser.parse_args()
 
-    system_prompt_fp = f"prompts/{args.procedure_type}/system.txt"
+    system_prompt_fp = args.system_prompt_fp or f'prompts/{args.procedure_type}/system_prompt.txt'
     # args.model_dir = "/scratch/eguan2/llama33-70/llama33-70_model"
-    output_fp = f"results/{args.procedure_type}/{args.output_filename}.csv"
+    output_fp = f"results/{args.procedure_type}/extractions/{args.output_filename}.csv"
 
     print("CUDA Available:", torch.cuda.is_available())
     if torch.cuda.is_available():
@@ -98,7 +99,7 @@ if __name__=="__main__":
 
     python main.py --procedure_type=eus --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process cancer01 mass01
 
-    python main.py --procedure_type=ercp --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process bdstone01 bdstricture01
+    python main.py --procedure_type=ercp --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process bdstone01 bdstricture01 --model_config=openai_gpt4o
 
     python main.py --procedure_type=egd --transcripts_fp=whisper_lg_v3.csv --output_filename=082025-test --files_to_process egd01 egd02 egd03 egd04 egd05
 

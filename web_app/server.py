@@ -104,6 +104,26 @@ print(f"Using device: {DEVICE}")
 TRANSCRIPTION_BUFFER_DURATION_MS = 30000
 TRANSCRIPTION_BUFFER_OVERLAP_MS = 3000 # overlap between segments
 
+#! claude tried fix
+# def update_activity():
+#     """Track last activity time for idle shutdown monitoring."""
+#     global last_activity_time
+#     last_activity_time = time.time()
+
+
+# async def check_idle_and_shutdown():
+#     """Monitor idle time and trigger shutdown if no activity detected."""
+#     global last_activity_time
+#     while True:
+#         await asyncio.sleep(10)  # Check every 10 seconds
+#         idle_duration = time.time() - last_activity_time
+        
+#         if idle_duration > IDLE_TIMEOUT_SECONDS:
+#             print(f"\nNo activity for {idle_duration:.0f}s (timeout: {IDLE_TIMEOUT_SECONDS}s)")
+#             print("Triggering graceful shutdown to scale to zero...")
+#             os.kill(os.getpid(), signal.SIGTERM)
+#             break
+
 
 def concatenate_audio_chunks(chunk_paths, output_path):
     """
@@ -226,11 +246,14 @@ async def lifespan(app: FastAPI):
 
     print("Initializing LLM handler...")
     try:
-        # Use anthropic_claude config as specified in your command
-        LLM_HANDLER = LLMClient.from_config("openai_gpt4o") # anthropic_claude, openai_gpt4o
+        # Select LLM configuration via environment variable so deployments can choose between configs without editing code.
+        llm_config = os.getenv("LLM_CONFIG", "openai_gpt4o")
+        print(f"Using LLM config: {llm_config}")
+        LLM_HANDLER = LLMClient.from_config(llm_config)
         print("LLM handler initialized successfully")
     except Exception as e:
         print(f"Failed to initialize LLM handler: {e}")
+        traceback.print_exc()
         LLM_HANDLER = None
 
     # Initialize processors for all procedure types
@@ -272,10 +295,10 @@ async def lifespan(app: FastAPI):
             print(f"Failed to initialize processors: {e}")
             traceback.print_exc()
 
-    # Start idle shutdown checker (only on Fly.io)
-    if ENABLE_IDLE_SHUTDOWN:
-        print(f"\nStarting idle shutdown monitor ({IDLE_TIMEOUT_SECONDS}s timeout)...")
-        idle_check_task = asyncio.create_task(check_idle_and_shutdown())
+    #! Start idle shutdown checker (only on Fly.io)
+    # if ENABLE_IDLE_SHUTDOWN:
+    #     print(f"\nStarting idle shutdown monitor ({IDLE_TIMEOUT_SECONDS}s timeout)...")
+    #     idle_check_task = asyncio.create_task(check_idle_and_shutdown())
 
     yield  # Application runs here
 

@@ -1,6 +1,6 @@
-from vllm import LLM, SamplingParams
+# from vllm import LLM, SamplingParams
 from openai import OpenAI, AzureOpenAI
-from anthropic import Anthropic
+# from anthropic import Anthropic
 import os
 import json
 from typing import List, Dict, Any, Optional, Union
@@ -9,11 +9,13 @@ load_dotenv()
 
 class LLMClient:
     def __init__(self, model_path: str = None, model_type: str = "local", quant: Optional[str] = None,
-                 tensor_parallel_size: int = 4, sampling_params = None,
+                 tensor_parallel_size: int = 4,
                  base_url: Optional[str] = None, openai_params: Optional[Dict[str, Any]] = None,
                  anthropic_params: Optional[Dict[str, Any]] = None,
                  config_name: Optional[str] = None, config_file: str = "llm/config.json",
-                 use_azure: bool = True, azure_endpoint: Optional[str] = None, api_version: Optional[str] = None):
+                 use_azure: bool = True, azure_endpoint: Optional[str] = None, api_version: Optional[str] = None,
+                #  sampling_params = None
+                ):
         """
         Initialize LLMClient for local vLLM models, OpenAI API, or Anthropic API models.
 
@@ -46,8 +48,8 @@ class LLMClient:
             api_version = api_version or config.get("api_version")
 
             # Load sampling params from config
-            if not sampling_params and "sampling_params" in config:
-                sampling_params = SamplingParams(**config["sampling_params"])
+            # if not sampling_params and "sampling_params" in config:
+            #     sampling_params = SamplingParams(**config["sampling_params"])
         
         self.model_path = model_path
         self.model_type = model_type.lower()
@@ -56,14 +58,15 @@ class LLMClient:
         self.api_version = api_version
 
         if self.model_type == "local":
-            if not model_path:
-                raise ValueError("model_path is required for local models")
-            self.model = self.load_local_llm(model_path, quant, tensor_parallel_size)
-            self.sampling_params = sampling_params or self.default_sampling_params()
-            self.openai_client = None
-            self.anthropic_client = None
-            self.openai_params = {}
-            self.anthropic_params = {}
+            pass # when running on my local mac without gpu
+            # if not model_path:
+            #     raise ValueError("model_path is required for local models")
+            # self.model = self.load_local_llm(model_path, quant, tensor_parallel_size)
+            # self.sampling_params = sampling_params or self.default_sampling_params()
+            # self.openai_client = None
+            # self.anthropic_client = None
+            # self.openai_params = {}
+            # self.anthropic_params = {}
         elif self.model_type == "openai":
             if not model_path:
                 raise ValueError("model_path (OpenAI model name) is required for OpenAI models")
@@ -73,15 +76,15 @@ class LLMClient:
             self.anthropic_client = None
             self.openai_params = openai_params or self.default_openai_params()
             self.anthropic_params = {}
-        elif self.model_type == "anthropic":
-            if not model_path:
-                raise ValueError("model_path (Anthropic model name) is required for Anthropic models")
-            self.model = None
-            self.sampling_params = None
-            self.openai_client = None
-            self.anthropic_client = self.setup_anthropic_client()
-            self.openai_params = {}
-            self.anthropic_params = anthropic_params or self.default_anthropic_params()
+        # elif self.model_type == "anthropic":
+        #     if not model_path:
+        #         raise ValueError("model_path (Anthropic model name) is required for Anthropic models")
+        #     self.model = None
+        #     self.sampling_params = None
+        #     self.openai_client = None
+        #     self.anthropic_client = self.setup_anthropic_client()
+        #     self.openai_params = {}
+        #     self.anthropic_params = anthropic_params or self.default_anthropic_params()
         else:
             raise ValueError(f"Unsupported model_type: {model_type}. Must be 'local', 'openai', or 'anthropic'")
 
@@ -102,13 +105,14 @@ class LLMClient:
 
     def load_local_llm(self, model_path: str, quant: Optional[str], tensor_parallel_size: int):
         """Load local VLLM model"""
-        return LLM(
-            model=model_path,
-            enforce_eager=False,  # can set to true for faster inference
-            tensor_parallel_size=tensor_parallel_size,
-            quantization=quant,
-            max_model_len=8192
-        )
+        pass
+        # return LLM(
+        #     model=model_path,
+        #     enforce_eager=False,  # can set to true for faster inference
+        #     tensor_parallel_size=tensor_parallel_size,
+        #     quantization=quant,
+        #     max_model_len=8192
+        # )
 
     def setup_openai_client(self, base_url: Optional[str],
                           use_azure: bool = True, azure_endpoint: Optional[str] = None,
@@ -142,7 +146,8 @@ class LLMClient:
             For OpenAI/Anthropic models: String response content
         """
         if self.model_type == "local":
-            return self.model.chat(messages, self.sampling_params)
+            pass
+            # return self.model.chat(messages, self.sampling_params)
         elif self.model_type == "openai":
             return self._chat_openai(messages)
         elif self.model_type == "anthropic":

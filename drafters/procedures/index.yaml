@@ -1,0 +1,5 @@
+ercp:
+  ercp_base: ./ercp/generated_ercp_base.yaml
+  ercp_cholangioscopy: ./ercp/generated_ercp_cholangioscopy.yaml
+  ercp_nfu: ./ercp/generated_ercp_nfu.yaml
+  ercp_gastrogastrostomy: ./ercp/generated_ercp_gastrogastrostomy.yaml

@@ -64,6 +64,29 @@ class EUSData(BaseModel):
 
 class ERCPData(BaseModel):
     indications: Optional[str] = None
+    age: Optional[int] = None
+    sex: Optional[str] = None
+    chief_complaints: Optional[str] = None
+    symptoms_duration: Optional[str] = None
+    symptoms_description: Optional[str] = None
+    negative_history: Optional[str] = None
+    past_medical_history: Optional[str] = None
+    current_medications: Optional[str] = None
+    family_history: Optional[str] = None
+    social_history: Optional[str] = None
+    duodenoscope_type: Optional[str] = None
+    scout_film_status: Optional[str] = None
+    scout_film_findings: Optional[str] = None
+    scope_advancement_difficulty: Optional[str] = None
+    upper_gi_examination: Optional[str] = None
+    upper_gi_findings: Optional[str] = None
+    grade_of_ercp: Optional[str] = None
+    pd_cannulation: Optional[str] = None
+    cannulation_success: Optional[bool] = None
+    lactated_ringers: Optional[bool] = None
+    rectal_indomethacin: Optional[bool] = None
+    successful_completion_of_intended_procedure: Optional[bool] = None
+    failed_ercp_from_another_facility_or_provider: Optional[bool] = None
     samples_taken: Optional[bool] = None
     egd_findings: Optional[str] = None
     ercp_findings: Optional[str] = None

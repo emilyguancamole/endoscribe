@@ -1,0 +1,6 @@
+I am giving you a generated ERCP report based on a transcript of an ERCP procedure. Your task is to review the report for grammatical correctness, proper medical terminology, and ensuring that all relevant information from the transcript is included in the report. Make minimal edits to improve clarity and readability while preserving the original meaning. Do not add any new information that was not present in the original report. If information is missing or unclear in the original report, correct any grammatical issues, but do not attempt to fill in the missing information.
+Return the revised report as a JSON object, maintaining the same structure as the input. Include a brief explanation in the "review_notes" field about the changes you made, if any. If no changes were necessary, state "No changes made" and return the original report.
+
+{ 
+    
+}

@@ -1,0 +1,23 @@
+# ERCP Normal Follow-up - Extends ERCP Base
+# For routine stent exchanges and follow-up procedures
+
+$extends: ./fields_base.yaml
+
+# Override metadata
+meta:
+  procedure_type: ercp_nfu
+  title: ERCP for Follow-up
+
+# Override indications to be more specific for follow-up
+field_groups:
+  patient_demographics:
+    template: "{{ age }} year old {{ sex }} is here for a follow-up ERCP for {{ chief_complaints }}."
+  scope_advancement:
+    template: |
+    #todo
+    fields:
+      - name: upper_gi_findings
+        type: string
+        prompt_instruction: "Record 'normal' if normal. Else list abnormalities such as 'erythematous gastric mucosa', 'retained food', 'periampullary diverticulum', 'duodenal edema', 'ulceration', or post-surgical anatomy like 'Billroth II', 'Roux-en-Y', 'Whipple reconstruction'"
+  
+    

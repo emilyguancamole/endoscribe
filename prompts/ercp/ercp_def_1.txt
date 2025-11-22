@@ -1,0 +1,27 @@
+age: patient age in years, integer
+sex: male or female
+chief_complaints: Main symptoms, indications, or reasons for the procedure.
+symptoms_duration: Duration of symptoms if mentioned, e.g. "3 months"
+symptoms_description: Detailed description of symptoms if mentioned
+negative_history: List any negative history mentioned in the transcript. If none mentioned, record "none".
+past_medical_history: If none mentioned, record "none".
+current_medications: If none mentioned, record "none".
+family_history: If none mentioned, record "none".
+social_history: If none mentioned, record "none".
+duodenoscope_type: duodenoscope type used, e.g. TJF-Q180V, TJF-Q190V, ED-530XT
+grade_of_ercp: 
+pd_cannulation: pancreatic duct cannulation status, e.g. "not attempted", "successful", "unsuccessful"
+cannulation_success: if intent was was biliary cannulation and bile duct cannulated; yes/no
+lactated_ringers: yes/no
+rectal_indomethacin: yes/no
+successful_completion_of_intended_procedure: yes/no
+failed_ercp_from_another_facility_or_provider: yes if it was, else no
+
+scout_film_status: "obtained_normal", "obtained_abnormal", or "not_obtained"
+scout_film_findings: If scout film obtained and abnormal, list findings such as "surgical clips in the RUQ", "pneumobilia", "biliary stent in situ", "surgical drain", or "residual contrast from prior study". If normal or not obtained, record "none".
+duodenoscope_advancement_difficulty: "easy", "difficult", or "unknown"
+upper_gi_examination: "detailed" or "limited"
+upper_gi_findings: "normal" or list abnormalities such as "erythematous gastric mucosa", "retained food", "periampullary diverticulum", "duodenal edema", "ulceration", or post-surgical anatomy like "Billroth II", "Roux-en-Y", "Whipple reconstruction". If normal, record "normal".
+esophagus_findings: include measurements and specific findings if any
+stomach_findings: include measurements and specific findings if any
+duodenum_findings: include measurements and specific findings if any

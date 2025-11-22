@@ -1,0 +1,118 @@
+{
+  "updated_fields": {
+    "chief_complaints": "follow up for a known bile duct stricture, history of hilar biliary stricture and chronic calcific pancreatitis",
+    "past_medical_history": "history of hilar biliary stricture and chronic calcific pancreatitis",
+    "stricture_description": "mild, short, hilar stricture measuring approximately 5 mm, extending from the hilum bile duct",
+    "plastic_stent_details": "10 French by 15 cm plastic stent",
+    "impressions": [
+      "Successful removal of prior 10 French by 15 cm plastic stent",
+      "Patent prior biliary sphincterotomy",
+      "Successful deep cannulation of bile duct with sphincterotome and guidewire",
+      "Cholangiogram revealed mild, short, hilar stricture measuring approximately 5 mm",
+      "Successful placement of new 10 French by 15 cm plastic stent"
+    ]
+  },
+  "updated_sections": {
+    "indications": "A 19-year-old male patient is here for an ERCP procedure for follow-up of a known bile duct stricture, history of hilar biliary stricture, and chronic calcific pancreatitis.",
+    "history": "The patient reports a history of follow-up for a known bile duct stricture, history of hilar biliary stricture, and chronic calcific pancreatitis. Initially, there was concern for malignancy, but prior biopsies and imaging showed no evidence of progression, suggesting a benign etiology. No history of progression of malignancy is reported unless otherwise specified.",
+    "findings": "A scout film of the abdomen was performed and appeared normal, with a biliary stent in situ. The duodenoscope Olympus TJF Q180V was advanced to the second portion of the duodenum without difficulty and without detailed examination of the upper GI tract. The major papilla was identified and appeared normal in position and morphology, with an intact orifice and no surrounding erythema or edema. After removal of the previously placed stent, evidence of prior sphincterotomy was present, and the orifice was patent. A previously placed plastic stent was seen emerging from the major papilla. The minor papilla could not be located. The ampulla was identified and found to be normal. Bile duct cannulation was attempted using a sphincterotome preloaded with a guidewire (0.035-inch guide wire) and was successful. Biliary cannulation was achieved without pancreatic duct entry. Contrast was injected under fluoroscopic guidance and a cholangiogram was performed. Intrahepatic ducts were normal in caliber, and contrast drained freely into the duodenum. A mild, short, hilar stricture measuring approximately 5 mm, extending from the hilum was noted. A single plastic stent was visualized at the major papilla and successfully removed. Pancreatogram was not performed. Sphincterotomy was performed. A 10 French by 15 cm plastic stent was placed. The scope was then completely withdrawn from the patient and the procedure completed. Estimated blood loss: None. Specimens removed: None. Complications: There were no immediate complications."
+  },
+  "accept_rendered_note": false,
+  "final_note": "The rendered sections have been updated for consistency and readability based on the transcript. The chief complaints and past medical history have been corrected to reflect 'chronic calcific pancreatitis' instead of 'chronic thalassification pancreatitis'. The stricture description and plastic stent details have been clarified. The impressions have been formatted as a list for clarity.",
+  "deltas": [
+    {
+      "type": "field",
+      "name": "chief_complaints",
+      "old": "follow up for a known bile duct stricture, history of hilar biliary stricture and chronic thalassification pancreatitis",
+      "new": "follow up for a known bile duct stricture, history of hilar biliary stricture and chronic calcific pancreatitis",
+      "justification": "Corrected 'thalassification' to 'calcific' based on standard medical terminology.",
+      "transcript_evidence": [
+        {
+          "text": "history of hilar biliary stricture and chronic thalassification pancreatitis"
+        }
+      ]
+    },
+    {
+      "type": "field",
+      "name": "past_medical_history",
+      "old": "history of hilar biliary stricture and chronic thalassification pancreatitis",
+      "new": "history of hilar biliary stricture and chronic calcific pancreatitis",
+      "justification": "Corrected 'thalassification' to 'calcific' based on standard medical terminology.",
+      "transcript_evidence": [
+        {
+          "text": "history of hilar biliary stricture and chronic thalassification pancreatitis"
+        }
+      ]
+    },
+    {
+      "type": "field",
+      "name": "stricture_description",
+      "old": "mild, short, hilar stricture measuring approximately 5 mm, extending from the hilum",
+      "new": "mild, short, hilar stricture measuring approximately 5 mm, extending from the hilum bile duct",
+      "justification": "Clarified location of stricture based on transcript.",
+      "transcript_evidence": [
+        {
+          "text": "A cholangiogram revealed a mild, short, highlarge structure measuring approximately 5 mm, extending from the hilum bile duct successfully."
+        }
+      ]
+    },
+    {
+      "type": "field",
+      "name": "plastic_stent_details",
+      "old": "10 French into 15 cm plastic stent",
+      "new": "10 French by 15 cm plastic stent",
+      "justification": "Corrected phrasing for clarity.",
+      "transcript_evidence": [
+        {
+          "text": "during which a 10 French into 15 cm plastic stent was placed."
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "name": "indications",
+      "old": "19-year-old male patient is here for an ERCP procedure for follow up for a known bile duct stricture, history of hilar biliary stricture and chronic thalassification pancreatitis.",
+      "new": "A 19-year-old male patient is here for an ERCP procedure for follow-up of a known bile duct stricture, history of hilar biliary stricture, and chronic calcific pancreatitis.",
+      "justification": "Corrected 'thalassification' to 'calcific' and improved readability.",
+      "transcript_evidence": [
+        {
+          "text": "Indications for the procedure is follow up for a known bile duct stricture, history of hilar biliary stricture and chronic thalassification pancreatitis"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "name": "history",
+      "old": "The patient reports  history of follow up for a known bile duct stricture, history of hilar biliary stricture and chronic thalassification pancreatitis.\nInitial concern for malignancy, but prior biopsies and imaging showed no evidence of progression, suggesting a benign etiology.\n No history of no evidence of progression of malignancy is reported unless otherwise specified.History of hilar biliary stricture and chronic thalassification pancreatitis.",
+      "new": "The patient reports a history of follow-up for a known bile duct stricture, history of hilar biliary stricture, and chronic calcific pancreatitis. Initially, there was concern for malignancy, but prior biopsies and imaging showed no evidence of progression, suggesting a benign etiology. No history of progression of malignancy is reported unless otherwise specified.",
+      "justification": "Corrected 'thalassification' to 'calcific' and improved readability.",
+      "transcript_evidence": [
+        {
+          "text": "history of hilar biliary stricture and chronic thalassification pancreatitis"
+        },
+        {
+          "text": "Initial concern for malignancy, but prior biopsies and imaging showed no evidence of progression, suggesting a benign etiology."
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "name": "findings",
+      "old": "A scout film of the abdomen was performed. It appeared normal. biliary stent in situ.\n\nThe duodenoscope Olympus TJF Q180V was advanced to the second portion of the duodenum without difficulty and without detailed examination of the upper GI tract.\n Not described were seen.\nThe major papilla was identified. It appeared normal in position and morphology, with an intact orifice and no surrounding erythema or edema.After removal of the previously placed stent, evidence of prior sphincterotomy was present. Orifice was patent.A previously placed plastic or metal stent was seen emerging from the major papilla.\nThe minor papilla could not be located.\n\nThe ampulla was identified and found to be normal.\n\nBile duct cannulation was attempted using a sphincterotome preloaded with a guidewire (0.035-inch guide wire).\nBile duct cannulation was successful. Biliary cannulation was achieved without pancreatic duct entry.\n\nContrast was injected under fluoroscopic guidance and cholangiogram was performed.\n Intrahepatic ducts were normal in caliber, and contrast drained freely into the duodenum. Mild, short, hilar stricture measuring approximately 5 mm, extending from the hilum. Single plastic stent visualized at the major papilla and successfully removed.\nPancreatogram was not performed.\n\nSphincterotomy was performed.\n\nA 10 French into 15 cm plastic stent was placed. The scope was then completely withdrawn from the patient and the procedure completed.\n\nEstimated blood loss: None.\n\nSpecimens removed: None.\n\nComplications: There were no immediate complications.",
+      "new": "A scout film of the abdomen was performed and appeared normal, with a biliary stent in situ. The duodenoscope Olympus TJF Q180V was advanced to the second portion of the duodenum without difficulty and without detailed examination of the upper GI tract. The major papilla was identified and appeared normal in position and morphology, with an intact orifice and no surrounding erythema or edema. After removal of the previously placed stent, evidence of prior sphincterotomy was present, and the orifice was patent. A previously placed plastic stent was seen emerging from the major papilla. The minor papilla could not be located. The ampulla was identified and found to be normal. Bile duct cannulation was attempted using a sphincterotome preloaded with a guidewire (0.035-inch guide wire) and was successful. Biliary cannulation was achieved without pancreatic duct entry. Contrast was injected under fluoroscopic guidance and a cholangiogram was performed. Intrahepatic ducts were normal in caliber, and contrast drained freely into the duodenum. A mild, short, hilar stricture measuring approximately 5 mm, extending from the hilum was noted. A single plastic stent was visualized at the major papilla and successfully removed. Pancreatogram was not performed. Sphincterotomy was performed. A 10 French by 15 cm plastic stent was placed. The scope was then completely withdrawn from the patient and the procedure completed. Estimated blood loss: None. Specimens removed: None. Complications: There were no immediate complications.",
+      "justification": "Improved readability and corrected phrasing for clarity.",
+      "transcript_evidence": [
+        {
+          "text": "The ERCP finding shows a scout film confirmed the presence of a biliary stent in situ."
+        },
+        {
+          "text": "A cholangiogram revealed a mild, short, highlarge structure measuring approximately 5 mm, extending from the hilum bile duct successfully."
+        }
+      ]
+    }
+  ],
+  "confidence": 0.95,
+  "warnings": [
+    "Ensure 'calcific pancreatitis' is the intended term as 'thalassification' is not standard terminology."
+  ]
+}

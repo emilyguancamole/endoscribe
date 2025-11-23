@@ -127,7 +127,7 @@ Examples:
     )
     parser.add_argument(
         "--sessions-csv",
-        default="pep_risk/results_longform/pep_llm_extraction.csv",
+        default="pep_risk/results/pep_llm_extraction.csv",
         help="Path to sessions CSV (default: pep_risk/results_longform/pep_llm_extraction.csv)"
     )
     parser.add_argument(
@@ -153,8 +153,9 @@ Examples:
             with open(args.extraction_json, "r") as f:
                 extraction = json.load(f)
         else:
-            print(f"Loading extraction for session '{args.session_id}' from {args.sessions_csv}")
+            print(f"Loading extraction for session '{args.session_id}' from {args.sessions_csv}:")
             extraction = load_extraction_from_sessions(args.session_id, args.sessions_csv)
+            print(f"Loaded extraction: {extraction}")
     except Exception as e:
         print(f"Error loading extraction: {e}", file=sys.stderr)
         sys.exit(1)
@@ -163,7 +164,7 @@ Examples:
     try:
         print(f"Finding ground truth row for session '{args.session_id}'")
         gt_row = find_gt_row_for_session(args.session_id, args.ground_truth)
-        print(f"Found ground truth: audio_recording={gt_row['audio_recording']}")
+        print(f"Found ground truth: audio_recording={gt_row}")
     except Exception as e:
         print(f"Error loading ground truth: {e}", file=sys.stderr)
         sys.exit(1)

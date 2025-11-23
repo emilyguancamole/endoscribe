@@ -5,10 +5,7 @@ Used by both the server and standalone evaluation scripts.
 import math
 import os
 from typing import Dict, List, Optional
-
 import pandas as pd
-import typing
-import builtins
 
 
 def safe_float(val):
@@ -59,13 +56,8 @@ def parse_list_field(val: Optional[object]) -> List[str]:
 def map_ground_truth_columns(row: pd.Series) -> Dict[str, object]:
     """
     Map/rename ground-truth columns to match extraction schema.
-    
-    CUSTOMIZE THIS MAPPING to match your ground_truth.csv column names
-    to your extraction field names.
-    
     Args:
         row: A pandas Series representing one ground truth row
-        
     Returns:
         Dictionary mapping extraction field names to ground truth values
     """
@@ -320,5 +312,6 @@ def evaluate_against_ground_truth(
         else:
             edf = pd.DataFrame([eval_row])
         edf.to_csv(save_to_csv, index=False)
+        print(f"Saved EVALUATION results to {save_to_csv}")
 
     return metrics

@@ -15,7 +15,7 @@ from fastapi.encoders import jsonable_encoder
 app = FastAPI()
 
 UPLOAD_DIR = "uploads"
-RESULTS_DIR = "pep_risk/results_longform"
+RESULTS_DIR = "pep_risk/results"
 RECORDINGS_DIR = "pep_risk/recordings"
 GROUND_TRUTH_CSV = "pep_risk/ground_truth.csv"
 os.makedirs(UPLOAD_DIR, exist_ok=True)

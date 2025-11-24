@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EndoScribe - Medical Transcription & Extraction</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="apple-touch-icon" href="/static/favicon.svg">
 
     <!-- Tailwind CSS + DaisyUI (minified) -->
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
@@ -38,9 +40,9 @@
                 <h2 class="card-title">Select Procedure Type</h2>
                 <select x-model="procedureType" class="select select-bordered w-full max-w-xs">
                     <option value="col">Colonoscopy</option>
-                    <option value="eus">Endoscopic Ultrasound (EUS)</option>
+                    <option value="eus">EUS</option>
                     <option value="ercp">ERCP</option>
-                    <option value="egd">Esophagogastroduodenoscopy (EGD)</option>
+                    <option value="egd">EGD</option>
                 </select>
             </div>
         </div>
@@ -83,18 +85,26 @@
         <div class="card bg-base-100 shadow-xl mb-4">
             <div class="card-body">
                 <h2 class="card-title flex justify-between items-center w-full">
-                    <span>Real-time Transcription</span>
+                    <span>Transcription</span>
                     <span x-show="showProcessingTranscription" class="loading loading-dots loading-sm"></span>
                 </h2>
                 <div x-ref="transcriptionContainer" class="bg-base-200 p-4 rounded-lg min-h-[200px] max-h-[400px] overflow-y-auto">
                     <p x-text="transcriptionDisplay" class="transcript-text text-base-content/70"></p>
                 </div>
 
-                <!-- Submit Button (shown after recording) -->
-                <button @click="processTranscript" x-show="showSubmitButton" :disabled="showProcessing" class="btn btn-primary mt-4">
-                    <span x-show="showProcessing" class="loading loading-spinner"></span>
-                    <span x-text="showProcessing ? 'Processing...' : 'Submit for Processing'"></span>
-                </button>
+                <!-- Submit Buttons (shown after recording) -->
+                <div x-show="showSubmitButton" class="flex gap-4 mt-4">
+                    <button @click="processTranscript" :disabled="showProcessing" class="btn btn-primary">
+                        <span x-show="showProcessing" class="loading loading-spinner"></span>
+                        <span x-text="showProcessing ? 'Processing...' : 'Submit for Processing'"></span>
+                    </button>
+                    
+                    <!-- Calculate PEP Risk button (only for ERCP) -->
+                    <button @click="processPEPRisk" x-show="showPEPRiskButton" :disabled="showProcessingPEP" class="btn btn-secondary">
+                        <span x-show="showProcessingPEP" class="loading loading-spinner"></span>
+                        <span x-text="showProcessingPEP ? 'Calculating...' : 'Calculate PEP Risk'"></span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -120,14 +130,14 @@
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Other Procedure Results -->
-            <div x-show="showOtherResults" class="card bg-base-100 shadow-xl mb-4">
-                <div class="card-body">
-                    <h2 class="card-title">Procedure Results</h2>
-                    <div x-html="createDataTable(procedureData)" class="overflow-x-auto">
-                        <!-- Procedure data will be inserted here -->
-                    </div>
+        <!-- PEP Risk Results (separate from main results) -->
+        <div x-show="showPEPRiskResults" class="card bg-base-100 shadow-xl mb-4">
+            <div class="card-body">
+                <h2 class="card-title">PEP Risk Factors Extracted</h2>
+                <div x-html="createDataTable(pepRiskData)" class="overflow-x-auto">
+                    <!-- PEP Risk data will be inserted here -->
                 </div>
             </div>
         </div>

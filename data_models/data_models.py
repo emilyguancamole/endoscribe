@@ -128,6 +128,15 @@ class PEPRiskData(BaseModel):
     aggressive_hydration: Optional[bool] = None
     pancreatic_duct_stent_placement: Optional[bool] = None
 
+    # convert "N/A" to false
+    @field_validator('*', mode='before')
+    @classmethod
+    def convert_na_to_false(cls, v):
+        """Convert 'N/A' strings to False for optional boolean fields"""
+        if isinstance(v, str) and v.strip().upper() in ['N/A', 'NA']:
+            return False
+        return v
+
 class EGDData(BaseModel):
     indications: Optional[str] = None
     extent: Optional[str] = None

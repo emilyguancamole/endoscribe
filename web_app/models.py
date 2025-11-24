@@ -9,6 +9,7 @@ class ProcedureType(str, Enum):
     EUS = "eus"
     ERCP = "ercp"
     EGD = "egd"
+    PEP_RISK = "pep_risk"
 
 
 class TranscriptionChunk(BaseModel):

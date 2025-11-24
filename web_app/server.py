@@ -42,7 +42,8 @@ from data_models.data_models import (
     PolypData,
     EUSData,
     ERCPData,
-    EGDData
+    EGDData,
+    PEPRiskData
 )
 from pydantic import ValidationError
 
@@ -105,12 +106,6 @@ TRANSCRIPTION_BUFFER_DURATION_MS = 30000
 TRANSCRIPTION_BUFFER_OVERLAP_MS = 3000 # overlap between segments
 
 #! claude tried fix
-# def update_activity():
-#     """Track last activity time for idle shutdown monitoring."""
-#     global last_activity_time
-#     last_activity_time = time.time()
-
-
 # async def check_idle_and_shutdown():
 #     """Monitor idle time and trigger shutdown if no activity detected."""
 #     global last_activity_time
@@ -289,6 +284,13 @@ async def lifespan(app: FastAPI):
                     llm_handler=LLM_HANDLER,
                     to_postgres=False
                 ),
+                "pep_risk": ERCPProcessor(
+                    procedure_type="pep_risk",
+                    system_prompt_fp="pep_risk/prompts/system.txt",
+                    output_fp=str(RESULTS_DIR / "pep_risk_results.csv"),
+                    llm_handler=LLM_HANDLER,
+                    to_postgres=False
+                ),
             }
             print("All processors initialized successfully")
         except Exception as e:
@@ -317,16 +319,30 @@ async def lifespan(app: FastAPI):
 # Initialize FastAPI app with lifespan handler
 app = FastAPI(title="EndoScribe Web API", version="1.0.0", lifespan=lifespan)
 
-# Setup templates and static files
+# Setup static files - serve React build
+REACT_BUILD_DIR = BASE_DIR / "static" / "dist"
+if REACT_BUILD_DIR.exists():
+    # Serve React build assets
+    app.mount("/assets", StaticFiles(directory=str(REACT_BUILD_DIR / "assets")), name="assets")
+    # Keep legacy static for favicon and other assets
+    app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+else:
+    # Fallback to legacy static for development
+    app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+
+# Keep templates for fallback
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    """Serve the main UI"""
-    update_activity()
-    return templates.TemplateResponse("index.html", {"request": request})
+    """Serve the main UI - React build or fallback to legacy"""
+    react_index = REACT_BUILD_DIR / "index.html"
+    if react_index.exists():
+        return FileResponse(str(react_index))
+    else:
+        # Fallback to legacy template
+        return templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -393,7 +409,6 @@ async def websocket_transcribe(websocket: WebSocket):
     4. Client sends JSON: {"type": "end"} to finalize
     """
     await websocket.accept()
-    update_activity()  # Track WebSocket connection for idle shutdown
     session_id = None
     audio_chunks = []
 
@@ -402,7 +417,6 @@ async def websocket_transcribe(websocket: WebSocket):
             # Receive data (can be text or bytes)
             try:
                 data = await websocket.receive()
-                update_activity()  # Track activity on every message
             except WebSocketDisconnect:
                 print(f"WebSocket disconnected for session {session_id}")
                 break
@@ -611,7 +625,6 @@ async def process_transcript(request: ProcessRequest):
     Returns:
         ProcessResponse with extracted structured data
     """
-    update_activity()  # Track API activity for idle shutdown
     start_time = time.time()
 
     # Validate LLM is initialized
@@ -729,6 +742,20 @@ async def process_transcript(request: ProcessRequest):
                 "colonoscopy": col_outputs[0] if col_outputs else {},
                 "polyps": polyp_outputs
             }
+
+        elif request.procedure_type == ProcedureType.PEP_RISK:
+            # PEP risk extraction - use existing pep_risk implementation
+            outputs = []
+
+            for _, row in transcript_df.iterrows():
+                # Use the extract_pep_from_transcript method from ERCPProcessor
+                result = processor.extract_pep_from_transcript(
+                    row["pred_transcript"],
+                    filename=row["participant_id"]
+                )
+                outputs.append(result)
+
+            result_data = outputs[0] if outputs else {}
 
         else:
             # Other procedure types (EUS, ERCP, EGD)

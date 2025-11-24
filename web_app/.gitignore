@@ -30,3 +30,15 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Build outputs
+dist/
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/

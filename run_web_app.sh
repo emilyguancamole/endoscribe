@@ -17,9 +17,9 @@ if [ ! -f .env ]; then
 fi
 
 # Start the server
-echo "Starting server on http://localhost:8000"
+echo "Starting server on http://localhost:8001"
 echo ""
 python web_app/server.py
 
 # Alternative using uvicorn directly:
-# uvicorn web_app.server:app --host 0.0.0.0 --port 8000 --reload
+# uvicorn web_app.server:app --host localhost --port 8001 --reload

@@ -12,7 +12,7 @@ export function AudioRecorder({
                       paused ? 'badge-warning' : 'badge-neutral';
 
   return (
-    <div className="card bg-base-100 shadow-xl mb-4">
+    <div className="card bg-base-100 shadow mb-4">
       <div className="card-body">
         <h2 className="card-title flex justify-between items-center w-full">
           <span>Audio Recording</span>

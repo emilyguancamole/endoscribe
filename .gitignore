@@ -41,9 +41,9 @@ llama_extraction.py
 llama_vllm.py
 structure.txt
 
-REFACTORING_SUMMARY.md
+PEP_IMPLEMENTATION.md
+PEP_WORKFLOW.md
 DEVLOPER_GUIDE.md
-MIGRATION_COMPARISON.md
 LLM_USAGE.md
 
 # unrelated

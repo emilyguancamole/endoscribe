@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { ProcedureSelector } from './components/ProcedureSelector';
+import { PEPRiskManualInput } from './components/PEPRiskManualInput';
 import { AudioRecorder } from './components/AudioRecorder';
 import { TranscriptionDisplay } from './components/TranscriptionDisplay';
 import { ResultsDisplay } from './components/ResultsDisplay';
@@ -21,6 +22,8 @@ function App() {
   const [isCalculatingPEP, setIsCalculatingPEP] = useState(false);
   const [recordingStatus, setRecordingStatus] = useState('');
   
+  const [pepManualData, setPepManualData] = useState({});
+  
   // Results states
   const [showResults, setShowResults] = useState(false);
   const [showPEPRiskResults, setShowPEPRiskResults] = useState(false);
@@ -28,6 +31,8 @@ function App() {
   const [polypsData, setPolypsData] = useState([]);
   const [procedureData, setProcedureData] = useState({});
   const [pepRiskData, setPepRiskData] = useState({});
+  const [pepRiskScore, setPepRiskScore] = useState(null);
+  const [pepRiskCategory, setPepRiskCategory] = useState(null);
 
   // Custom hooks
   const websocket = useWebSocketTranscription(sessionId, setSessionId);
@@ -127,16 +132,13 @@ function App() {
     setShowPEPRiskResults(false);
 
     try {
-      const result = await processTranscriptAPI(transcript, 'pep_risk', sessionId);
+      // Pass manual PEP data along with transcript for pep_risk processing
+      const result = await processTranscriptAPI(transcript, 'pep_risk', sessionId, pepManualData);
       
       if (result.success) {
-        const filteredData = {};
-        for (const [key, value] of Object.entries(result.data)) {
-          if (key !== 'id' && key !== 'model') {
-            filteredData[key] = value;
-          }
-        }
-        setPepRiskData(filteredData);
+        setPepRiskData(result.data);
+        setPepRiskScore(result.pep_risk_score);
+        setPepRiskCategory(result.pep_risk_category);
         setShowPEPRiskResults(true);
       } else {
         showError(result.error || 'PEP Risk calculation failed');
@@ -159,6 +161,13 @@ function App() {
         value={procedureType} 
         onChange={setProcedureType} 
       />
+
+      {procedureType === 'ercp' && (
+        <PEPRiskManualInput 
+          onDataChange={setPepManualData}
+          initialData={pepManualData}
+        />
+      )}
 
       <AudioRecorder
         recording={audioRecorder.recording}
@@ -188,6 +197,8 @@ function App() {
         polypsData={polypsData}
         procedureData={procedureData}
         pepRiskData={pepRiskData}
+        pepRiskScore={pepRiskScore}
+        pepRiskCategory={pepRiskCategory}
         showResults={showResults}
         showPEPRiskResults={showPEPRiskResults}
       />

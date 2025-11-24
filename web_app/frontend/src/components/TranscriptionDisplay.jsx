@@ -18,10 +18,10 @@ export function TranscriptionDisplay({
     }
   }, [transcript]);
 
-  const displayText = transcript.trim() || 'Transcription will appear here as you speak...';
+  const displayText = transcript.trim() || 'Transcription will appear here';
 
   return (
-    <div className="card bg-base-100 shadow-xl mb-4">
+    <div className="card bg-base-100 shadow mb-4">
       <div className="card-body">
         <h2 className="card-title flex justify-between items-center w-full">
           <span>Transcription</span>
@@ -47,7 +47,7 @@ export function TranscriptionDisplay({
               className="btn btn-primary"
             >
               {isSubmitting && <span className="loading loading-spinner"></span>}
-              <span>{isSubmitting ? 'Processing...' : 'Submit for Processing'}</span>
+              <span>{isSubmitting ? 'Processing...' : 'Generate Note'}</span>
             </button>
 
             {showPEPRiskButton && (

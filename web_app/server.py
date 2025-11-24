@@ -744,18 +744,46 @@ async def process_transcript(request: ProcessRequest):
             }
 
         elif request.procedure_type == ProcedureType.PEP_RISK:
-            # PEP risk extraction - use existing pep_risk implementation
+            # PEP risk extraction and prediction
+            # 1. Extract risk factors from transcript using LLM
+            # 2. Combine with manual inputs
+            # 3. Feed to prediction model
+            
+            from pep_risk.dummy_model import predict_pep_risk
+            
             outputs = []
 
             for _, row in transcript_df.iterrows():
                 # Use the extract_pep_from_transcript method from ERCPProcessor
-                result = processor.extract_pep_from_transcript(
+                llm_result = processor.extract_pep_from_transcript(
                     row["pred_transcript"],
                     filename=row["participant_id"]
                 )
-                outputs.append(result)
+                outputs.append(llm_result)
 
-            result_data = outputs[0] if outputs else {}
+            llm_extracted_data = outputs[0] if outputs else {}
+            
+            # Get manual data if provided
+            manual_data = None
+            if request.manual_pep_data:
+                manual_data = request.manual_pep_data.model_dump(exclude_none=True)
+            
+            # Run prediction model
+            prediction_result = predict_pep_risk(
+                manual_data=manual_data,
+                llm_extracted_data=llm_extracted_data
+            )
+            
+            # Combine everything for the response
+            result_data = {
+                "llm_extracted": llm_extracted_data,
+                "manual_input": manual_data,
+                "prediction": prediction_result
+            }
+            
+            # Add risk score and category to top level for easy access
+            pep_risk_score = prediction_result.get("risk_score") if prediction_result.get("success") else None
+            pep_risk_category = prediction_result.get("risk_category") if prediction_result.get("success") else None
 
         else:
             # Other procedure types (EUS, ERCP, EGD)
@@ -818,14 +846,22 @@ async def process_transcript(request: ProcessRequest):
             result_data = outputs[0] if outputs else {}
 
         processing_time = time.time() - start_time
-
-        return ProcessResponse(
+        
+        # Prepare response with optional PEP risk scores
+        response_data = ProcessResponse(
             success=True,
             procedure_type=request.procedure_type.value,
             session_id=request.session_id,
             data=result_data,
             processing_time_seconds=round(processing_time, 2)
         )
+        
+        # Add PEP risk scores if this was a PEP_RISK prediction
+        if request.procedure_type == ProcedureType.PEP_RISK and 'pep_risk_score' in locals():
+            response_data.pep_risk_score = pep_risk_score
+            response_data.pep_risk_category = pep_risk_category
+        
+        return response_data
 
     except Exception as e:
         error_msg = f"Processing error: {str(e)}"

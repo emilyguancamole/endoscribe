@@ -2,7 +2,7 @@ import { PROCEDURE_TYPES } from '../constants';
 
 export function ProcedureSelector({ value, onChange }) {
   return (
-    <div className="card bg-base-100 shadow-xl mb-4">
+    <div className="card bg-base-100 shadow mb-4">
       <div className="card-body">
         <h2 className="card-title">Select Procedure Type</h2>
         <select 

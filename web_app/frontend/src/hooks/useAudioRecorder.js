@@ -19,12 +19,10 @@ export function useAudioRecorder(onAudioChunk) {
         recorderType: RecordRTC.StereoAudioRecorder,
         timeSlice: AUDIO_CHUNK_INTERVAL_MS,
         ondataavailable: (blob) => {
+          console.log('RecordRTC chunk received:', blob.size, 'bytes');
           if (blob.size > 0 && onAudioChunk) {
             onAudioChunk(blob);
           }
-        },
-        onstop: () => {
-          stream.getTracks().forEach(track => track.stop());
         }
       });
 
@@ -32,6 +30,7 @@ export function useAudioRecorder(onAudioChunk) {
       mediaRecorderRef.current = recorder;
       setRecording(true);
       setPaused(false);
+      console.log('Recording started with chunk interval:', AUDIO_CHUNK_INTERVAL_MS, 'ms');
     } catch (error) {
       console.error('Error starting recording:', error);
       throw new Error('Failed to start recording. Please check microphone permissions.');

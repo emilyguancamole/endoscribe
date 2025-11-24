@@ -26,6 +26,7 @@ export function useWebSocketTranscription(sessionId, setSessionId) {
 
     ws.onmessage = (event) => {
       const message = JSON.parse(event.data);
+      console.log("WS: Message received")
       
       switch (message.type) {
         case 'status':
@@ -98,7 +99,10 @@ export function useWebSocketTranscription(sessionId, setSessionId) {
 
   const sendAudioChunk = useCallback((blob) => {
     if (websocketRef.current?.readyState === WebSocket.OPEN) {
+      console.log('Sending audio chunk:', blob.size, 'bytes');
       websocketRef.current.send(blob);
+    } else {
+      console.warn('WebSocket not ready, state:', websocketRef.current?.readyState);
     }
   }, []);
 

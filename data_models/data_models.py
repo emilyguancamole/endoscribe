@@ -104,10 +104,21 @@ class ERCPData(BaseModel):
             return [v]
         return v
 
+class ManualPEPRiskData(BaseModel):
+    """Manual risk factors input by clinician before/after ERCP"""
+    age_years: int
+    gender_male: bool
+    bmi: float
+    cholecystectomy: bool
+    history_of_pep: bool
+    hx_of_recurrent_pancreatitis: bool
+    sod: bool
+    pancreo_biliary_malignancy: bool
+    trainee_involvement: bool
+
+
 class PEPRiskData(BaseModel):
-    # sod: bool
-    # history_of_pep: bool
-    # hx_of_recurrent_pancreatitis: bool
+    """LLM-extracted risk factors"""
     pancreatic_sphincterotomy: Optional[bool] = None
     precut_sphincterotomy: Optional[bool] = None
     minor_papilla_sphincterotomy: Optional[bool] = None
@@ -136,6 +147,38 @@ class PEPRiskData(BaseModel):
         if isinstance(v, str) and v.strip().upper() in ['N/A', 'NA']:
             return False
         return v
+
+
+class CombinedPEPRiskData(BaseModel):
+    """Combined manual and LLM-extracted PEP risk factors"""
+    # Manual
+    age_years: Optional[int] = None
+    gender_male: Optional[bool] = None
+    bmi: Optional[float] = None
+    cholecystectomy: Optional[bool] = None
+    history_of_pep: Optional[bool] = None
+    hx_of_recurrent_pancreatitis: Optional[bool] = None
+    sod: Optional[bool] = None
+    trainee_involvement: Optional[bool] = None
+    
+    # LLM-extracted
+    pancreatic_sphincterotomy: Optional[bool] = None
+    precut_sphincterotomy: Optional[bool] = None
+    minor_papilla_sphincterotomy: Optional[bool] = None
+    failed_cannulation: Optional[bool] = None
+    difficult_cannulation: Optional[bool] = None
+    pneumatic_dilation_of_intact_biliary_sphincter: Optional[bool] = None
+    pancreatic_duct_injections: Optional[bool] = None
+    pancreatic_duct_injections_2: Optional[int] = None
+    acinarization: Optional[bool] = None
+    pancreo_biliary_malignancy: Optional[bool] = None
+    guidewire_cannulation: Optional[bool] = None
+    guidewire_passage_into_pancreatic_duct: Optional[bool] = None
+    guidewire_passage_into_pancreatic_duct_2: Optional[int] = None
+    biliary_sphincterotomy: Optional[bool] = None
+    indomethacin_nsaid_prophylaxis: Optional[bool] = None
+    aggressive_hydration: Optional[bool] = None
+    pancreatic_duct_stent_placement: Optional[bool] = None
 
 class EGDData(BaseModel):
     indications: Optional[str] = None

@@ -20,11 +20,25 @@ class TranscriptionChunk(BaseModel):
     is_final: bool = False
 
 
+class PEPRiskManualInput(BaseModel):
+    """Manual PEP risk factors input by clinician"""
+    age_years: int
+    gender_male: bool
+    bmi: float
+    cholecystectomy: bool
+    history_of_pep: bool
+    hx_of_recurrent_pancreatitis:bool
+    sod: bool
+    pancreo_biliary_malignancy: bool
+    trainee_involvement: bool
+
+
 class ProcessRequest(BaseModel):
     """Request to process a transcript and extract structured data"""
     transcript: str = Field(..., min_length=10, description="The full transcript text to process")
     procedure_type: ProcedureType = Field(..., description="Type of procedure (col, eus, ercp, egd)")
     session_id: Optional[str] = Field(None, description="Optional session ID for tracking")
+    manual_pep_data: Optional[PEPRiskManualInput] = Field(None, description="Manual PEP risk factors for ERCP procedures")
 
     @field_validator('transcript')
     @classmethod
@@ -43,6 +57,8 @@ class ProcessResponse(BaseModel):
     data: Dict[str, Any] = Field(default_factory=dict, description="Extracted structured data")
     error: Optional[str] = None
     processing_time_seconds: Optional[float] = None
+    pep_risk_score: Optional[float] = Field(None, description="PEP risk prediction score (0-100)")
+    pep_risk_category: Optional[str] = Field(None, description="PEP risk category (low/moderate/high)") #?
 
 
 class ColonoscopyResult(BaseModel):

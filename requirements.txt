@@ -1,24 +1,32 @@
-pandas==2.2.2
-pydantic==2.11.3
+# conda
+pydantic
+whisperx==3.3.1
+    # installs: torch needs 2.5.1, pandas, numpy
+    # had trouble with whisperx 3.7.4 and torch 2.8.0
+    # check:    
+        # python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}')"
+fastapi
+openai
+python-dotenv
+websockets
+# pip
+noisereduce
+uvicorn[standard]
+soundfile
+pydub
+librosa
+spacy
+negspacy
+python-multipart
+
 python-docx
 pytest
 transformers
-librosa
-torch==2.5.0
+
 # vllm
 # psycopg2-binary
-python-dotenv==1.0.1
-openai
 anthropic
-spacy==3.8.7
-negspacy==1.0.4
-fastapi==0.115.12
-uvicorn[standard]
-websockets
-python-multipart
-jinja2==3.1.4
-whisperx
-noisereduce
-soundfile
-pydub
+jinja2
+
+
 pyyaml

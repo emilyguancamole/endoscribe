@@ -14,10 +14,11 @@ export function Header({ healthStatus }) {
   return (
     <div>
       <div className={`fixed right-4 badge ${statusClass}`}>{statusText}</div>
-      <div className="items-center mb-2">
-        <h1 className="text-3xl font-bold">EndoScribe</h1>
+      <div className="mt-4 mb-4">
+        <h1 className="justify-center text-3xl font-bold">EndoScribe 𓂃✍︎</h1>
+        <h3 className="justify-center mb-4">AI-powered clinical scribe for endoscopy</h3>
       </div>
-      <h3 className="mb-4"> AI-powered note writing</h3>
+      
     </div>
     
   );

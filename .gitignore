@@ -13,22 +13,26 @@ transcription/*.txt
 transcription/finetune_data
 transcription/recordings
 transcription/fine_tune_whisper.ipynb
-
 transcription/results
+
 web_app/uploads
 
+# PEP Risk
 pep_risk/recordings
 ground_truth.csv
+.Rproj.user
 
+# IRB
 *long*
 *longform*
 irb
-data
+data/patients.csv
+data/procedures.csv
 tests
 uploads
 chunks
 
-# note drafts
+# Note drafts
 drafters/results
 
 # old files/folders
@@ -40,13 +44,3 @@ llama_testjob.sh
 llama_extraction.py
 llama_vllm.py
 structure.txt
-
-PEP_IMPLEMENTATION.md
-PEP_WORKFLOW.md
-DEVLOPER_GUIDE.md
-LLM_USAGE.md
-
-# unrelated
-nostalg-ai
-lang_rag_tutorial_2
-edgar-analysis

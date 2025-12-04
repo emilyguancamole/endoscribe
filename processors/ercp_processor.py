@@ -1,4 +1,5 @@
 import json
+import os
 from .base_processor import BaseProcessor
 import pandas as pd
 from data_models.generated_ercp_base_model import ErcpBaseData
@@ -14,8 +15,10 @@ class ERCPProcessor(BaseProcessor):
 
         Returns a dict with keys: id, model, and the ERCPData fields.
         """
-        prompt_field_definitions_fp = 'pep_risk/prompts/field_definitions.txt'
-        fewshot_examples_dir = "pep_risk/prompts/fewshot"
+        # Use absolute paths to avoid working directory issues
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        prompt_field_definitions_fp = os.path.join(base_dir, 'pep_risk', 'prompts', 'field_definitions.txt')
+        fewshot_examples_dir = os.path.join(base_dir, 'pep_risk', 'prompts', 'fewshot')
 
         messages = self.build_messages(
             transcript,
@@ -24,7 +27,6 @@ class ERCPProcessor(BaseProcessor):
             fewshot_examples_dir=fewshot_examples_dir,
             prefix="pep",
         )
-        print("PEP messages:\n", messages)
 
         if self.llm_handler.model_type == "local":
             response = self.llm_handler.chat(messages)[0].outputs[0].text.strip()

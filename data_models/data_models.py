@@ -119,6 +119,17 @@ class ManualPEPRiskData(BaseModel):
 
 class PEPRiskData(BaseModel):
     """LLM-extracted risk factors"""
+    # LLM-extracted manual fields (for evaluation only, not for R model)
+    age_years: Optional[int] = None
+    gender_male: Optional[bool] = None
+    bmi: Optional[float] = None
+    cholecystectomy: Optional[bool] = None
+    history_of_pep: Optional[bool] = None
+    hx_of_recurrent_pancreatitis: Optional[bool] = None
+    sod: Optional[bool] = None
+    trainee_involvement: Optional[bool] = None
+    
+    # LLM-extracted procedural risk factors
     pancreatic_sphincterotomy: Optional[bool] = None
     precut_sphincterotomy: Optional[bool] = None
     minor_papilla_sphincterotomy: Optional[bool] = None
@@ -128,8 +139,6 @@ class PEPRiskData(BaseModel):
     pancreatic_duct_injections: Optional[bool] = None
     pancreatic_duct_injections_2: Optional[int] = None
     acinarization: Optional[bool] = None
-    # trainee_involvement: bool
-    # cholecystectomy: bool # (history, redcap)
     pancreo_biliary_malignancy: Optional[bool] = None
     guidewire_cannulation: Optional[bool] = None
     guidewire_passage_into_pancreatic_duct: Optional[bool] = None
@@ -160,6 +169,7 @@ class CombinedPEPRiskData(BaseModel):
     hx_of_recurrent_pancreatitis: Optional[bool] = None
     sod: Optional[bool] = None
     trainee_involvement: Optional[bool] = None
+    pancreo_biliary_malignancy: Optional[bool] = None
     
     # LLM-extracted
     pancreatic_sphincterotomy: Optional[bool] = None
@@ -171,7 +181,6 @@ class CombinedPEPRiskData(BaseModel):
     pancreatic_duct_injections: Optional[bool] = None
     pancreatic_duct_injections_2: Optional[int] = None
     acinarization: Optional[bool] = None
-    pancreo_biliary_malignancy: Optional[bool] = None
     guidewire_cannulation: Optional[bool] = None
     guidewire_passage_into_pancreatic_duct: Optional[bool] = None
     guidewire_passage_into_pancreatic_duct_2: Optional[int] = None

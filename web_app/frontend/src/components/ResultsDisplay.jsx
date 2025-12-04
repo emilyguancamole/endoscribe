@@ -19,7 +19,7 @@ function DataTable({ data }) {
               </ul>
             );
           } else if (typeof value === 'object' && value !== null) {
-            displayValue = JSON.stringify(value, null, 2);
+            displayValue = <pre className="whitespace-pre-wrap">{JSON.stringify(value, null, 2)}</pre>;
           } else {
             displayValue = String(value);
           }
@@ -60,7 +60,7 @@ function PolypsTable({ polyps }) {
           <tr key={idx}>
             <td>{idx + 1}</td>
             {headers.map(header => (
-              <td key={header}>{polyp[header]}</td>
+              <td key={header}>{String(polyp[header])}</td>
             ))}
           </tr>
         ))}
@@ -69,10 +69,10 @@ function PolypsTable({ polyps }) {
   );
 }
 
-export function ResultsDisplay({ 
+export function ResultsDisplay({
   procedureType,
-  colonoscopyData, 
-  polypsData, 
+  colonoscopyData,
+  polypsData,
   procedureData,
   pepRiskData,
   pepRiskScore,
@@ -80,19 +80,16 @@ export function ResultsDisplay({
   showResults,
   showPEPRiskResults
 }) {
-  if (!showResults && !showPEPRiskResults) {
-    return null;
-  }
+  if (!showResults && !showPEPRiskResults) return null;
 
-  // Helper to render PEP risk prediction
   const renderPEPRiskPrediction = () => {
     if (!pepRiskData?.prediction) return null;
 
     const { prediction } = pepRiskData;
-    const score = pepRiskScore || prediction.risk_score;
+    const score = typeof pepRiskScore === 'number' ? pepRiskScore : prediction.risk_score;
     const category = pepRiskCategory || prediction.risk_category;
+    const treatmentPredictions = prediction.treatment_predictions || [];
 
-    // Color coding for risk categories
     const categoryColors = {
       low: 'bg-green-100 text-green-800 border-green-300',
       moderate: 'bg-yellow-100 text-yellow-800 border-yellow-300',
@@ -101,22 +98,52 @@ export function ResultsDisplay({
 
     const colorClass = categoryColors[category] || 'bg-gray-100 text-gray-800 border-gray-300';
 
+    const noTreatmentPrediction = treatmentPredictions.find(tp =>
+      tp.therapy?.toLowerCase().includes('no') || tp.therapy?.toLowerCase().includes('baseline')
+    );
+
+    const treatmentOptions = treatmentPredictions.filter(tp =>
+      !(tp.therapy?.toLowerCase().includes('no') || tp.therapy?.toLowerCase().includes('baseline'))
+    );
+
+    const displayScore = noTreatmentPrediction?.risk_percentage ?? score;
+
     return (
       <div className="mb-6">
         <div className={`p-6 rounded-lg border-2 ${colorClass}`}>
-          <h3 className="text-2xl font-bold mb-2">PEP Risk Assessment</h3>
+          <h3 className="text-2xl font-bold mb-2">Predicted PEP Risk</h3>
+
           <div className="flex items-baseline gap-4 mb-4">
-            <div className="text-5xl font-bold">{score?.toFixed(1)}%</div>
-            <div className="text-xl font-semibold uppercase">{category} Risk</div>
+            <div className="text-5xl font-bold">{Number(displayScore).toFixed(1)}%</div>
+            <div className="text-l font-semibold">without prophylaxis</div>
           </div>
-          
+
+          {treatmentOptions.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-gray-300">
+              <h4 className="font-semibold mb-3 text-base">With Prophylaxis:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {treatmentOptions.map((tp, idx) => {
+                  const tpColorClass = categoryColors[tp.risk_category] || 'bg-gray-50';
+                  return (
+                    <div key={idx} className={`p-3 rounded border ${tpColorClass.replace('100', '50')}`}>
+                      <div className="flex justify-between items-center">
+                        <div className="text-sm font-medium">{tp.therapy}</div>
+                        <div className="text-lg font-bold">{tp.risk_percentage}%</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {prediction.top_risk_factors && prediction.top_risk_factors.length > 0 && (
             <div className="mt-4">
               <h4 className="font-semibold mb-2">Top Contributing Factors:</h4>
               <ul className="list-disc list-inside">
                 {prediction.top_risk_factors.map(([factor, contribution], idx) => (
                   <li key={idx} className="text-sm">
-                    {factor.replace(/_/g, ' ')}: {contribution > 0 ? '+' : ''}{contribution.toFixed(1)} points
+                    {factor.replace(/_/g, ' ')}: {contribution > 0 ? '+' : ''}{Number(contribution).toFixed(1)} points
                   </li>
                 ))}
               </ul>
@@ -128,78 +155,31 @@ export function ResultsDisplay({
   };
 
   return (
-    <>
+    <div className="space-y-4">
+      {showPEPRiskResults && renderPEPRiskPrediction()}
+
       {showResults && (
         <div>
           {procedureType === 'col' ? (
             <>
-              <div className="card bg-base-100 shadow-xl mb-4">
-                <div className="card-body">
-                  <h2 className="card-title">Colonoscopy Results</h2>
-                  <div className="overflow-x-auto">
-                    <DataTable data={colonoscopyData} />
-                  </div>
-                </div>
-              </div>
+              <h3 className="text-xl font-semibold mb-2">Colonoscopy Findings</h3>
+              <DataTable data={colonoscopyData} />
 
-              <div className="card bg-base-100 shadow-xl mb-4">
-                <div className="card-body">
-                  <h2 className="card-title">Polyps Detected</h2>
-                  <div className="overflow-x-auto">
-                    <PolypsTable polyps={polypsData} />
-                  </div>
-                </div>
-              </div>
+              <h3 className="text-xl font-semibold mt-4 mb-2">Polyps</h3>
+              <PolypsTable polyps={polypsData} />
             </>
           ) : (
-            <div className="card bg-base-100 shadow-xl mb-4">
-              <div className="card-body">
-                <h2 className="card-title">Procedure Results</h2>
-                <div className="overflow-x-auto">
-                  <DataTable data={procedureData} />
-                </div>
-              </div>
-            </div>
+            <>
+              <h3 className="text-xl font-semibold mb-2">Procedure Data</h3>
+              <DataTable data={procedureData} />
+            </>
           )}
         </div>
       )}
 
-      {showPEPRiskResults && (
-        <>
-          <div className="card bg-base-100 shadow mb-4">
-            <div className="card-body">
-              {renderPEPRiskPrediction()}
-
-              {pepRiskData?.manual_input && Object.keys(pepRiskData.manual_input).length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-xl font-bold mb-3">Manually Input Risk Factors</h3>
-                  <div className="overflow-x-auto">
-                    <DataTable data={pepRiskData.manual_input} />
-                  </div>
-                </div>
-              )}
-
-              {pepRiskData?.llm_extracted && (
-                <div className="mb-6">
-                  <h3 className="text-xl font-bold mb-3">LLM-Extracted Risk Factors</h3>
-                  <div className="overflow-x-auto">
-                    <DataTable data={pepRiskData.llm_extracted} />
-                  </div>
-                </div>
-              )}
-
-              {pepRiskData?.prediction?.combined_risk_factors && (
-                <div>
-                  <h3 className="text-xl font-bold mb-3">All Combined Risk Factors</h3>
-                  <div className="overflow-x-auto">
-                    <DataTable data={pepRiskData.prediction.combined_risk_factors} />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </>
+      {!showResults && !showPEPRiskResults && (
+        <p className="text-base-content/70">No results to display</p>
       )}
-    </>
+    </div>
   );
 }

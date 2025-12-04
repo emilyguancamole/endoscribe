@@ -18,6 +18,17 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
+from typing import Any, Dict, List, Tuple, Optional
+import collections
+import torch.serialization
+import omegaconf
+from omegaconf.listconfig import ListConfig
+from omegaconf.dictconfig import DictConfig
+from omegaconf.base import ContainerMetadata
+torch.serialization.add_safe_globals([
+    ListConfig, DictConfig, ContainerMetadata,
+    Any, Dict, List, Tuple, Optional, list, dict, collections.defaultdict, int, float, omegaconf.nodes.AnyNode, omegaconf.base.Metadata, set, tuple, torch.torch_version.TorchVersion, 
+])
 
 # Filter external library warnings that we can't control
 warnings.filterwarnings("ignore", category=UserWarning, module="pyannote.audio.core.io")
@@ -219,6 +230,13 @@ async def lifespan(app: FastAPI):
         else:
             compute_type = "int8"
 
+        #! Fix for PyTorch 2.6+ weights_only=True default
+        from pyannote.audio.core.model import Introspection
+        from pyannote.audio.core.task import Specifications, Problem, Resolution
+        torch.serialization.add_safe_globals([
+            Introspection, Specifications, Problem, Resolution, torch.torch_version.TorchVersion, 
+        ])
+
         print(f"Loading WhisperX with device={WHISPER_DEVICE}, compute_type={compute_type}")
         print("Note: First-time download of large-v3 model (~5GB) may take several minutes...")
         WHISPER_MODEL = whisperx.load_model("large-v3", WHISPER_DEVICE, compute_type=compute_type)
@@ -359,12 +377,14 @@ async def health_check():
 
     status = "healthy" if (WHISPER_MODEL and LLM_HANDLER and volumes_ok) else "degraded"
 
-    return HealthResponse(
+    res = HealthResponse(
         status=status,
         whisper_loaded=WHISPER_MODEL is not None,
         llm_initialized=LLM_HANDLER is not None,
         supported_procedures=["col", "eus", "ercp", "egd"]
     )
+    print("Health check:", res.json())
+    return res
 
 
 @app.get("/gpu-info")
@@ -606,12 +626,12 @@ async def websocket_transcribe(websocket: WebSocket):
         # Cleanup
         if session_id and session_id in SESSIONS:
             print(f"Cleaning up session {session_id}")
-            # Optionally delete temporary audio files
-            # for chunk_path in SESSIONS[session_id]["chunks"]:
-            #     try:
-            #         os.remove(chunk_path)
-            #     except:
-            #         pass
+            # delete temporary audio files
+            for chunk_path in SESSIONS[session_id]["chunks"]:
+                try:
+                    os.remove(chunk_path)
+                except:
+                    pass
 
 
 @app.post("/api/process", response_model=ProcessResponse)
@@ -671,8 +691,7 @@ async def process_transcript(request: ProcessRequest):
                     col_response = LLM_HANDLER.chat(col_messages)[0].outputs[0].text.strip()
 
                 # Parse JSON response
-                # TODO: Remove this manual JSON validation once LLM is returning proper JSON
-                print(f"Col response: {col_response[:500]}")  # Log first 500 chars
+                print(f"Col response: {col_response[:500]}")  
                 start_idx = col_response.find("{")
                 end_idx = col_response.rfind("}")
 
@@ -708,8 +727,6 @@ async def process_transcript(request: ProcessRequest):
                     polyp_response = LLM_HANDLER.chat(polyp_messages)[0].outputs[0].text.strip()
 
                 # Extract JSON array from response (handle cases where LLM adds explanatory text)
-                # TODO: Remove this manual JSON validation once LLM is returning proper JSON
-                print(f"Polyp response: {polyp_response[:500]}")  # Log first 500 chars
                 start_idx = polyp_response.find("[")
                 end_idx = polyp_response.rfind("]")
 
@@ -747,9 +764,9 @@ async def process_transcript(request: ProcessRequest):
             # PEP risk extraction and prediction
             # 1. Extract risk factors from transcript using LLM
             # 2. Combine with manual inputs
-            # 3. Feed to prediction model
+            # 3. Feed to R PEPRISC prediction model
             
-            from pep_risk.dummy_model import predict_pep_risk
+            from pep_risk.peprisc_model import predict_pep_risk
             
             outputs = []
 

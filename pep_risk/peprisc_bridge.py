@@ -1,23 +1,15 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Nov 24 10:28:44 2025
-
-@author: sripriyankamadduluri
-"""
-
+#* pep_risk/peprisc_bridge.py
 import pandas as pd
 from rpy2 import robjects
 from rpy2.rinterface_lib.embedded import RRuntimeError
 from rpy2.robjects import pandas2ri, conversion
-
-# pandas2ri.activate()
+pandas2ri.activate()
 r=robjects.r
 converter = conversion.get_conversion()
 converter += pandas2ri.converter
     
-#load R code from selected file
 def load_python_r_bridge(path: str):
+    """load R code from selected file"""
     # debug thing
     # note if path doesn't resolve hard code string
     # cmd = f"""
@@ -46,7 +38,6 @@ def load_python_r_bridge(path: str):
         return True
     except RRuntimeError:
         raise RuntimeError("Stopped after R error")
-        return False
          
          
 def load_r_peprisc_model(
@@ -65,7 +56,7 @@ def load_r_peprisc_model(
             f"Function '{fn_name}' not found in R globalenv.\n"
             f"Available: {available}"
             )
-        
+    
     return robjects.globalenv[fn_name]
     
     
@@ -75,7 +66,7 @@ class PepriscBridge:
     self.bridge_path = bridge_path
     print(bridge_path)
     self.fn_name = fn_name
-    self.peprisk_predict = load_r_peprisc_model(bridge_path,fn_name)
+    self._r_function = load_r_peprisc_model(bridge_path,fn_name)
     
     
     
@@ -84,29 +75,57 @@ class PepriscBridge:
 
     #input: pandas DataFrame with columns expected by your R backend.
     
-    #pandas -> R dataframe
-    r_df = pandas2ri.DataFrame(input)
+    # Use local converter context to handle threading issues
+    from rpy2.robjects.conversion import localconverter
     
-    #invoke peprisc_predict model from R
-    
-    try:
-     res = self.peprisk_predict(r_df)
-    except RRuntimeError:
-        raise RuntimeError("R function risk_predict failed")
-    
-    names = list(res.names) if res.names is not None else []
-    output = {}
-    
-    # convert o/p 
-    for key in ["reference_samples", "test_paitent_prediction", "explaination_text"]:
-         if key in names:
-            output[key] = pandas2ri.rpy2py(res.rx2(key))
+    with localconverter(pandas2ri.converter):
+        #pandas -> R dataframe
+        r_df = pandas2ri.py2rpy(input)
 
-       # scalars / vectors
-    for key in ["final_risk"]:
-        if key in names:
-               val = list(res.rx2(key))
-               output[key] = val[0] if len(val) == 1 else val
+        # invoke peprisc_predict model from R
+        try:
+            res = self._r_function(r_df)
+        except RRuntimeError:
+            raise RuntimeError("R function risk_predict failed")
+
+        output = {}
+
+        # If res is an rpy2 object with .names / rx2, extract like before
+        if getattr(res, 'names', None) is not None:
+            names = list(res.names)
+            for key in names:
+                try:
+                    val = res.rx2(key)
+                    output[key] = pandas2ri.rpy2py(val)
+                except Exception:
+                    # fallback: assign raw value
+                    try:
+                        output[key] = pandas2ri.rpy2py(res.rx2(key))
+                    except Exception:
+                        output[key] = res.rx2(key)
+
+        else:
+            # res may already be a Python mapping (e.g., OrderedDict) or pandas objects
+            if isinstance(res, dict) or hasattr(res, 'items'):
+                for key, val in res.items():
+                    # if val is an rpy2 object that needs conversion
+                    try:
+                        if getattr(val, 'rclass', None) is not None or hasattr(val, 'rx2'):
+                            output[key] = pandas2ri.rpy2py(val)
+                        else:
+                            output[key] = val
+                    except Exception:
+                        output[key] = val
+            else:
+                # last resort: try to convert the whole object
+                try:
+                    converted = pandas2ri.rpy2py(res)
+                    if isinstance(converted, dict):
+                        output = converted
+                    else:
+                        output = {"result": converted}
+                except Exception:
+                    output = {"result": res}
 
     return output
 

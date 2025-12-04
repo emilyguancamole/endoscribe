@@ -1,0 +1,1336 @@
+---
+title: "Prediction Models for PEP"
+author: "Albert Kuo"
+date: "3/3/2021"
+output: 
+  html_document:
+    code_folding: "hide"
+    toc: TRUE
+    toc_float: TRUE
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+```{r packages, include=F}
+library(pacman)
+p_load(janitor, tidyverse, here, skimr, naniar, readxl, caret, gbm, ROCR, FNN, ggrepel, cowplot, tictoc, lime)
+source(here("./code/my_plot_lime_features.R"))
+```
+
+# Read data
+
+```{r clean_data}
+# dt_raw = suppressWarnings(read_excel(here("data", "Combined data sheets 11 studies for Analysis June 2020.xlsx"),
+                                     # col_types = "numeric"))
+# dt_raw = suppressWarnings(read_excel(here("data", "combining data sheets (Elmunzer, Luo, Levenick, Lua, Choi, Buxbaum, Mok, Fogel, Phillip, Lai, Kamal) Sep 2020.xlsx"),
+                                     # col_types = "numeric"))
+dt_raw = suppressWarnings(read_excel(here("data", "Combined sheet final December.xlsx"), col_types = "numeric"))
+
+# Clean variable names
+dt = dt_raw %>%
+  clean_names(case = "snake") %>%
+  drop_na(pep) %>%  # Blank rows
+  mutate(study_id = as.factor(study),
+         pep = as.factor(pep),
+         type_of_sod = as.factor(type_of_sod)) %>%
+  rename(pancreatic_duct_injections_2 = panc_inj_2,
+         age_years = age,
+         gender_male_1 = gender,
+         hx_of_recurrent_pancreatitis = recurr_panc,
+         pancreatic_sphincterotomy = panc_sphinc,
+         precut_sphincterotomy = precut_sphinc,
+         minor_papilla_sphincterotomy = min_pap_sphinc,
+         failed_cannulation = failed_cann,
+         difficult_cannulation = diff_cann,
+         pneumatic_dilation_of_intact_biliary_sphincter = pneum_dil_wo_bs,
+         pancreatic_duct_injection = panc_inj,
+         acinarization = acinarz,
+         pancreatic_duct_brush_cytology = panc_brush_cyto,
+         pancreas_divisum = panc_div,
+         trainee_involvement = trainee,
+         cholecystectomy = cholecy,
+         pancreo_biliary_malignancy = pb_mal,
+         guidewire_cannulation = gw_cann,
+         guidewire_passage_into_pancreatic_duct = gw_pass_pd,
+         guidewire_passage_into_pancreatic_duct_2 = x2gw_pass_pd,
+         biliary_sphincterotomy = bil_sphinc,
+         aggressive_hydration = intensive_hydration,
+         indomethacin_nsaid_prophylaxis = nsaid_use,
+         pancreatic_duct_stent_placement = pd_stent) %>%
+    select(-pep_severity, -study)
+
+skim(dt)
+```
+
+Our outcome of interest is `pep`. The overall PEP incidence in our data is 8.6%. Note that several variables are missing data, so we will need to impute this later.
+
+# Clean data
+
+## Fix values
+
+For some missing values, we can manually input what they should be:
+
+* `aggressive_hydration` - Lower volume hydration (= 0) can be considered the same as placebo or no prophlyaxis (what was used in all studies other than study 5)
+* `pancreatic_duct_stent_placement` - Assume no PD stent used if missing
+* `guidewire_passage_into_pancreatic_duct` - If `guidewire_passage_into_pancreatic_duct_2 == 1`, then this variable should also be 1. And vice versa when this variable is 0.
+* `panancreatic_duct_injections` - If `panancreatic_duct_injections_2 == 1`, then this variable should also be 1. And vice versa when this variable is 0.
+
+
+```{r}
+dt = dt %>%
+  mutate(aggressive_hydration = ifelse(is.na(aggressive_hydration), 0, aggressive_hydration), # Replace NA with 0 for aggressive hydration
+         pancreatic_duct_stent_placement = ifelse(is.na(pancreatic_duct_stent_placement), 0, pancreatic_duct_stent_placement), # Replace NA with 0 for pd_stent
+         guidewire_passage_into_pancreatic_duct = ifelse(guidewire_passage_into_pancreatic_duct_2 %in% 1, 1, guidewire_passage_into_pancreatic_duct), # Use %in% to deal with NA 
+         guidewire_passage_into_pancreatic_duct_2 = ifelse(guidewire_passage_into_pancreatic_duct %in% 0, 0, guidewire_passage_into_pancreatic_duct_2),
+         pancreatic_duct_injections_2 = ifelse(pancreatic_duct_injections_2 == 8, 1, pancreatic_duct_injections_2), # fix typo in data sheet
+         pancreatic_duct_injection = ifelse(pancreatic_duct_injections_2 %in% 1, 1, pancreatic_duct_injection),
+         pancreatic_duct_injections_2 = ifelse(pancreatic_duct_injection %in% 0, 0, pancreatic_duct_injections_2)
+         )
+```
+
+
+## Dummy variables
+
+I create dummy variables for categorical features. There is only 1 such feature (`type_of_sod`). However, due to high missingness and redundancy with `sod`, I will remove `type_of_sod`.
+
+```{r}
+# Create dummy
+# dummies <- dummyVars(pep ~ ., data = dt, fullRank = TRUE)
+# dt_rest = predict(dummies, newdata = dt) %>% as.data.frame()
+# dt = bind_cols(dt_rest, dt %>% select(pep))
+
+dt = dt %>%
+  select(-type_of_sod)
+```
+
+
+## Near zero-variance features
+
+There are 6 features with very low variance because their occurrence is rare.
+
+> The concern here that these predictors may become zero-variance predictors when the data are split into cross-validation/bootstrap sub-samples or that a few samples may have an undue influence on the model. These “near-zero-variance” predictors may need to be identified and eliminated prior to modeling.
+
+http://topepo.github.io/caret/pre-processing.html#zero--and-near-zero-variance-predictors 
+
+```{r}
+nzv <- nearZeroVar(dt, saveMetrics= TRUE)
+nzv[nzv$nzv,]
+```
+
+For now, I've chosen to remove the `pancreatic_duct_brush_cytology` and `pancreas_divisum` features, since they occur in < 25 patients out of 7389 patients (checked with `table`) and exhibit high missingness. The other features occur in > 100 of the patients.
+
+```{r}
+dt = dt %>%
+  select(-c("pancreatic_duct_brush_cytology", "pancreas_divisum"))
+```
+
+## Imputation
+
+```{r, fig.height = 7}
+# Plot # missing by feature and study
+gg_miss_var(dt, facet = study_id)
+
+# Plot % missing by feature and study
+gg_miss_var(dt, facet = study_id, show_pct = T)
+```
+
+```{r, fig.height = 7}
+# Plot combinations of missing features
+gg_miss_upset(dt, nsets = n_var_miss(dt))
+```
+
+I use the `preProcess` function from `caret` to impute values. I either use median imputation (`medianImpute`) or k-nearest neighbors (`knnImpute`), with preference given to the latter whenever possible. 
+
+I impute the missing values in a step-wise fashion. The idea is to impute values for the samples/studies that are missing very few features first using `medianImpute` or some background knowledge. Then I use those samples to impute all the other samples using `knnImpute`.
+
+1. Set missing `guidewire_passage_into_pancreatic_duct` to 0 in study 12. Set missing `pancreatic_duct_injections_2` to 0 in study 5. Since these features are binary, this is equivalent to `medianImpute`.
+2. Use studies 12 and 5 to impute the rest of the studies with `knnImpute`.
+
+A couple of important notes:
+
+* As a consequence of `knnImpute`, the dataset will also be centered and scaled.
+* We need to define the training and test set first before imputation, since we only want to impute from the samples in the training set. 
+* When we impute, be sure to exclude `study_id` and `pep` (by default, as they are both factor variables, they should be excluded by the imputation function). There is no information in the numeric value of `study_id`. And we do not want to infer missing values from their relationship to `pep` as that would overinflate prediction results in the test set.
+
+```{r}
+# Imputation
+set.seed(1)
+test_index <- createFolds(dt$pep, k = 5, list = TRUE)
+
+dt = dt %>%
+  mutate(patient_id = 1:n()) # Keep track of patients
+train = dt %>% slice(-test_index$Fold1) %>% as.data.frame()
+test = dt %>% slice(test_index$Fold1) %>% as.data.frame()
+```
+
+```{r}
+# Imputation
+# If new_dataset == T, the test set has no study ID
+impute_values = function(train, test, new_dataset = F){
+  # Step 1
+  train_impute_step1 = train %>%
+    mutate(guidewire_passage_into_pancreatic_duct = ifelse(is.na(guidewire_passage_into_pancreatic_duct) & study_id == 12, 0, guidewire_passage_into_pancreatic_duct),
+           pancreatic_duct_injections_2 = ifelse(is.na(pancreatic_duct_injections_2) & study_id == 5, 0, pancreatic_duct_injections_2))
+  if(!new_dataset){
+    test_impute_step1 = test %>%
+      mutate(guidewire_passage_into_pancreatic_duct = ifelse(is.na(guidewire_passage_into_pancreatic_duct) & study_id == 12, 0, guidewire_passage_into_pancreatic_duct),
+             pancreatic_duct_injections_2 = ifelse(is.na(pancreatic_duct_injections_2) & study_id == 5, 0, pancreatic_duct_injections_2))
+  } else {
+    test_impute_step1 = test
+  }
+  # gg_miss_var(train_impute_step1, facet = study_id, show_pct = T) # plot updated missingness
+  
+  # Center and scale
+  pre_proc_values <- preProcess(train_impute_step1 %>% select(-c("study_id", "pep", "patient_id")), method = c("center", "scale"))
+  
+  train_impute_step1 <- predict(pre_proc_values, train_impute_step1)
+  test_impute_step1 <- predict(pre_proc_values, test_impute_step1)
+  
+  # Step 2
+  # train_impute_step2 = train_impute_step1 %>%
+  #   filter(study_id %in% c(12, 5, 2, 7))
+  # if(!new_dataset){
+  #   test_impute_step2 = test_impute_step1 %>%
+  #     filter(study_id %in% c(12, 5, 2, 7))
+  # }
+  # 
+  # pre_proc_values = preProcess(train_impute_step2 %>% select(-c("study_id", "pep", "patient_id")), method = c("knnImpute"), k = 10)
+  # train_impute_step2 <- predict(pre_proc_values, train_impute_step2) # Impute with knn
+  # if(!new_dataset){
+  #   test_impute_step2 <- predict(pre_proc_values, test_impute_step2)
+  # }
+  # 
+  # train_impute_step2 = train_impute_step2 %>%
+  #   bind_rows(., train_impute_step1 %>% filter(!(study_id %in% c(12, 5, 2, 7)))) # Join back to other studies
+  # if(!new_dataset){
+  #   test_impute_step2 = test_impute_step2 %>%
+  #     bind_rows(., test_impute_step1 %>% filter(!(study_id %in% c(12, 5, 2, 7))))
+  # }
+  # gg_miss_var(train_impute_step2, facet = study_id, show_pct = T) # plot updated missingness
+  
+  train_impute_step2 = train_impute_step1
+  test_impute_step2 = test_impute_step1
+  
+  # Step 3
+  pre_proc_values = preProcess(train_impute_step2 %>% select(-c("study_id", "pep", "patient_id")), method = c("knnImpute"), k = 10)
+  train_impute_step3 <- predict(pre_proc_values, train_impute_step2) # Impute with knn
+  test_impute_step3 <- predict(pre_proc_values, test_impute_step2)
+  # gg_miss_var(train_impute_step3, facet = study_id, show_pct = T) # plot updated missingness
+  
+  # Remove study_id
+  train = train_impute_step3 %>% select(-study_id)
+  if(!new_dataset){
+    test = test_impute_step3 %>% select(-study_id)
+  } else {
+    test = test_impute_step3
+  }
+  
+  # Return imputed data frames
+  out = list(train = train, test = test)
+  return(out)
+}
+
+imputed = impute_values(train, test)
+train = imputed$train
+test = imputed$test
+```
+
+## Label patients
+
+We label patients that were randomized for each treatment.  
+
+1. Aggressive hydration - include only patients for which aggressive hydration was a randomized treatment
+2. Indomethacin - include only patients for which indomethacin was a randomized treatment
+3. Aggressive hydration & Indomethacin - include study 7, which essentially randomizes patients to aggressive hydration vs aggressive hydration & indomethacin (there are no randomized studies that will allow us to directly study the cumulative effect of both aggressive hydration and indo). The effect will be estimated by computing both \#1 and \#3, i.e. we stack the effect of aggressive hydration and indomethacin.
+4. Pancreatic duct stent - include only studies where pancreatic stent was given to at least 1 patient (**note: always given at doctor's discretion and not randomized**)
+
+```{r}
+old_dat = read_csv(here("./data/Risk Factors INDIEH Elmunzer Luo version Albert.csv")) # To extract high_risk column for study 3
+# Luo dataset (study_id == "2" in new datasheet, but study_id == "3" in old_dat)
+study_3 = old_dat %>%
+  filter(study == 3) %>%
+  mutate(patient_id = dt %>% filter(study_id == 2) %>% pull(patient_id)) %>% # Order of samples must be the same
+  select(patient_id, high_risk_patients)
+trt_randomized_groups = dt %>%
+  left_join(., study_3, by = "patient_id") %>%
+  mutate(trt_ah = (study_id %in% c(5, 6, 11)),
+         trt_indo = (study_id %in% c(1, 3, 4, 7)) | (study_id == 2 & high_risk_patients == 0),
+         trt_ah_indo = (study_id %in% c(5, 6, 7)),
+         trt_pd = (study_id %in% c(1, 2, 3, 4, 5, 7, 9)),
+         trt_indo_pd = (study_id %in% c(1, 3, 4, 7)) | (study_id == 2 & high_risk_patients == 0)) %>%
+  select(patient_id, trt_ah, trt_indo, trt_ah_indo, trt_pd, trt_indo_pd)
+saveRDS(trt_randomized_groups, here("./data/trt_randomized_groups.rds"))
+```
+
+```{r}
+no_trt_patients = dt %>% filter(!(indomethacin_nsaid_prophylaxis == 1 | aggressive_hydration == 1 | pancreatic_duct_stent_placement == 1)) %>% pull(patient_id)
+```
+
+# Train prediction model
+
+## Feature selection
+
+Note that the following are clinically important features:
+
+1. `gw_cann`
+2. `x2gw_pass_pd` 
+3. `history_of_pep` 
+4. `panc_sphinc` 
+5. `precut_sphinc` 
+6. `diff_cann` 
+7. `sod` 
+8. `pb_mal` 
+
+Currently, we're not aiming to do feature selection (performance is more important when we validate our model). We can reduce the number of features when it gets to clinical care. 
+
+```{r}
+# Set sampling scheme
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 5,
+                           repeats = 1)
+
+set.seed(1)
+```
+
+```{r eval = F}
+# Train on training set only
+# PLR coefficients
+fit = train(pep ~ ., data = train %>% select(-patient_id), 
+              method = "plr", 
+              trControl = fitControl,
+              metric = "Kappa") # metric for selecting tuning parameters 
+summary(fit)
+
+# Random forest variable importance
+fit = train(pep ~ ., data = train %>% select(-patient_id), 
+            method = "rf", 
+            trControl = fitControl,
+            verbose = FALSE,
+            ntree = 100) 
+summary(fit)
+varImp(fit)
+```
+
+## Prediction
+
+I predict under 5-fold CV (training 5 models and predicting under held-out test set).
+
+```{r}
+# Set sampling scheme
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 5,
+                           repeats = 1)
+
+set.seed(1)
+```
+
+```{r}
+# Helper function to calculate AUC, FPR, TPR, NPV, PPV, and ACC
+get_performance = function(pred_dt){
+  pred_obj = prediction(pred_dt$pred, pred_dt$y)
+  auc = performance(pred_obj, measure = "auc")@y.values[[1]]
+  acc = performance(pred_obj, "acc")@y.values[[1]]
+  npv = performance(pred_obj, "npv")@y.values[[1]]
+  ppv = performance(pred_obj, "ppv")@y.values[[1]]
+  roc = performance(pred_obj, "tpr", "fpr")
+  fpr = roc@x.values[[1]]
+  tpr = roc@y.values[[1]]
+  
+  roc_dt = tibble(x = fpr, y = tpr, auc = auc,
+                  acc = acc, npv = npv, ppv = ppv)
+  return(roc_dt)
+}
+```
+
+### Penalized logistic regression (L2/Ridge)
+
+```{r eval = T}
+set.seed(1)
+test_index <- createFolds(dt$pep, k = 5, list = TRUE)
+pred_dt_ls = vector("list", 5)
+
+tic("logit")
+for(i in 1:5){
+  train = dt %>% slice(-test_index[[i]]) %>% as.data.frame()
+  test = dt %>% slice(test_index[[i]]) %>% as.data.frame()
+  
+  # Impute values
+  imputed = impute_values(train, test)
+  train = imputed$train
+  test = imputed$test
+  
+  # Train model
+  fit = train(pep ~ ., data = train %>% select(-patient_id), 
+              method = "plr", 
+              trControl = fitControl,
+              metric = "Kappa") # metric for selecting tuning parameters
+  
+  pred = predict(fit, newdata = test, type = "prob")[, 2]
+  
+  # Save predictions
+  pred_dt_ls[[i]] = tibble(pred = pred, y = test$pep, patient_id = test$patient_id)
+}
+toc()
+
+pred_dt = bind_rows(pred_dt_ls)
+saveRDS(pred_dt, here("pep_risk_app", "data", "pred_dt_logit.rds"))
+```
+
+
+```{r}
+# ROC for all patients
+roc_dt_all = get_performance(pred_dt) %>%
+  mutate(subset = "all")
+
+# ROC for no treatment patients only
+pred_dt_notrt = pred_dt %>%
+  filter(patient_id %in% no_trt_patients)
+
+roc_dt_notrt = get_performance(pred_dt_notrt) %>%
+  mutate(subset = "no trt")
+```
+
+
+```{r}
+# ROC plot
+roc_dt = bind_rows(roc_dt_all, roc_dt_notrt)
+auc_text = roc_dt %>%
+  distinct(subset, auc)
+print(auc_text)
+
+p1 = roc_dt %>%
+  ggplot(aes(x, y, color = subset)) + 
+  geom_line() +
+  geom_abline(slope = 1, intercept = 0, color = "darkgray") +
+  scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
+  scale_color_discrete(name = "",
+                       labels = c("All patients", "No prophylaxis")) +
+  labs(title = "ROC curve",
+       x = "1 - Specificity (False Positive Rate)",
+       y = "Sensitivity (True Positive Rate)") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+print(p1)
+```
+
+Note that most patients have low prediction scores (< 0.1).
+
+```{r}
+# Calibration plot
+# pred_dt %>%
+#   ggplot(aes(x = pred, y = as.numeric(y) - 1)) +
+#   geom_point() +
+#   geom_smooth(method = "loess") +
+#   geom_abline() +
+#   scale_x_continuous(limits = c(0, 0.3)) +
+#   labs(x = "Prediction score",
+#        y = "pep status") +
+#   theme_bw()
+
+# Arrange by prediction and group by 200 people
+pep_group_prob_all = pred_dt %>%
+  arrange(pred) %>%
+  mutate(row_num = 1:n(),
+         group = ceiling(row_num/200)) %>%
+  group_by(group) %>%
+  summarize(prop_pep = mean(as.numeric(y) - 1),
+            median_pred = median(pred)) %>%
+  ungroup() %>%
+  mutate(subset = "all")
+
+pep_group_prob_notrt = pred_dt_notrt %>%
+  arrange(pred) %>%
+  mutate(row_num = 1:n(),
+         group = ceiling(row_num/200)) %>%
+  group_by(group) %>%
+  summarize(prop_pep = mean(as.numeric(y) - 1),
+            median_pred = median(pred)) %>%
+  ungroup() %>%
+  mutate(subset = "no trt")
+
+pep_group_prob = bind_rows(pep_group_prob_all, pep_group_prob_notrt)
+
+p2 = pep_group_prob %>%
+  ggplot(aes(x = median_pred, y = prop_pep, color = subset)) +
+  geom_abline() +
+  # geom_smooth(alpha = 1, se = FALSE, method = "loess") +
+  geom_point(alpha = 0.5) +
+  scale_color_discrete(name = "",
+                       labels = c("All patients", "No prophylaxis")) +
+  labs(x = "Median Prediction Score",
+       y = "Empirical Proportion of PEP",
+       title = "Calibration plot") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+print(p2)
+```
+
+### Boosted tree
+
+```{r eval = T}
+set.seed(229)
+test_index <- createFolds(dt$pep, k = 5, list = TRUE)
+pred_dt_ls = vector("list", 5)
+
+tic("gbm")
+for(i in 1:5){
+  train = dt %>% slice(-test_index[[i]]) %>% as.data.frame()
+  test = dt %>% slice(test_index[[i]]) %>% as.data.frame()
+  
+  # Impute values
+  imputed = impute_values(train, test)
+  train = imputed$train
+  test = imputed$test
+  
+  # Train model
+  fit = train(pep ~ ., data = train %>% select(-patient_id), 
+              method = "gbm", 
+              trControl = fitControl,
+              verbose = FALSE,
+              metric = "Kappa")  # metric for selecting tuning parameters
+  
+  pred = predict(fit, newdata = test, type = "prob")[, 2]
+  
+  # Save predictions
+  pred_dt_ls[[i]] = tibble(pred = pred, y = test$pep, patient_id = test$patient_id)
+}
+toc()
+
+pred_dt = bind_rows(pred_dt_ls)
+saveRDS(pred_dt, here("pep_risk_app", "data", "pred_dt_gbm.rds"))
+```
+
+```{r}
+# ROC for all patients
+roc_dt_all = get_performance(pred_dt) %>%
+  mutate(subset = "all")
+
+# ROC for no treatment patients only
+pred_dt_notrt = pred_dt %>%
+  filter(patient_id %in% no_trt_patients)
+
+roc_dt_notrt = get_performance(pred_dt_notrt) %>%
+  mutate(subset = "no trt")
+```
+
+
+```{r}
+# ROC plot
+roc_dt = bind_rows(roc_dt_all, roc_dt_notrt)
+auc_text = roc_dt %>%
+  distinct(subset, auc)
+print(auc_text)
+
+p1 = roc_dt %>%
+  ggplot(aes(x, y, color = subset)) + 
+  geom_line() +
+  geom_abline(slope = 1, intercept = 0, color = "darkgray") +
+  scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
+  scale_color_discrete(name = "",
+                       labels = c("All patients", "No prophylaxis")) +
+  labs(title = "ROC curve",
+       x = "1 - Specificity (False Positive Rate)",
+       y = "Sensitivity (True Positive Rate)") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+print(p1)
+```
+
+Note that most patients have low prediction scores (< 0.1).
+
+```{r}
+# Calibration plot
+# pred_dt %>%
+#   ggplot(aes(x = pred, y = as.numeric(y) - 1)) +
+#   geom_point() +
+#   geom_smooth(method = "loess") +
+#   geom_abline() +
+#   scale_x_continuous(limits = c(0, 0.3)) +
+#   labs(x = "Prediction score",
+#        y = "pep status") +
+#   theme_bw()
+
+# Arrange by prediction and group by 200 people
+pep_group_prob_all = pred_dt %>%
+  arrange(pred) %>%
+  mutate(row_num = 1:n(),
+         group = ceiling(row_num/200)) %>%
+  group_by(group) %>%
+  summarize(prop_pep = mean(as.numeric(y) - 1),
+            median_pred = median(pred)) %>%
+  ungroup() %>%
+  mutate(subset = "all")
+
+pep_group_prob_notrt = pred_dt_notrt %>%
+  arrange(pred) %>%
+  mutate(row_num = 1:n(),
+         group = ceiling(row_num/200)) %>%
+  group_by(group) %>%
+  summarize(prop_pep = mean(as.numeric(y) - 1),
+            median_pred = median(pred)) %>%
+  ungroup() %>%
+  mutate(subset = "no trt")
+
+pep_group_prob = bind_rows(pep_group_prob_all, pep_group_prob_notrt)
+
+p2 = pep_group_prob %>%
+  ggplot(aes(x = median_pred, y = prop_pep, color = subset)) +
+  geom_abline() +
+  # geom_smooth(alpha = 1, se = FALSE, method = "loess") +
+  geom_point(alpha = 0.5) +
+  scale_color_discrete(name = "",
+                       labels = c("All patients", "No prophylaxis")) +
+  labs(x = "Median Prediction Score",
+       y = "Empirical Proportion of PEP",
+       title = "Calibration plot") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+print(p2)
+```
+
+```{r}
+plot_grid(p1, p2, labels = "auto", nrow = 1)
+```
+
+
+### Random forest
+
+```{r eval = T}
+set.seed(1)
+test_index <- createFolds(dt$pep, k = 5, list = TRUE)
+pred_dt_ls = vector("list", 5)
+
+tic("rf")
+for(i in 1:5){
+  train = dt %>% slice(-test_index[[i]]) %>% as.data.frame()
+  test = dt %>% slice(test_index[[i]]) %>% as.data.frame()
+  
+  # Impute values
+  imputed = impute_values(train, test)
+  train = imputed$train
+  test = imputed$test
+  
+  # Train model
+  fit = train(pep ~ ., data = train %>% select(-patient_id), 
+              method = "rf", 
+              trControl = fitControl,
+              verbose = FALSE,
+              metric = "Kappa",
+              ntree = 500) 
+  
+  pred = predict(fit, newdata = test, type = "prob")[, 2]
+  
+  # Save predictions
+  pred_dt_ls[[i]] = tibble(pred = pred, y = test$pep, patient_id = test$patient_id)
+}
+toc()
+
+pred_dt = bind_rows(pred_dt_ls)
+saveRDS(pred_dt, here("pep_risk_app", "data", "pred_dt_rf.rds"))
+```
+
+```{r}
+# ROC for all patients
+roc_dt_all = get_performance(pred_dt) %>%
+  mutate(subset = "all")
+
+# ROC for no treatment patients only
+pred_dt_notrt = pred_dt %>%
+  filter(patient_id %in% no_trt_patients)
+
+roc_dt_notrt = get_performance(pred_dt_notrt) %>%
+  mutate(subset = "no trt")
+```
+
+
+```{r}
+# ROC plot
+roc_dt = bind_rows(roc_dt_all, roc_dt_notrt)
+auc_text = roc_dt %>%
+  distinct(subset, auc)
+print(auc_text)
+
+p1 = roc_dt %>%
+  ggplot(aes(x, y, color = subset)) + 
+  geom_line() +
+  geom_abline(slope = 1, intercept = 0, color = "darkgray") +
+  scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
+  scale_color_discrete(name = "",
+                       labels = c("All patients", "No prophylaxis")) +
+  labs(title = "ROC curve",
+       x = "1 - Specificity (False Positive Rate)",
+       y = "Sensitivity (True Positive Rate)") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+print(p1)
+```
+
+Note that most patients have low prediction scores (< 0.1).
+
+```{r}
+# Calibration plot
+# pred_dt %>%
+#   ggplot(aes(x = pred, y = as.numeric(y) - 1)) +
+#   geom_point() +
+#   geom_smooth(method = "loess") +
+#   geom_abline() +
+#   scale_x_continuous(limits = c(0, 0.3)) +
+#   labs(x = "Prediction score",
+#        y = "pep status") +
+#   theme_bw()
+
+# Arrange by prediction and group by 200 people
+pep_group_prob_all = pred_dt %>%
+  arrange(pred) %>%
+  mutate(row_num = 1:n(),
+         group = ceiling(row_num/200)) %>%
+  group_by(group) %>%
+  summarize(prop_pep = mean(as.numeric(y) - 1),
+            median_pred = median(pred)) %>%
+  ungroup() %>%
+  mutate(subset = "all")
+
+pep_group_prob_notrt = pred_dt_notrt %>%
+  arrange(pred) %>%
+  mutate(row_num = 1:n(),
+         group = ceiling(row_num/200)) %>%
+  group_by(group) %>%
+  summarize(prop_pep = mean(as.numeric(y) - 1),
+            median_pred = median(pred)) %>%
+  ungroup() %>%
+  mutate(subset = "no trt")
+
+pep_group_prob = bind_rows(pep_group_prob_all, pep_group_prob_notrt)
+
+p2 = pep_group_prob %>%
+  ggplot(aes(x = median_pred, y = prop_pep, color = subset)) +
+  geom_abline() +
+  # geom_smooth(alpha = 1, se = FALSE, method = "loess") +
+  geom_point(alpha = 0.5) +
+  scale_color_discrete(name = "",
+                       labels = c("All patients", "No prophylaxis")) +
+  labs(x = "Median Prediction Score",
+       y = "Empirical Proportion of PEP",
+       title = "Calibration plot") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+print(p2)
+```
+
+## Outcomes Under Therapies
+
+Suppose we have a patient $p$ with $x$ characteristics. We want to know what their pep risk is under no treatment, aggressive hydration, indomethacin, indomethacin + aggressive hydration, and pd_stent.
+
+To do this, we estimate the effect of each treatment under subsets of patients for whom the treatment has been randomized (with the exception of pd_stent, for which we use all studies in which pd_stent was given to at least one patient). Then we adjust the prediction score by the estimated effect.
+
+### Train models
+
+```{r}
+set.seed(1)
+# Train on whole dataset
+train = dt %>%
+  as.data.frame()
+test_patients = readRDS(here("data", "test_patient.rds"))
+
+# Impute values
+imputed = impute_values(train, test = test_patients, new_dataset = T)
+train_impute = imputed$train 
+if(anyNA(test_patients)){
+  test_impute = imputed$test
+} else {
+  pre_proc_values <- preProcess(train %>% select(-c("study_id", "pep", "patient_id")), method = c("center", "scale"))
+  test_impute = predict(pre_proc_values, test_patients) 
+}
+
+# Train model
+# fit = train(pep ~ ., data = train_impute %>% select(-patient_id),
+#             method = "plr",
+#             trControl = fitControl,
+#             metric = "Kappa") # metric for selecting tuning parameters
+# varImp(fit)
+# saveRDS(fit, here("pep_risk_app", "data", "logit_model.rds"))
+
+
+fit = train(pep ~ ., data = train_impute %>% select(-patient_id),
+            method = "gbm",
+            trControl = fitControl,
+            verbose = FALSE,
+            metric = "Kappa")  # metric for selecting tuning parameters
+
+varImp(fit)
+saveRDS(fit, here("pep_risk_app", "data", "gbm_model.rds"))
+# fit = train(pep ~ ., data = train_impute %>% select(-patient_id),
+#             method = "rf",
+#             trControl = fitControl,
+#             verbose = FALSE,
+#             metric = "Kappa",
+#             ntree = 500)
+# varImp(fit)
+# saveRDS(fit, here("pep_risk_app", "data", "rf_model.rds"))
+
+# saveRDS(train, here("pep_risk_app", "data", "train_new.rds"))
+# saveRDS(train_impute, here("pep_risk_app", "data", "train_impute.rds"))
+```
+
+### Variable importance
+
+```{r}
+# Variable names
+var_names = tibble(variable = c("age_years",
+                                "gender_male_1",
+                                "bmi",
+                                "sod",
+                                "history_of_pep",
+                                "hx_of_recurrent_pancreatitis",
+                                "pancreatic_sphincterotomy",
+                                "precut_sphincterotomy",
+                                "minor_papilla_sphincterotomy",
+                                "failed_cannulation",
+                                "difficult_cannulation",
+                                "pneumatic_dilation_of_intact_biliary_sphincter",
+                                "pancreatic_duct_injection",
+                                "pancreatic_duct_injections_2",
+                                "acinarization",
+                                "trainee_involvement",
+                                "cholecystectomy",
+                                "pancreo_biliary_malignancy",
+                                "guidewire_cannulation",
+                                "guidewire_passage_into_pancreatic_duct",
+                                "guidewire_passage_into_pancreatic_duct_2",
+                                "biliary_sphincterotomy"),
+                   var_label = c("Age",
+                                 "Sex",
+                                 "BMI",
+                                 "Sphincter of oddi dysfunction",
+                                 "History of PEP",
+                                 "History of recurrent pancreatitis",
+                                 "Pancreatic sphincterotomy",
+                                 "Precut sphincterotomy",
+                                 "Minor papilla sphincterotomy",
+                                 "Failed cannulation",
+                                 "Difficult cannulation",
+                                 "Pneumatic dilation of intact biliary sphincter",
+                                 "Pancreatic duct injection",
+                                 "Pancreatic duct injections > 2",
+                                 "Acinarization",
+                                 "Trainee involvement",
+                                 "Cholecystectomy",
+                                 "Pancreo biliary malignancy",
+                                 "Guidewire cannulation",
+                                 "Guidewire passage into pancreatic duct",
+                                 "Guidewire passage into pancreatic duct > 2",
+                                 "Biliary sphincterotomy"))
+saveRDS(var_names, here("pep_risk_app", "data", "var_names.rds"))
+```
+
+```{r}
+set.seed(1)
+# LIME
+explainer = lime(train_impute %>% select(-patient_id), fit,
+                 bin_continuous = TRUE, n_bins = 5)
+saveRDS(explainer, here("pep_risk_app", "data", "lime_explainer.rds"))
+
+first_row = train_impute %>% select(-patient_id) %>% slice(1)
+explanation = explain(first_row, explainer, n_labels = 1, n_features = ncol(train_impute))
+plot_features(explanation)
+
+explanation = explanation %>% 
+  right_join(., var_names, by = c("feature" = "variable")) %>%
+  mutate(feature_desc = var_label)
+my_plot_lime_features(explanation)
+
+explanation_default = explanation %>% 
+  mutate(label = NA,
+         label_prob = 0,
+         model_r2 = 0,
+         feature_weight = 0) %>%
+  arrange(desc(feature)) # for Shiny app
+saveRDS(explanation_default, here("pep_risk_app", "data", "explanation_default.rds"))
+```
+
+```{r}
+# Calculate PEP incidence by variable
+calculate_pep_incidence = function(train, var){
+  n_levels = length(unique(train[[var]][!is.na(train[[var]])]))
+  if(n_levels > 5){ # continuous variable
+    cross_tab = train %>%
+      mutate(var_ind = !!sym(var) > mean(!!sym(var), na.rm = T)) %>% # create binary variable
+      tabyl(var_ind, pep) %>%
+      adorn_percentages("row")
+    n_levels = 2
+  } else { # categorical variable
+  cross_tab = train %>% 
+    tabyl(!!sym(var), pep) %>%
+    adorn_percentages("row")
+  }
+  
+  pep_incidence = sum(cross_tab[2:n_levels, 3]) # If multiple categories, return sum of pep_incidence for variable >= 1
+  return(pep_incidence)
+}
+```
+
+```{r}
+# Variable importance
+var_imp = varImp(fit)[[1]] %>% mutate(variable = rownames(.)) # average decrease in logloss by variable in gbm
+var_imp = var_imp %>%
+  rename(variable_imp = Overall)
+
+# Variable Mean
+var_mean = train %>% select(all_of(var_imp$variable)) %>% colMeans(na.rm = T)
+var_mean = tibble(variable = names(var_mean), mean = var_mean) 
+
+# PEP incidence by variable
+var_incid = sapply(var_imp$variable, function(x) calculate_pep_incidence(train, x))
+var_incid = tibble(variable = names(var_incid), incid = var_incid) # pep incidence for categorical variables
+
+var_names %>%
+  left_join(., var_mean, by = "variable") %>%
+  left_join(., var_incid, by = "variable") %>%
+  left_join(., var_imp, by = "variable") %>%
+  arrange(desc(variable_imp))
+```
+
+```{r eval = F}
+# Train rf models on subsets of therapies
+fit_sub = list()
+patients_sub = trt_randomized_groups %>% filter(trt_ah) %>% pull(patient_id)
+fit_sub[["Aggressive hydration only"]] = train(pep ~ ., data = train_impute %>% filter(patient_id %in% patients_sub) %>% select(-patient_id), 
+                                               method = "rf", 
+                                               trControl = fitControl,
+                                               verbose = FALSE,
+                                               ntree = 500)
+patients_sub = trt_randomized_groups %>% filter(trt_indo) %>% pull(patient_id)
+fit_sub[["Indomethacin only"]] = train(pep ~ ., data = train_impute %>% filter(patient_id %in% patients_sub) %>% select(-patient_id), 
+                                       method = "rf", 
+                                       trControl = fitControl,
+                                       verbose = FALSE,
+                                       ntree = 500)
+
+patients_sub = trt_randomized_groups %>% filter(trt_ah_indo) %>% pull(patient_id)
+fit_sub[["Aggressive hydration and indomethacin"]] = train(pep ~ ., data = train_impute %>% filter(patient_id %in% patients_sub) %>% select(-patient_id), 
+                                                           method = "rf", 
+                                                           trControl = fitControl,
+                                                           verbose = FALSE,
+                                                           ntree = 500)
+
+patients_sub = trt_randomized_groups %>% filter(trt_pd) %>% pull(patient_id)
+fit_sub[["PD stent only"]] = train(pep ~ ., data = train_impute %>% filter(patient_id %in% patients_sub) %>% select(-patient_id), 
+                                   method = "rf", 
+                                   trControl = fitControl,
+                                   verbose = FALSE,
+                                   ntree = 500)
+
+patients_sub = trt_randomized_groups %>% filter(trt_indo_pd) %>% pull(patient_id)
+fit_sub[["Indomethacin and PD stent"]] = train(pep ~ ., data = train_impute %>% filter(patient_id %in% patients_sub) %>% select(-patient_id), 
+                                               method = "rf", 
+                                               trControl = fitControl,
+                                               verbose = FALSE,
+                                               ntree = 500)
+saveRDS(fit_sub, here("pep_risk_app", "data", "rf_model_trt.rds"))
+```
+
+```{r eval = F}
+# Train logistic regression to get estimate of trt effect
+fit_lr_sub = list()
+patients_sub = trt_randomized_groups %>% filter(trt_ah) %>% pull(patient_id)
+fit_lr_sub[["Aggressive hydration only"]] = glm(pep ~., family = binomial(link='logit'), data= train_impute %>% filter(patient_id %in% patients_sub) %>% select(-patient_id))
+
+patients_sub = trt_randomized_groups %>% filter(trt_indo) %>% pull(patient_id)
+fit_lr_sub[["Indomethacin only"]] = glm(pep ~., family = binomial(link='logit'), data= train_impute %>% filter(patient_id %in% patients_sub) %>% select(-patient_id))
+
+patients_sub = trt_randomized_groups %>% filter(trt_ah_indo) %>% pull(patient_id)
+fit_lr_sub[["Aggressive hydration and indomethacin"]] = glm(pep ~., family = binomial(link='logit'), data= train_impute %>% filter(patient_id %in% patients_sub) %>% select(-patient_id))
+
+patients_sub = trt_randomized_groups %>% filter(trt_pd) %>% pull(patient_id)
+fit_lr_sub[["PD stent only"]] = glm(pep ~., family = binomial(link='logit'), data= train_impute %>% filter(patient_id %in% patients_sub) %>% select(-patient_id))
+
+patients_sub = trt_randomized_groups %>% filter(trt_indo_pd) %>% pull(patient_id)
+fit_lr_sub[["Indomethacin and PD stent"]] = glm(pep ~., family = binomial(link='logit'), data= train_impute %>% filter(patient_id %in% patients_sub) %>% select(-patient_id))
+
+trt_names = c("aggressive_hydration", "indomethacin_nsaid_prophylaxis", "indomethacin_nsaid_prophylaxis", "pancreatic_duct_stent_placement")
+for(i in seq_along(fit_lr_sub)){
+  trt_name = trt_names[i]
+  model = fit_lr_sub[[i]]
+  
+  # CI for odds ratio
+  or = exp(coef(model)[trt_name])
+  ci = suppressWarnings(exp(confint(model)))
+  print(paste(or, "95% CI:", ci[trt_name, 1], ",", ci[trt_name, 2]))
+}
+```
+
+```{r eval = T}
+# Train gbm models on subsets of therapies
+fit_gbm_sub = list()
+patients_sub = trt_randomized_groups %>% filter(trt_ah) %>% pull(patient_id)
+fit_gbm_sub[["Aggressive hydration only"]] = train(pep ~ ., data = train_impute %>% filter(patient_id %in% patients_sub) %>% select(-patient_id), 
+                                                   method = "gbm", 
+                                                   trControl = fitControl,
+                                                   verbose = FALSE,
+                                                   metric = "Kappa")  # metric for selecting tuning parameters
+patients_sub = trt_randomized_groups %>% filter(trt_indo) %>% pull(patient_id)
+fit_gbm_sub[["Indomethacin only"]] = train(pep ~ ., data = train_impute %>% filter(patient_id %in% patients_sub) %>% select(-patient_id), 
+                                           method = "gbm", 
+                                           trControl = fitControl,
+                                           verbose = FALSE,
+                                           metric = "Kappa")  # metric for selecting tuning parameters
+patients_sub = trt_randomized_groups %>% filter(trt_ah_indo) %>% pull(patient_id)
+fit_gbm_sub[["Aggressive hydration and indomethacin"]] = train(pep ~ ., data = train_impute %>% filter(patient_id %in% patients_sub) %>% select(-patient_id), 
+                                                               method = "gbm", 
+                                                               trControl = fitControl,
+                                                               verbose = FALSE,
+                                                               metric = "Kappa")  # metric for selecting tuning parameters
+patients_sub = trt_randomized_groups %>% filter(trt_pd) %>% pull(patient_id)
+fit_gbm_sub[["PD stent only"]] = train(pep ~ ., data = train_impute %>% filter(patient_id %in% patients_sub) %>% select(-patient_id), 
+                                       method = "gbm", 
+                                       trControl = fitControl,
+                                       verbose = FALSE,
+                                       metric = "Kappa")  # metric for selecting tuning parameters
+patients_sub = trt_randomized_groups %>% filter(trt_indo_pd) %>% pull(patient_id)
+fit_gbm_sub[["Indomethacin and PD stent"]] = train(pep ~ ., data = train_impute %>% filter(patient_id %in% patients_sub) %>% select(-patient_id), 
+                                                   method = "gbm", 
+                                                   trControl = fitControl,
+                                                   verbose = FALSE,
+                                                   metric = "Kappa")  # metric for selecting tuning parameters
+saveRDS(fit_gbm_sub, here("pep_risk_app", "data", "gbm_model_trt.rds"))
+```
+
+
+### Prediction
+
+```{r}
+# Prediction for each treatment with models on trt subsets
+test_patients_pred_ls = list()
+for(trt in c("Aggressive hydration only", "Indomethacin only", "PD stent only", "Aggressive hydration and indomethacin")){
+  # Predict on no trt
+  p1 = predict(fit_gbm_sub[[trt]], newdata = test_impute %>% filter(therapy == "No treatment"), type = "prob")[, 2]
+  
+  # Predict on trt
+  p2 = predict(fit_gbm_sub[[trt]], newdata = test_impute %>% filter(therapy == trt), type = "prob")[, 2]
+  
+  # Predict on full model
+  test_sub = test_impute %>% filter(therapy == "No treatment")
+  pred = predict(fit, newdata = test_sub, type = "prob")[, 2]
+  
+  # Adjust prediction for aggressive hydration first
+  if(trt == "Aggressive hydration and indomethacin"){
+    p3 = predict(fit_gbm_sub[["Aggressive hydration only"]], newdata = test_impute %>% filter(therapy == "No treatment"), type = "prob")[, 2]
+    p4 = predict(fit_gbm_sub[["Aggressive hydration only"]], newdata = test_impute %>% filter(therapy == "Aggressive hydration only"), type = "prob")[, 2]
+    shrinkage = ifelse(p3 > 0.1, 1, p3*10)
+    adj_factor = p4/p3*shrinkage + 1*(1-shrinkage)
+    adj_factor[is.nan(adj_factor)] = 1
+    pred = pred * adj_factor
+  }
+  
+  # Compute adjusted prediction
+  shrinkage = ifelse(p1 > 0.1, 1, p1*10)
+  adj_factor = p2/p1*shrinkage + 1*(1 - shrinkage)  # take the ratio, with shrinkage towards 1 if p1 < 0.1
+  adj_factor[is.nan(adj_factor)] = 1 # set adjustment factor to 1 if p1 = 0
+  pred_adj = pred * adj_factor
+  test_patients_pred_ls[[trt]] = tibble(patient_id = test_sub$patient_id,
+         therapy = trt,
+         pred = pred_adj)
+}
+
+# Prediction for no treatment on full model
+test_sub = test_impute %>% filter(therapy == "No treatment")
+test_no_trt = tibble(patient_id = test_sub$patient_id,
+                     therapy = "No treatment",
+                     pred = predict(fit, newdata = test_sub, type = "prob")[, 2])
+test_patients_pred = bind_rows(bind_rows(test_patients_pred_ls), test_no_trt)
+```
+
+To visualize this, we can take the nearest neighbors within each therapy group and plot all of their (adjusted) prediction scores and actual pep outcomes.
+
+```{r fig.height = 5, fig.width = 10}
+set.seed(1)
+n_k = 20
+
+for(iteration in 1:10){
+  test_patient = test_patients %>% filter(patient_id == iteration)
+  test_patient_impute = test_impute %>% filter(patient_id == iteration)
+  test_patient_pred = test_patients_pred %>% filter(patient_id == iteration)
+  
+  # Nearest neighbors among no treatment patients (n = 1775)
+  patient_ids = train %>%
+    filter(aggressive_hydration == 0 &
+             indomethacin_nsaid_prophylaxis == 0 &
+             pancreatic_duct_stent_placement == 0) %>%
+    pull(patient_id)
+  train_sub = train_impute %>%
+    filter(patient_id %in% patient_ids)
+  notrt_values = train_sub %>% select(aggressive_hydration, indomethacin_nsaid_prophylaxis, pancreatic_duct_stent_placement) %>% distinct()
+  stopifnot(nrow(notrt_values) == 1)
+  
+  k <- knn(train = train_sub %>% select(-pep, -patient_id, -indomethacin_nsaid_prophylaxis, -aggressive_hydration, -pancreatic_duct_stent_placement), 
+           test = test_patient_impute %>% filter(therapy == "No treatment") %>% 
+             select(-patient_id, -therapy, -indomethacin_nsaid_prophylaxis, -aggressive_hydration, -pancreatic_duct_stent_placement), 
+           train_sub$pep, k = n_k, algorithm = "cover_tree")
+  indices <- attr(k, "nn.index")[1, ]
+  neighbors_1 = train_sub %>%
+    slice(indices)
+  
+  pred = predict(fit, newdata = neighbors_1, type = "prob")[, 2]
+  neighbors_1 = neighbors_1 %>% mutate(pred = pred)
+  
+  # Nearest neighbors among aggressive hydration only patients (n = 325)
+  trt = "Aggressive hydration only"
+  patients_sub = trt_randomized_groups %>% filter(trt_ah) %>% pull(patient_id)
+  patient_ids = train %>%
+    filter(aggressive_hydration == 1 & 
+             indomethacin_nsaid_prophylaxis == 0 &
+             pancreatic_duct_stent_placement == 0) %>%
+    filter(patient_id %in% patients_sub) %>%
+    pull(patient_id)
+  train_sub = train_impute %>%
+    filter(patient_id %in% patient_ids)
+  
+  k <- knn(train = train_sub %>% select(-pep, -patient_id, -indomethacin_nsaid_prophylaxis, -aggressive_hydration, -pancreatic_duct_stent_placement), 
+           test = test_patient_impute %>% filter(therapy == trt) %>% 
+             select(-patient_id, -therapy, -indomethacin_nsaid_prophylaxis, -aggressive_hydration, -pancreatic_duct_stent_placement), 
+           train_sub$pep, k = n_k, algorithm = "cover_tree")
+  indices <- attr(k, "nn.index")[1, ]
+  neighbors_2 = train_sub %>%
+    slice(indices)
+  neighbors_2_notrt = neighbors_2 %>% mutate(indomethacin_nsaid_prophylaxis = notrt_values$indomethacin_nsaid_prophylaxis, aggressive_hydration = notrt_values$aggressive_hydration, pancreatic_duct_stent_placement = notrt_values$pancreatic_duct_stent_placement)
+  
+  pred = predict(fit, newdata = neighbors_2_notrt,
+                 type = "prob")[, 2]
+  p1 = predict(fit_gbm_sub[[trt]], newdata = neighbors_2_notrt, type = "prob")[, 2]
+  p2 = predict(fit_gbm_sub[[trt]], newdata = neighbors_2, type = "prob")[, 2]
+  shrinkage = ifelse(p1 > 0.1, 1, p1*10)
+  adj_factor = p2/p1*shrinkage + 1*(1 - shrinkage)  # take the ratio, with shrinkage towards 1 if p1 < 0.1
+  adj_factor[is.nan(adj_factor)] = 1 # set adjustment factor to 1 if p1 = 0
+  pred_adj = pred * adj_factor
+  neighbors_2 = neighbors_2 %>% mutate(pred = pred_adj)
+  
+  # Nearest neighbors among indomethacin only patients (n = 2955)
+  trt = "Indomethacin only"
+  patients_sub = trt_randomized_groups %>% filter(trt_indo) %>% pull(patient_id)
+  patient_ids = train %>%
+    filter(aggressive_hydration == 0 &
+             indomethacin_nsaid_prophylaxis == 1 &
+             pancreatic_duct_stent_placement == 0) %>%
+    pull(patient_id)
+  train_sub = train_impute %>%
+    filter(patient_id %in% patient_ids)
+  
+  k <- knn(train = train_sub %>% select(-pep, -patient_id, -indomethacin_nsaid_prophylaxis, -aggressive_hydration, -pancreatic_duct_stent_placement), 
+           test = test_patient_impute %>% filter(therapy == trt) %>% 
+             select(-patient_id, -therapy, -indomethacin_nsaid_prophylaxis, -aggressive_hydration, -pancreatic_duct_stent_placement), 
+           train_sub$pep, k = n_k, algorithm = "cover_tree")
+  indices <- attr(k, "nn.index")[1, ]
+  neighbors_3 = train_sub %>%
+    slice(indices)
+  neighbors_3_notrt = neighbors_3 %>% mutate(indomethacin_nsaid_prophylaxis = notrt_values$indomethacin_nsaid_prophylaxis, aggressive_hydration = notrt_values$aggressive_hydration, pancreatic_duct_stent_placement = notrt_values$pancreatic_duct_stent_placement)
+  
+  pred = predict(fit, newdata = neighbors_3_notrt,
+                 type = "prob")[, 2]
+  p1 = predict(fit_gbm_sub[[trt]], newdata = neighbors_3_notrt, type = "prob")[, 2]
+  p2 = predict(fit_gbm_sub[[trt]], newdata = neighbors_3, type = "prob")[, 2]
+  shrinkage = ifelse(p1 > 0.1, 1, p1*10)
+  adj_factor = p2/p1*shrinkage + 1*(1 - shrinkage)  # take the ratio, with shrinkage towards 1 if p1 < 0.1
+  adj_factor[is.nan(adj_factor)] = 1 # set adjustment factor to 1 if p1 = 0
+  pred_adj = pred * adj_factor
+  neighbors_3 = neighbors_3 %>% mutate(pred = pred_adj)
+  
+  # Nearest neighbors among PD stent patients (n = 363)
+  trt = "PD stent only"
+  patients_sub = trt_randomized_groups %>% filter(trt_pd) %>% pull(patient_id)
+  patient_ids = train %>%
+    filter(aggressive_hydration == 0 & 
+             indomethacin_nsaid_prophylaxis == 0 &
+             pancreatic_duct_stent_placement == 1) %>%
+    pull(patient_id)
+  train_sub = train_impute %>%
+    filter(patient_id %in% patient_ids)
+  
+  k <- knn(train = train_sub %>% select(-pep, -patient_id, -indomethacin_nsaid_prophylaxis, -aggressive_hydration, -pancreatic_duct_stent_placement), 
+           test = test_patient_impute %>% filter(therapy == trt) %>% 
+             select(-patient_id, -therapy, -indomethacin_nsaid_prophylaxis, -aggressive_hydration, -pancreatic_duct_stent_placement), 
+           train_sub$pep, k = n_k, algorithm = "cover_tree")
+  indices <- attr(k, "nn.index")[1, ]
+  neighbors_4 = train_sub %>%
+    slice(indices)
+  neighbors_4_notrt = neighbors_4 %>% mutate(indomethacin_nsaid_prophylaxis = notrt_values$indomethacin_nsaid_prophylaxis, aggressive_hydration = notrt_values$aggressive_hydration, pancreatic_duct_stent_placement = notrt_values$pancreatic_duct_stent_placement)
+  
+  pred = predict(fit, newdata = neighbors_4_notrt,
+                 type = "prob")[, 2]
+  p1 = predict(fit_gbm_sub[[trt]], newdata = neighbors_4_notrt, type = "prob")[, 2]
+  p2 = predict(fit_gbm_sub[[trt]], newdata = neighbors_4, type = "prob")[, 2]
+  shrinkage = ifelse(p1 > 0.1, 1, p1*10)
+  adj_factor = p2/p1*shrinkage + 1*(1 - shrinkage)  # take the ratio, with shrinkage towards 1 if p1 < 0.1
+  adj_factor[is.nan(adj_factor)] = 1 # set adjustment factor to 1 if p1 = 0
+  pred_adj = pred * adj_factor
+  neighbors_4 = neighbors_4 %>% mutate(pred = pred_adj)
+  
+  # Nearest neighbors among aggressive hydration and indomethacin (n = 79)
+  trt = "Aggressive hydration and indomethacin"
+  patients_sub = trt_randomized_groups %>% filter(trt_ah_indo) %>% pull(patient_id)
+  patient_ids = train %>%
+    filter(aggressive_hydration == 1 & 
+             indomethacin_nsaid_prophylaxis == 1 &
+             pancreatic_duct_stent_placement == 0) %>%
+    pull(patient_id)
+  train_sub = train_impute %>%
+    filter(patient_id %in% patient_ids)
+  
+  k <- knn(train = train_sub %>% select(-pep, -patient_id, -indomethacin_nsaid_prophylaxis, -aggressive_hydration, -pancreatic_duct_stent_placement), 
+           test = test_patient_impute %>% 
+             filter(therapy == trt) %>% 
+             select(-patient_id, -therapy, -indomethacin_nsaid_prophylaxis, -aggressive_hydration, -pancreatic_duct_stent_placement), 
+           train_sub$pep, k = n_k, algorithm = "cover_tree")
+  indices <- attr(k, "nn.index")[1, ]
+  neighbors_5 = train_sub %>%
+    slice(indices)
+  neighbors_5_notrt = neighbors_5 %>% mutate(indomethacin_nsaid_prophylaxis = notrt_values$indomethacin_nsaid_prophylaxis, aggressive_hydration = notrt_values$aggressive_hydration, pancreatic_duct_stent_placement = notrt_values$pancreatic_duct_stent_placement)
+  
+  pred = predict(fit, newdata = neighbors_5_notrt,
+                 type = "prob")[, 2]
+  ah_patient = train %>% filter(aggressive_hydration == 1) %>% slice(1) %>% pull(patient_id) # pick a patient that had aggressive_hydration
+  ah_value = train_impute %>% filter(patient_id %in% ah_patient) %>% pull(aggressive_hydration)
+  p3 = predict(fit_gbm_sub[["Aggressive hydration only"]], newdata = neighbors_5_notrt, type = "prob")[, 2]
+  p4 = predict(fit_gbm_sub[["Aggressive hydration only"]], newdata = neighbors_5_notrt %>% mutate(aggressive_hydration = ah_value), type = "prob")[, 2]
+  shrinkage = ifelse(p3 > 0.1, 1, p3*10)
+  adj_factor = p4/p3*shrinkage + 1*(1-shrinkage)
+  adj_factor[is.nan(adj_factor)] = 1
+  pred = pred * adj_factor
+  p1 = predict(fit_gbm_sub[[trt]], newdata = neighbors_5_notrt, type = "prob")[, 2]
+  p2 = predict(fit_gbm_sub[[trt]], newdata = neighbors_5, type = "prob")[, 2]
+  shrinkage = ifelse(p1 > 0.1, 1, p1*10)
+  adj_factor = p2/p1*shrinkage + 1*(1 - shrinkage)  # take the ratio, with shrinkage towards 1 if p1 < 0.1
+  adj_factor[is.nan(adj_factor)] = 1 # set adjustment factor to 1 if p1 = 0
+  pred_adj = pred * adj_factor
+  neighbors_5 = neighbors_5 %>% mutate(pred = pred_adj)
+  
+  # Plot neighbors with test patient
+  ref_samples = bind_rows(neighbors_1, neighbors_2, neighbors_3, 
+                          neighbors_4, neighbors_5) %>%
+    select(patient_id, pep, pred) %>%
+    mutate(therapy = rep(c("No treatment", "Aggressive hydration only", "Indomethacin only", "PD stent only", "Aggressive hydration and indomethacin"), each = n_k)) 
+  
+  therapy_level_order = c("No treatment", "Aggressive hydration only", "Indomethacin only",
+                          "Aggressive hydration and indomethacin", "PD stent only")
+  p = ggplot() +
+    geom_jitter(data = ref_samples, width = 0.2, height = 0,
+                aes(x = factor(therapy, levels = therapy_level_order), 
+                    y = pred, size = 3, color = pep, alpha = 0.8)) +
+    geom_point(data = test_patient_pred, 
+               aes(x = factor(therapy, levels = therapy_level_order), y = pred),
+               size = 4, shape = 21, color = "black", fill = "yellow") +
+    geom_label_repel(data = test_patient_pred,
+               aes(label = paste("test patient risk:", paste0(round(pred*100, digits = 1), "%")), 
+                   x = therapy, y = pred),
+               direction = "y", nudge_x = 0.3, fill = "yellow",
+               color = "#333333", alpha = 0.8,
+               segment.color = "#333333", segment.alpha = 0.8) +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 20)) +
+    # scale_y_continuous(limits = c(0, min(0.4, max(pred_dt$pred)))) +
+    scale_color_manual(labels = c("No", "Yes"), values = c("#56B4E9", "#D55E00")) +
+    guides(size = F,
+           alpha = F,
+           color = guide_legend(override.aes = list(size = 4, alpha = 0.8))) +
+    labs(title = "PEP risk of nearest neighbors",
+         x = "Treatment",
+         y = "Probability of developing PEP",
+         color = "Developed PEP") +
+    theme_classic(base_size = 15) +
+    theme(plot.title = element_text(hjust = 0.5),
+          legend.position = "bottom",
+          panel.grid.major.y = element_line(colour="gray", size = 0.5),
+          text = element_text(size = 15))
+  print(p)
+  # ggsave(here("publication", "Figures for Venkata", paste0("test_patient_", iteration, ".png")),
+  #        height = 5, width = 10)
+}
+```
+
+
+### Treatment effects on training set
+
+```{r}
+# Estimated random forest (or any other classifier) trt effects (difference in score) for all samples in the training set
+rf_trt_effect = list()
+# Get no trt values
+patient_ids = train %>%
+  filter(aggressive_hydration == 0 &
+           indomethacin_nsaid_prophylaxis == 0 &
+           pancreatic_duct_stent_placement == 0) %>%
+  pull(patient_id)
+train_sub = train_impute %>%
+  filter(patient_id %in% patient_ids)
+notrt_values = train_sub %>% select(aggressive_hydration, indomethacin_nsaid_prophylaxis, pancreatic_duct_stent_placement) %>% distinct()
+train_impute_notrt = train_impute %>% mutate(indomethacin_nsaid_prophylaxis = notrt_values$indomethacin_nsaid_prophylaxis, aggressive_hydration = notrt_values$aggressive_hydration, pancreatic_duct_stent_placement = notrt_values$pancreatic_duct_stent_placement)
+
+# Predict
+trt = "Aggressive hydration only"
+ah_patient = train %>% filter(aggressive_hydration == 1) %>% slice(1) %>% pull(patient_id) # pick a patient that had aggressive_hydration
+ah_value = train_impute %>% filter(patient_id %in% ah_patient) %>% pull(aggressive_hydration)
+pred = predict(fit, newdata = train_impute_notrt,
+               type = "prob")[, 2]
+p1 = predict(fit_gbm_sub[[trt]], newdata = train_impute_notrt, type = "prob")[, 2]
+p2 = predict(fit_gbm_sub[[trt]], newdata = train_impute_notrt %>% mutate(aggressive_hydration = ah_value), type = "prob")[, 2]
+shrinkage = ifelse(p1 > 0.1, 1, p1*10)
+adj_factor = p2/p1*shrinkage + 1*(1 - shrinkage)  # take the ratio, with shrinkage towards 1 if p1 < 0.1
+adj_factor[is.nan(adj_factor)] = 1 # set adjustment factor to 1 if p1 = 0
+pred_adj = pred * adj_factor
+rf_trt_effect[[trt]] = pred_adj - pred
+
+trt = "Indomethacin only"
+indo_patient = train %>% filter(indomethacin_nsaid_prophylaxis == 1) %>% slice(1) %>% pull(patient_id) # pick a patient that had indo
+indo_value = train_impute %>% filter(patient_id %in% indo_patient) %>% pull(indomethacin_nsaid_prophylaxis)
+pred = predict(fit, newdata = train_impute_notrt,
+               type = "prob")[, 2]
+p1 = predict(fit_gbm_sub[[trt]], newdata = train_impute_notrt, type = "prob")[, 2]
+p2 = predict(fit_gbm_sub[[trt]], newdata = train_impute_notrt %>% mutate(indomethacin_nsaid_prophylaxis = indo_value), type = "prob")[, 2]
+shrinkage = ifelse(p1 > 0.1, 1, p1*10)
+adj_factor = p2/p1*shrinkage + 1*(1 - shrinkage)  # take the ratio, with shrinkage towards 1 if p1 < 0.1
+adj_factor[is.nan(adj_factor)] = 1 # set adjustment factor to 1 if p1 = 0
+pred_adj = pred * adj_factor
+rf_trt_effect[[trt]] = pred_adj - pred
+
+trt = "PD stent only"
+pd_patient = train %>% filter(pancreatic_duct_stent_placement == 1) %>% slice(1) %>% pull(patient_id) # pick a patient that had pd_stent
+pd_value = train_impute %>% filter(patient_id %in% pd_patient) %>% pull(pancreatic_duct_stent_placement)
+pred = predict(fit, newdata = train_impute_notrt,
+               type = "prob")[, 2]
+p1 = predict(fit_gbm_sub[[trt]], newdata = train_impute_notrt, type = "prob")[, 2]
+p2 = predict(fit_gbm_sub[[trt]], newdata = train_impute_notrt %>% mutate(pancreatic_duct_stent_placement = pd_value), type = "prob")[, 2]
+shrinkage = ifelse(p1 > 0.1, 1, p1*10)
+adj_factor = p2/p1*shrinkage + 1*(1 - shrinkage)  # take the ratio, with shrinkage towards 1 if p1 < 0.1
+adj_factor[is.nan(adj_factor)] = 1 # set adjustment factor to 1 if p1 = 0
+pred_adj = pred * adj_factor
+rf_trt_effect[[trt]] = pred_adj - pred
+
+trt = "Aggressive hydration and indomethacin"
+pred = predict(fit, newdata = train_impute_notrt,
+               type = "prob")[, 2]
+p3 = predict(fit_gbm_sub[["Aggressive hydration only"]], newdata = train_impute_notrt, type = "prob")[, 2]
+p4 = predict(fit_gbm_sub[["Aggressive hydration only"]], newdata = train_impute_notrt %>% mutate(aggressive_hydration = ah_value), type = "prob")[, 2]
+shrinkage = ifelse(p3 > 0.1, 1, p3*10)
+adj_factor = p4/p3*shrinkage + 1*(1-shrinkage)
+adj_factor[is.nan(adj_factor)] = 1
+pred_2 = pred * adj_factor
+p1 = predict(fit_gbm_sub[[trt]], newdata = train_impute_notrt, type = "prob")[, 2]
+p2 = predict(fit_gbm_sub[[trt]], newdata = train_impute %>% mutate(indomethacin_nsaid_prophylaxis = indo_value), type = "prob")[, 2]
+shrinkage = ifelse(p1 > 0.1, 1, p1*10)
+adj_factor = p2/p1*shrinkage + 1*(1 - shrinkage)  # take the ratio, with shrinkage towards 1 if p1 < 0.1
+adj_factor[is.nan(adj_factor)] = 1 # set adjustment factor to 1 if p1 = 0
+pred_adj = pred_2 * adj_factor
+rf_trt_effect[[trt]] = pred_adj - pred
+
+rf_trt_effect = as_tibble(rf_trt_effect) %>%
+  pivot_longer(cols = names(rf_trt_effect))
+rf_trt_effect %>%
+  ggplot(aes(x = name, y = value)) + 
+  geom_violin() +
+  labs(title = "Estimated treatment effects on training set",
+       x = "Treatment",
+       y = "Effect") +
+  theme_bw()
+```
+

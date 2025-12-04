@@ -15,15 +15,15 @@ function App() {
   const [procedureType, setProcedureType] = useState('col');
   const [sessionId, setSessionId] = useState(null);
   const [healthStatus, setHealthStatus] = useState('checking');
-  
+
   // UI states
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCalculatingPEP, setIsCalculatingPEP] = useState(false);
   const [recordingStatus, setRecordingStatus] = useState('');
-  
+
   const [pepManualData, setPepManualData] = useState({});
-  
+
   // Results states
   const [showResults, setShowResults] = useState(false);
   const [showPEPRiskResults, setShowPEPRiskResults] = useState(false);
@@ -36,11 +36,11 @@ function App() {
 
   // Custom hooks
   const websocket = useWebSocketTranscription(sessionId, setSessionId);
-  
+
   const handleAudioChunk = useCallback((blob) => {
     websocket.sendAudioChunk(blob);
   }, [websocket]);
-  
+
   const audioRecorder = useAudioRecorder(handleAudioChunk);
 
   useEffect(() => {
@@ -102,7 +102,7 @@ function App() {
 
     try {
       const result = await processTranscriptAPI(transcript, procedureType, sessionId);
-      
+
       if (result.success) {
         if (procedureType === 'col') {
           setColonoscopyData(result.data.colonoscopy || {});
@@ -134,7 +134,7 @@ function App() {
     try {
       // Pass manual PEP data along with transcript for pep_risk processing
       const result = await processTranscriptAPI(transcript, 'pep_risk', sessionId, pepManualData);
-      
+
       if (result.success) {
         setPepRiskData(result.data);
         setPepRiskScore(result.pep_risk_score);
@@ -156,53 +156,56 @@ function App() {
   return (
     <div className="container mx-auto p-4 max-w-6xl">
       <Header healthStatus={healthStatus} />
-      
-      <ProcedureSelector 
-        value={procedureType} 
-        onChange={setProcedureType} 
+
+      <ProcedureSelector
+        value={procedureType}
+        onChange={setProcedureType}
       />
 
-      {procedureType === 'ercp' && (
-        <PEPRiskManualInput 
-          onDataChange={setPepManualData}
-          initialData={pepManualData}
-        />
-      )}
+      <div className="flex gap-6 mt-4">
+        <div className="flex-1 space-y-4">
+          {procedureType === 'ercp' && (
+            <PEPRiskManualInput
+              onDataChange={setPepManualData}
+              initialData={pepManualData}
+            />
+          )}
+          <AudioRecorder
+            recording={audioRecorder.recording}
+            paused={audioRecorder.paused}
+            onStart={handleStartRecording}
+            onPause={handlePauseRecording}
+            onResume={handleResumeRecording}
+            onStop={handleStopRecording}
+            sessionId={sessionId}
+            recordingStatus={recordingStatus}
+          />
+          <TranscriptionDisplay
+            transcript={websocket.transcript}
+            isProcessing={websocket.isProcessing}
+            showSubmitButton={showSubmitButton}
+            showPEPRiskButton={showPEPRiskButton}
+            onSubmit={handleSubmit}
+            onCalculatePEPRisk={handleCalculatePEPRisk}
+            isSubmitting={isSubmitting}
+            isCalculatingPEP={isCalculatingPEP}
+          />
+        </div>
 
-      <AudioRecorder
-        recording={audioRecorder.recording}
-        paused={audioRecorder.paused}
-        onStart={handleStartRecording}
-        onPause={handlePauseRecording}
-        onResume={handleResumeRecording}
-        onStop={handleStopRecording}
-        sessionId={sessionId}
-        recordingStatus={recordingStatus}
-      />
-
-      <TranscriptionDisplay
-        transcript={websocket.transcript}
-        isProcessing={websocket.isProcessing}
-        showSubmitButton={showSubmitButton}
-        showPEPRiskButton={showPEPRiskButton}
-        onSubmit={handleSubmit}
-        onCalculatePEPRisk={handleCalculatePEPRisk}
-        isSubmitting={isSubmitting}
-        isCalculatingPEP={isCalculatingPEP}
-      />
-
-      <ResultsDisplay
-        procedureType={procedureType}
-        colonoscopyData={colonoscopyData}
-        polypsData={polypsData}
-        procedureData={procedureData}
-        pepRiskData={pepRiskData}
-        pepRiskScore={pepRiskScore}
-        pepRiskCategory={pepRiskCategory}
-        showResults={showResults}
-        showPEPRiskResults={showPEPRiskResults}
-      />
-
+        <div className="w-1/2">
+          <ResultsDisplay
+            procedureType={procedureType}
+            colonoscopyData={colonoscopyData}
+            polypsData={polypsData}
+            procedureData={procedureData}
+            pepRiskData={pepRiskData}
+            pepRiskScore={pepRiskScore}
+            pepRiskCategory={pepRiskCategory}
+            showResults={showResults}
+            showPEPRiskResults={showPEPRiskResults}
+          />
+        </div>
+      </div>
       <ErrorDisplay message={error} />
     </div>
   );

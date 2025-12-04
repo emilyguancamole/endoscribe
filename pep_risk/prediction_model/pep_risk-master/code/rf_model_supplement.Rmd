@@ -1,0 +1,656 @@
+---
+title: "Random Forest Model for PEP data (Supplementary Details)"
+author: "Albert Kuo"
+date: "1/28/2018"
+output: 
+  html_document:
+    code_folding: "show"
+    toc: TRUE
+    toc_float: TRUE
+---
+
+```{r packages, include=F}
+library(pacman)
+p_load(tidyverse, janitor, readxl, plotly, caret, randomForest, xgboost, reprtree, Boruta, ROCR, gridExtra, knitr)
+source("rf_functions.R")
+set.seed(1)
+```
+
+This document contains all the supplementary analyses and details.
+
+
+# Data Details 
+
+## Studies
+
+1. Study 1 (Elmunzer) 
+  * 602 high risk patients
+  * [Reference][1]
+
+2. Study 2 (Indieh) 
+  * 959 high risk patients
+  * [Reference][2], also another file downloaded locally
+
+3. Study 3 (Luo)
+  * 2292 moderate to high risk patients
+  * [Reference][3]
+  
+[1]: https://www.ncbi.nlm.nih.gov/pubmed/22494121
+[2]: https://www.indieh.com/
+[3]: https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(16)30310-5/abstract
+
+Note that in all three studies, patients are of moderate to high risk, so we cannot evaluate the model's predictive performance on low risk patients. I will be using the dataset that I built from the raw data taken from these three studies. Below, I print out a summary of the dataset, which I call `clean_dat`.
+
+```{r import_data}
+option = 2
+if(option == 1){
+  raw_dat = read_excel("../data/Risk Factors INDIEH Elmunzer Luo.xlsx")
+} else {
+  raw_dat = read_csv("../data/Risk Factors INDIEH Elmunzer Luo version Albert.csv")
+}
+
+clean_dat = raw_dat %>% 
+  clean_names()     %>%
+  mutate_at(vars(study:pep_severity), funs(factor)) %>% # Make columns a factor class
+  mutate(pep = relevel(as.factor(pep), ref="1"))        # Change reference level for pep column
+
+if(option == 2){
+  clean_dat = clean_dat %>%
+    mutate_at(c("sex"), funs(factor))
+}
+
+dim(clean_dat)
+summary(clean_dat)
+```
+
+## Randomization and study design
+
+The variables `indo` and `pd_stent` are protective treatments. Because `indo` has been randomly assigned to patients in some of the studies, we can estimate its effect. However, `pd_stent` was not randomly assigned. Let's take a look at the data by stratifying each dataset into their treatment classes (no indo & no stent, no indo & yes stent, yes indo & no stent, yes indo & yes stent). The differences in randomization between the studies are the main reason why it's not a straightforward task to consolidate the datasets. Here is a brief summary of the randomization used in each study:
+
+1. Study 1 (Elmunzer) - Patients were randomized to indo vs no indo, so we have a balance across indo arms. However, the assignment of pd_stent was not randomized. Most patients received pd_stent (~82%).
+
+2. Study 2 (Indieh) - All patients received indo and no patients received pd_stent. The randomization was for another treatment (topical epinephrine) that wasn't found to be effective in this study.
+
+3. Study 3 (Luo) - Patients were randomized to the universal group or the risk-stratified group. In the universal group, everyone received pre-procedural indo. In the risk-stratified group, "high-risk" (as determined by a simple rule-based criteria) patients received post-procedural indo and "average-risk" patients did not receive indo. Post-procedural indo and pre-procedural indo are very similar and have been combined into the same value for `indo` (`indo = TRUE`). Overall, very few patients received pd_stent (4-5%), which is given at the discretion of the doctor.
+
+
+```{r check_randomization}
+# Count indo and pd_stent per study
+clean_dat %>%
+  group_by(study) %>%
+  count(indo, pd_stent) %>%
+  ggplot(aes(x = study, y = n, fill = pd_stent)) +
+  geom_col(position = "stack") + 
+  facet_wrap(~ indo, labeller = label_both) +
+  ggtitle("Distribution of pd_stent in each indo/study combination") +
+  theme_bw()
+```
+
+The table below displays the proportion of patients that developed PEP in each study based on whether they were given stent. Notably, the proportion that developed PEP is not necessarily lower among those who got `pd_stent` in study 1 or 3. This confirms that patients at higher risk were given stent at the discretion of the doctor, assuming that stent is always beneficial (which may not be true; it may be harmful if it's hard to place the stent). 
+
+```{r check_stent_randomization}
+clean_dat %>%
+  group_by(study) %>%
+  count(pd_stent, pep) %>%
+  group_by(study, pd_stent) %>%
+  summarize(pep_prop = n[pep==1]/(n[pep==1] + n[pep==0]))
+```
+
+The table below compares the proportions that developed PEP based on their study, treatment and high risk status (which is used as part of the randomization in study 3). 
+
+* From this table, we can compare the risk levels of the patients from each study. For example, do similar proportions develop PEP among patients who received indo but not stent in study 1 and 2? The answer is yes, the proportions are ~6% (row 2 and row 5).
+* We can also ballpark estimate the effect of indo if we compare within studies/risk groups. For example, in study 3, 6.2% of moderate risk patients who didn't receive stent or indo developed PEP (row 6) compared with 2.8% of moderate risk patients who didn't receive stent but received indo (row 7). 
+
+```{r}
+clean_dat %>%
+  select(study, high_risk_patients, pep, indo, pd_stent) %>%
+  group_by(study, high_risk_patients, pd_stent, indo) %>%
+  summarize(pep_0 = sum(pep == 0),
+            pep_1 = sum(pep == 1),
+    pep_prop = mean(as.numeric(as.character(pep)))) %>%
+  arrange(study)
+```
+
+# Training data
+
+To select our training data, there are a couple of different options we've tried out so far. I will explain each one and discuss their drawbacks. The cross-validated performance of each option are very similar in terms of sensitivity and specificity.
+
+1. **Option 1: Use data from all three studies**: This results in an imbalance of risk across the no indo arm versus the indo arm, due to the design of study 2 and study 3. In study 3, only the moderate risk patients in the risk-stratified group did not receive indo, so patients in the indo arm have higher overall risk than the patients in the no indo arm. In study 2, everyone received indo. However, study 2 patients are likely to be higher risk than the moderate risk patients from study 3, so including study 2 into the training set further worsens the imbalance in risk between the no indo arm versus the indo arm. The main drawback of this approach is that we will get a biased estimate of the effect of indo. We also have to impute variables for study 1 and 3.
+
+2. **Option 2: Use data from study 1 and study 2 only**: Based on pep outcome, study 1 patients who received indo and did not receive stent have similar risk as study 2 patients (all of whom received indo and did not receive stent). Therefore, ignoring the effect of stent, the risk across the no indo arm versus the indo arm will still be balanced if we include study 2 in addition to study 1. The main drawback of this approach is that we are not using study 3, which is the largest study. Also, we have to impute variables for study 1.
+
+3. **Option 3: Use data from study 1 and the moderate risk patients from study 3 only**: This is what I did in the most recent model I showed you. From study 3, we only use the moderate risk patients who received and didn't receive indo. Mixing in these patients with all the patients from study 1, we get a sample that is average-to-high risk overall and is balanced across the indo arms. The first drawback of this approach is that we are not using study 2 or the high-risk patients from study 3 to train the model. However, the training dataset is still bigger than option #2. The second drawback is that we still have to impute variables for both study 1 and 3 from study 2. 
+
+4. **Option 4: Use data from only study 2**: This is what I was doing over summer. The advantage of this method is that we do not have to do any imputation since only study 2 is not missing any values. However, we cannot get an estimate of the effect of indo and we are not using most of our available data to train. 
+
+Additional notes: 
+
+* In all the approaches described above, we cannot estimate the effect of stent (at least according to our discussions so far). This is because the assignment of pd stent was not randomized in any of the studies.
+
+```{r}
+set.seed(1)
+sample_dat = clean_dat %>%
+  select(-pep_severity,
+         -age_50_female, -num_panc_inj, -num_gw_passes) #%>%  # Redundant/duplicate variables
+  # filter(pd_stent == 0)                                     # Select pd_stent = 0 
+
+train_dat_ls = vector(mode = "list", length = 3)
+test_dat_ls = vector(mode = "list", length = 3)
+
+# Split data into training and test set
+for(study_num in 1:3){
+  temp = sample_dat %>%
+    filter(study == study_num)
+  
+  train_ind = createDataPartition(temp$pep, p = 0.8, list = F)
+  train_dat_ls[[study_num]] = temp[train_ind,]
+  test_dat_ls[[study_num]] = temp[-train_ind,]
+  rm(temp)
+}
+
+# Impute missing in training set
+train_dat = bind_rows(train_dat_ls)
+train_dat = rfImpute(pep ~ ., data = train_dat)
+
+# Fill NA with 0 in test set
+test_dat = bind_rows(test_dat_ls) %>%
+  mutate_all(funs(replace(., is.na(.), 0)))
+
+# Split test set into validation and test set (final analysis might need to do this step too)
+test_ind = createDataPartition(test_dat$pep, p = 0.5, list = F)
+val_dat = test_dat[-test_ind,]
+test_dat = test_dat[test_ind,]
+```
+
+**Option 1**
+
+```{r training_data_1}
+train_dat_1 = train_dat %>%
+  select(-study, -high_risk_patients)
+
+get_ROC(train_dat_1) %>%
+  plot_ROC() %>%
+  ggplotly()
+```
+
+**Option 2**
+
+```{r training_data_2}
+train_dat_2 = train_dat %>%
+  filter(study == 1 | study == 2) %>%
+  select(-study, -high_risk_patients)
+
+get_ROC(train_dat_2) %>%
+  plot_ROC() %>%
+  ggplotly()
+```
+
+**Option 3**
+
+```{r training_data_3}
+train_dat_3 = train_dat %>%
+  filter(study == 1 | (study == 3 & high_risk_patients == 0)) %>%
+  select(-study, -high_risk_patients)
+
+get_ROC(train_dat_3) %>%
+  plot_ROC() %>%
+  ggplotly()
+```
+
+**Option 4**
+
+```{r training_data_4}
+train_dat_4 = train_dat %>%
+  filter(study == 2) %>%
+  select(-study, -high_risk_patients) %>%
+  drop_na()                # only 1 NA
+
+get_ROC(train_dat_4) %>%
+  plot_ROC() %>%
+  ggplotly()
+```
+
+## Compare performance on validation set
+
+```{r}
+# This code can be cleaned up later.
+p = 0.5                          
+
+sample_size = min(table(train_dat_1$pep))
+rf_model_1 = randomForest(pep ~ ., data = train_dat_1, proximity = T, type="classification",
+                        strata = train_dat_1$pep, sampsize = c(sample_size, sample_size), 
+                        cutoff = c(p, 1-p))
+sample_size = min(table(train_dat_2$pep))
+rf_model_2 = randomForest(pep ~ ., data = train_dat_2, proximity = T, type="classification",
+                        strata = train_dat_2$pep, sampsize = c(sample_size, sample_size), 
+                        cutoff = c(p, 1-p))
+sample_size = min(table(train_dat_3$pep))
+rf_model_3 = randomForest(pep ~ ., data = train_dat_3, proximity = T, type="classification",
+                        strata = train_dat_3$pep, sampsize = c(sample_size, sample_size), 
+                        cutoff = c(p, 1-p))
+sample_size = min(table(train_dat_4$pep))
+rf_model_4 = randomForest(pep ~ ., data = train_dat_4, proximity = T, type="classification",
+                        strata = train_dat_4$pep, sampsize = c(sample_size, sample_size), 
+                        cutoff = c(p, 1-p))
+
+ss_df_1 = pred_ROC(val_dat, rf_model_1) %>%
+  mutate(model_name = "Option 1")
+ss_df_2 = pred_ROC(val_dat, rf_model_2) %>%
+  mutate(model_name = "Option 2")
+ss_df_3 = pred_ROC(val_dat, rf_model_3) %>%
+  mutate(model_name = "Option 3")
+ss_df_4 = pred_ROC(val_dat, rf_model_4) %>%
+  mutate(model_name = "Option 4")
+
+ss_df = bind_rows(ss_df_1, ss_df_2, ss_df_3, ss_df_4)
+p = plot_ROC(ss_df) +
+  labs(title = "Comparison of models on validation set")
+ggplotly(p)
+
+ss_df %>%
+  distinct(auc, model_name) %>%
+  kable()
+```
+
+The performances are comparable on the validation set (varies depending on the random selection of the validation set, but usually they're similar).
+
+## Compare overlap in correct predictions
+
+This section investigates whether it would be worthwhile to combine models trained on different sets. Due to high overlap in correct predictions (~85%), the conclusion is no. 
+
+```{r}
+actual_values = val_dat$pep
+predicted_values_3 = predict(rf_model_3, val_dat, type = "response")
+predicted_values_2 = predict(rf_model_2, val_dat, type = "response")
+predicted_values_4 = predict(rf_model_4, val_dat, type = "response")
+
+# True positive
+tp_3 = which(actual_values == predicted_values_3 & actual_values == 1)
+tp_2 = which(actual_values == predicted_values_2 & actual_values == 1)
+tp_4 = which(actual_values == predicted_values_4 & actual_values == 1)
+
+# True negative
+tn_3 = which(actual_values == predicted_values_3 & actual_values == 0)
+tn_2 = which(actual_values == predicted_values_2 & actual_values == 0)
+tn_4 = which(actual_values == predicted_values_4 & actual_values == 0)
+
+# Results table
+data.frame(type = c("True Positives", "True Negatives"),
+           n_model_3 = c(length(tp_3), length(tn_3)),
+           percent_overlap_with_model_2 = c(length(intersect(tp_2, tp_3))/length(tp_3),
+                                       length(intersect(tn_2, tn_3))/length(tn_3)),
+           model_2_add = c(length(setdiff(tp_2, tp_3)), length(setdiff(tn_4, tn_3))),
+           percent_overlap_with_model_4 = c(length(intersect(tp_4, tp_3))/length(tp_3),
+                                            length(intersect(tn_4, tn_3))/length(tn_3)),
+           model_4_add = c(length(setdiff(tp_4, tp_3)), length(setdiff(tn_4, tn_3)))) %>%
+  kable()
+```
+
+The `percent_overlap` columns indicate what proportion of correct predictions by model 3 were also correctly predicted by the model. The `model_add` columns indicate how many correct predictions were additionally made by the model that weren't correctly predicted by model 3.
+
+# Features & feature selection
+
+## Some notes about features
+
+* From the raw datasets, I extracted `age` and `sex` as separate variables and will use these in the model (in the original dataset Venkata sent me, these two variables were combined into one binary variable). There are two other variables `num_panc_inj` and `num_gw_passes` for which we can use their raw numeric values instead of processed binary values (i.e. `num_panc_inj` > 2 and `num_gw_passes` > 2). However, I am just going to use the binary version because the numeric values can be complicated to deal with -- for example, it's not always the case that we have the actual numeric value (e.g. for a patient, their `num_panc_inj` value might be recorded as `>10` instead of the actual value).
+
+## Feature selection
+
+I've looked into a couple of different options for feature selection. To briefly summarize: 
+
+1. Use backwards selection with the `rfe` function from the `caret` package based on a chosen metric: sensitivity, specificity, or ROC. 
+
+2. Use the `boruta` package, which measures importance of features using its own metric.
+
+3. Use the 8 risk factors that are traditionally considered to be clinically important.
+
+4. Use the features with the highest importance scores.
+
+Additional notes:
+
+* From the perspective of someone using the Shiny app, we probably want to do some sort of feature selection beforehand so that they don't have to input ~25 values to get a result. On the other hand, it sounds like Venkata is going to do another study to validate the performance of our model. So for that purpose, we should probably err on the side of retaining more features (if not all of them) in the model.
+
+* I will demonstrate each feature selection methods with training data option 3.
+
+```{r}
+train_dat = train_dat_3
+```
+
+**With caret rfe**
+
+The function `rfe` from the `caret` package uses backwards selection (recursive feature elimination) to select features according to a chosen metric (e.g. sensitivity, specificity, or ROC). I modified the `rfFuncs` random forest fitting function to balance the data with `strata` and`sampsize` every time a tree in the model is fit in `rfe`. 
+
+```{r feature_selection}
+# Source: https://community.rstudio.com/t/caret-recursive-feature-elimination-with-upsamling/6903/4
+set.seed(1)
+rf_fit = function(x, y, first, last, ...){
+  loadNamespace("randomForest")
+  sample_size = min(table(y))
+  randomForest::randomForest(
+    x, y, strata = y, sampsize = c(sample_size, sample_size),
+    #cutoff = c(0.2, 0.8),  
+    ...)
+}
+
+my_rf = rfFuncs
+my_rf$fit = rf_fit
+my_rf$summary = twoClassSummary
+control = rfeControl(functions = my_rf, method = "cv", number = 5, saveDetails = T)
+rfe_prof = rfe(x = select(train_dat, -pep), y = train_dat$pep, 
+               rfeControl = control, sizes = 1:20, 
+               metric = "ROC")
+
+print(rfe_prof)
+plot(rfe_prof, type = c("g", "o"))
+```
+
+
+**With Boruta**
+
+The `Boruta` package also does feature selection for random forest. It calculates the importance of all the features based on its own accuracy metric. There does not seem to be an option to select features for specificity. The green features are important, the yellow features are tentative, the red features are unimportant, and the blue features are shadow/artificial features created by `Boruta`.
+
+```{r boruta}
+set.seed(1)
+boruta = Boruta(pep ~ ., data = train_dat)
+print(boruta)
+
+# Plot
+plot(boruta, xlab = "", xaxt = "n")
+k = lapply(1:ncol(boruta$ImpHistory), function(i) boruta$ImpHistory[is.finite(boruta$ImpHistory[,i]),i])
+names(k) = colnames(boruta$ImpHistory)
+Labels = sort(sapply(k,median))
+axis(side = 1, las=2, labels = names(Labels),
+       at = 1:ncol(boruta$ImpHistory), cex.axis = 0.7)
+```
+
+
+**Clinically important features only**
+
+Use the risk factors that are traditionally considered to be clinically important. These are guidewire cannulation (`GW_cann`), > 2 guidewire passes to pancreatic duct (`>2GW_passPD`), History of PEP (`History_of_PEP`), Pancreatic sphincterotomy (`Panc_Sphinc`), Pre-cut sphincterotomy (`Precut_Sphinc`), Difficult cannulation (`Diff_cann`), Sphincter of Oddi dysfunction of Type I or Type II (`SOD`), Pancreo-biliary malignancy (`PB_mal`).
+
+**High importance features only**
+
+```{r importance_scores}
+p = 0.5                                  
+sample_size = min(table(train_dat$pep))
+rf_model = randomForest(pep ~ ., data = train_dat, proximity = T, type="classification",
+                        strata = train_dat$pep, sampsize = c(sample_size, sample_size), 
+                        cutoff = c(p, 1-p))
+
+imp_df = get_imp_scores(rf_model) %>%
+  arrange(-imp_scores) %>%
+  mutate(ord = order(imp_scores, decreasing = T)) %>%
+  mutate(imp_names = factor(imp_names, levels = imp_names[ord]))
+imp_df
+```
+
+```{r feature_selection_samples}
+train_dat_all_features = train_dat # Save a copy
+
+# rfe
+train_dat = train_dat_all_features %>%
+  select(c(predictors(rfe_prof), "pep"))
+
+# boruta
+train_dat = train_dat_all_features %>%
+  select(c(names(boruta$finalDecision[boruta$finalDecision!="Rejected"]), "pep")) 
+
+# historically important
+train_dat = train_dat_all_features %>%
+  select(gw_cann, x2gw_pass_pd, history_of_pep, panc_sphinc, precut_sphinc, diff_cann, sod, pb_mal, indo, pd_stent, pep)
+
+# importance scores (need to manually update features list)
+train_dat = train_dat_all_features %>%
+  select(age, sex, bil_sphinc, trainee, x2gw_pass_pd, gw_cann, failed_cann, diff_cann, 
+         min_pap_sphinc, sod, panc_div, indo, pd_stent, pep)
+```
+
+# Model
+
+## Fit random forest model
+
+Running the random forest model involves just using the R function `randomForest`. Because we have an imbalance in our outcome variable (pep), I use the parameters `strata` and `sampsize` to take a balanced sample (downsampling) of the training data for every tree in the random forest. We might want to consider tuning `ntree` and `mtry` in the future.
+
+I will use training data option 3 with all features to demonstrate the performance of our model. Here are the specific steps I took to keep the test set separate from the training process:
+
+1. Take data from all three studies. 
+
+* Should we drop all patients with pd_stent? If we do, it will drop most study 1 patients (~82%). When this model is used by doctors, none of the patients will have been given pd stent yet.
+
+2. For each study, reserve 20% of data as test set, not to be used until the model has been finalized. 
+
+3. Within the remaining 80% of data, impute missing variables in study 1 and study 3 using study 2 and the function `rfImpute`, which imputes using proximity from a fitted random forest.
+
+4. Select patients from study 1 and study 3 (moderate risk only) as our training set. This is so that we can estimate the effect of indo. More details are discussed in the **Training data** section above.
+
+5. Test the model on the test sets. For the test set from study 1 and 3, set variables to 0 whenever they are missing. 
+
+```{r}
+# Select training set option
+train_dat = train_dat_3
+
+# Fill NA with 0 in test set
+test_dat = bind_rows(test_dat_ls) %>%
+  mutate_all(funs(replace(., is.na(.), 0)))
+```
+
+
+```{r fit_random_forest}
+# Step 3: Train model
+p = 0.5                                  
+sample_size = min(table(train_dat$pep))
+rf_model = randomForest(pep ~ ., data = train_dat, proximity = T, type="classification",
+                        strata = train_dat$pep, sampsize = c(sample_size, sample_size), 
+                        cutoff = c(p, 1-p))
+```
+
+**Importance scores**
+
+```{r}
+imp_df = get_imp_scores(rf_model)
+ord = order(imp_df$imp_scores, decreasing = T)
+imp_df$imp_names = factor(imp_df$imp_names, levels = imp_df$imp_names[ord])
+
+ggplot(imp_df, aes(x = imp_names, y = imp_scores)) +
+  geom_col(position = "stack") +
+  coord_flip() +
+  labs(title = "Random Forest Importance Scores", x = "", y = "Importance Score") + 
+  theme_classic() +
+  theme(axis.ticks=element_blank()) 
+```
+
+## Validation
+
+Ideally, we want 4 risk classes – no PEP, low probability (will give IV fluids after procedure), moderate risk (will give indomethacin medication after the procedure), high risk (will place pancreatic duct stent after the procedure). 
+
+**Risk groups based on manual guidelines**
+
+Below I evaluated the random forest accuracy. The patients are split into three groups based on the percentile in the distribution in the number of yes/no votes each patient received from the different trees. 
+
+1. Low-risk group (0-70th percentile, i.e. bottom 70% of patients). If the pep outcome is 0, then it's correctly classified. 
+2. Medium-risk group (70-95th percentile). We do not judge classification for this group.
+3. High-risk group (95th-100th percentile, i.e. top 25% of patients). If the pep outcome is 1, then it's correctly classified.
+
+Here are histograms of the votes, separated by the actual pep outcome. The dashed orange lines represent the 70th and 95th percentile. 
+
+```{r plot_votes}
+count_plot = plot_votes(rf_model, train_dat, y_scale = "count")
+density_plot = plot_votes(rf_model, train_dat, y_scale = "density")
+grid.arrange(count_plot, density_plot, ncol = 2)
+```
+
+The classification accuracy is reported below for the low-risk and high-risk groups. 
+
+```{r acc_df}
+votes = rf_model$votes[, 1]
+normal_votes = votes[train_dat$pep==0]
+split1 = quantile(normal_votes, 0.7)
+split2 = quantile(normal_votes, 0.95)
+low_risk_group = train_dat[votes < split1, ]
+med_risk_group = train_dat[(split1 <= votes) & (votes <= split2), ]
+high_risk_group = train_dat[votes > split2, ]
+
+acc_df = data.frame(rbind(table(low_risk_group$pep), 
+                          table(med_risk_group$pep),
+                          table(high_risk_group$pep)))
+colnames(acc_df) = c("pep=1", "pep=0")
+rownames(acc_df) = c("low_risk_group", "med_risk_group", "high_risk_group")
+accuracy = c(acc_df[1, 2]/rowSums(acc_df)[1],
+             NA,
+             acc_df[3, 1]/rowSums(acc_df)[3])
+acc_df$accuracy = accuracy
+print(acc_df)
+```
+
+**Sensitivity and Specificity**
+
+Below is a plot of the cross-validated sensitivity and specificity for different cut-off values. The higher the cut-off value, the higher the specificity and the lower the sensitivity will be.
+
+```{r sensitivity_specificity}
+get_ROC(train_dat, model = "rf") %>%
+  plot_ROC() %>%
+  ggplotly()
+```
+
+We can also use the `caret` package to calculate sensitivity and specificity under cross-validation (though this uses the default cut-off value of 0.5). I use the `sampling` option in `trainControl` to balance the dataset.
+
+```{r caret_cv}
+# Make class level names valid R variable names for caret cross_validation
+make_levels_valid = function(dat){
+  for (f in names(dat)) {
+    if (class(dat[[f]])=="factor") {
+      levels = unique(dat[[f]])
+      dat[[f]] = factor(dat[[f]], labels=make.names(levels))
+    }
+  }
+  return(dat)
+}
+
+train_dat_v2 = make_levels_valid(train_dat)
+# Create training folds
+ctrl = trainControl(method = "cv", number = 5, classProbs = TRUE, summaryFunction = twoClassSummary, sampling = "down")
+# Fit model
+rf_model_2 = train(pep ~ ., data = train_dat_v2, method = "rf", 
+                 metric = "Spec", trControl = ctrl)
+# Get results
+bestrow = which.max(rf_model_2$results$Spec)
+rf_model_2$results[bestrow, ]
+```
+
+**ROC based on reference samples**
+
+Based on different cutoff values for the proportion of reference samples developing PEP, I can also get different sensitivities and specificities.
+
+```{r}
+# 10 repeats for 5-fold CV 
+mean_auc_vec = c()
+for(n in seq(100, 100, by = 5)){
+  auc = 0
+  for(rep in 1:10){
+    sens_vec = spec_vec = cutoff_vec = c()
+    folds = createFolds(train_dat$pep, k = 5, list = F)
+    predicted_values = actual_values = c()
+    
+    for(fold in unique(folds)){
+      # Separate into train and test
+      train = train_dat[folds!=fold,]
+      test = train_dat[folds==fold,]
+      
+      predicted_values = c(predicted_values, get_ref_prop(train, test, n))
+      actual_values = c(actual_values, test$pep)
+    }
+    
+    actual_values = sapply(as.numeric(actual_values), function(x) ifelse(x==2, 0, 1))
+    pred = prediction(predicted_values, actual_values)
+    perf = performance(pred, "sens", "spec")
+    auc = auc + as.numeric(performance(pred, "auc")@y.values)
+  }
+  mean_auc = auc/10
+  mean_auc_vec = c(mean_auc_vec, mean_auc)
+  print(n)
+  print(mean_auc)
+}
+
+cutoff_vec = c(cutoff_vec, perf@alpha.values[[1]])
+sens_vec = c(sens_vec, perf@y.values[[1]])
+spec_vec = c(spec_vec, perf@x.values[[1]])
+
+sens_spec_cv_df = data.frame(sensitivity = sens_vec,
+                             specificity = spec_vec,
+                             cutoff = cutoff_vec)
+
+sens_spec_cv_df = sens_spec_cv_df %>%
+  mutate(model_name = "ref_samples",
+         auc = mean_auc)
+
+plot_ROC(sens_spec_cv_df)
+```
+
+
+## Comparison to other models
+
+I compare random forest performance to logistic regression and boosting with 10-fold cross-validation. They perform similarly.
+
+```{r}
+# Tune hyperparameters for boosting
+boost_df_ls = list()
+max_depth = 1:8
+eta = seq(0.1, 0.3, by = 0.1)
+# nrounds = seq(100, 500, by = 100) 
+nrounds = 100
+params = crossing(max_depth, eta, nrounds)
+max_depth = params$max_depth
+eta = params$eta
+nrounds = params$nrounds
+begin = Sys.time()
+auc = mapply(function(max_depth, eta, nrounds) get_ROC(train_dat, model = "boost", max_depth = max_depth, eta = eta, nrounds = nrounds)$auc[1], max_depth, eta, nrounds)
+end = Sys.time()
+print(end - begin)
+
+boost_results = cbind(params, auc)
+```
+
+
+```{r}
+rf_roc_df = get_ROC(train_dat, model = "rf")
+lr_roc_df = get_ROC(train_dat, model = "lr")
+boost_roc_df = get_ROC(train_dat, model = "boost", max_depth = 1, eta = 0.3, nrounds = 300)
+bind_rows(rf_roc_df, lr_roc_df, boost_roc_df) %>%
+  plot_ROC() %>%
+  ggplotly()
+```
+
+
+
+# Prediction
+
+**Sensitivity/Specificity** 
+
+Below is the ROC curve for the reserved test data, which consists of 20% of observations from all three studies.
+
+```{r}
+sens_spec_df = pred_ROC(test_dat, rf_model) %>%
+  mutate(model_name = "rf_final")
+  
+p = plot_ROC(sens_spec_df) +
+  labs(title = "Test Data Sensitivity and Specificity")
+
+ggplotly(p)
+```
+
+
+[comment]: # (Misc code)
+
+```{r representative_tree, echo=F, eval=F}
+# Getting a representative tree
+reptree = ReprTree(rf_model, train_dat, metric='d2')
+plot(reptree)
+# https://stats.stackexchange.com/questions/12046/organizing-a-classification-tree-in-rpart-into-a-set-of-rules
+```
+```{r, echo=F, eval=F}
+# Convert from Rmd to R file ----------------------------------------------	
+library(knitr)	
+purl("randomforest_model.Rmd", output = "randomforest_model_convert.R")	
+```
+
+

@@ -1,0 +1,196 @@
+---
+title: "build_data"
+author: "Albert Kuo"
+date: "10/28/2018"
+output: html_notebook
+---
+
+This document builds data from the raw files.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages}
+library(tidyverse)
+library(janitor)
+library(readxl)
+```
+
+# Clean data
+```{r}
+# Reference clean dataset (outdated)
+old_clean_dat = read_excel("../data/Risk Factors INDIEH Elmunzer Luo.xlsx") %>%
+  clean_names()
+names(old_clean_dat)
+# Column names from reference final dataset
+column_names = c("study", "age_50_female", "sod", "history_of_pep", "recurr_panc",
+                 "panc_sphinc", "precut_sphinc", "min_pap_sphinc", "failed_cann", "diff_cann",
+                 "pneum_dil_wo_bs", "panc_inj_2", "acinarz", "panc_brush_cyto", "panc_div",
+                 "trainee", "cholecy", "pb_mal", "gw_cann", "x2gw_pass_pd",
+                 "bil_sphinc", "indo", "pd_stent", "high_risk_patients", "pep", "pep_severity")
+
+# Additional variables to use in analysis (make sure to remove redundant ones before running model)
+column_names = c(column_names, "age", "sex", "num_panc_inj", "num_gw_passes")
+```
+
+# Study 1 - Elmunzer 
+```{r elmunzer}
+raw_elmunzer = read_excel("data/Elmunzer NEJM.xlsx") %>%
+  clean_names()
+
+clean_elmunzer = raw_elmunzer %>%
+  mutate(study = 1,
+         age_50_female = as.integer(age <= 50 & gender == "female"),
+         sod = ifelse(sod == "yes", 1, 0),
+         history_of_pep = ifelse(pep == "yes", 1, 0),
+         recurr_panc = ifelse(recpanc == "yes", 1, 0),
+         panc_sphinc = ifelse(psphinc == "yes", 1, 0),
+         precut_sphinc = ifelse(precut == "yes", 1, 0),
+         min_pap_sphinc = NA,
+         failed_cann = NA,
+         diff_cann = ifelse(difcan == "yes", 1, 0),
+         pneum_dil_wo_bs = ifelse(pneudil == "yes", 1, 0),
+         panc_inj_2 = ifelse((inj == "0" | inj == "1" | inj == "2"), 0, 1),
+         panc_inj_2 = ifelse(is.na(inj), 0, panc_inj_2), # 18 NA
+         acinarz = ifelse(acinar == "yes", 1, 0),
+         panc_brush_cyto = ifelse(brush == "yes", 1, 0),
+         panc_div = NA,
+         trainee = ifelse(train == "yes", 1, 0),
+         cholecy = ifelse(chole == "yes", 1, 0),
+         pb_mal = ifelse(pbmal == "yes", 1, 0),
+         gw_cann = NA,
+         x2gw_pass_pd = NA,
+         bil_sphinc = ifelse(bsphinc == "yes", 1, 0),
+         indo = ifelse(group == "indomethacin", 1, 0),
+         pd_stent = ifelse(pdstent == "yes", 1, 0),
+         pep = ifelse(outcome == "yes", 1, 0),
+         pep_severity = NA,
+         age = age,
+         sex = ifelse(gender == "female", 1, 0),
+         num_panc_inj = ifelse(inj == ">8", 9, as.integer(inj)),   # Set ">8" to 9
+         num_gw_passes = NA,
+         high_risk_patients = 1) %>%
+  select(column_names)
+
+# Compare results
+summary(clean_elmunzer)
+old_clean_dat %>%
+  filter(study == 1) %>%
+  summary()
+```
+
+# Study 2 - Indieh
+```{r}
+raw_indieh = read_excel("data/INDIEH risk factors file.xlsx") %>%
+  clean_names()
+
+clean_indieh = raw_indieh %>%
+  mutate(study = 2,
+         age = ageinyears,
+         sex = gender,
+         age_50_female = as.integer(ageinyears <= 50 & gender == "Female"),
+         sod = ifelse(is.na(sphincterof_oddidysfunctionof_type_ior_type_ii),
+                      0, sphincterof_oddidysfunctionof_type_ior_type_ii),      # 1 NA
+         history_of_pep = history_of_pep,
+         recurr_panc = historyofacutepancreatitisatleast2episodes,
+         panc_sphinc = ifelse(is.na(pancreaticsphincterotomy),
+                              0, pancreaticsphincterotomy),                    # 1 NA
+         precut_sphinc = precutaccesssphincterotomy,
+         min_pap_sphinc = ifelse(is.na(minorpapillasphincterotomy),
+                                 0, minorpapillasphincterotomy),                  # 23 NA
+         failed_cann = failedcannulation,
+         diff_cann = gt5cannulationattempts10minutestocannulate,
+         pneum_dil_wo_bs = pneumaticdilationofanintactsphincter,
+         panc_inj_2 = ifelse((numberofpancreaticinjections == "0" |
+                               numberofpancreaticinjections == "1" |
+                                numberofpancreaticinjections == "2"), 0, 1),
+         acinarz = pancreaticacinarization,
+         panc_brush_cyto = ifelse(is.na(pancreatic_brush_cytology),
+                                  0, pancreatic_brush_cytology),               # 1 NA
+         panc_div = pancreasdivisum,
+         trainee = taineeinvolved,
+         cholecy = priorcholecystectomy,
+         pb_mal = pancreaticobiliarymalignancy,
+         gw_cann = ifelse(cannulationtechniqueused==1, 1, 0),
+         x2gw_pass_pd = ifelse(numberofguidewirepassestopancreaticduct %in% c("0", "1", "2"),
+                               0, 1),
+         x2gw_pass_pd = ifelse(is.na(numberofguidewirepassestopancreaticduct), 0, # 1 NA
+                                     x2gw_pass_pd),
+         bil_sphinc = ifelse(is.na(biliarysphincterotomy), NA, biliarysphincterotomy),
+         indo = 1,
+         pd_stent = 0,
+         pep = pep_consensus_def,
+         pep_severity = pep_severity,
+         age = ageinyears,
+         sex = ifelse(gender == "Female", 1, 0),
+         num_panc_inj = ifelse(numberofpancreaticinjections == ">6", 7, 
+                               as.integer(numberofpancreaticinjections)),   # Set ">6" to 7
+         num_gw_passes = ifelse(numberofguidewirepassestopancreaticduct == ">6", 7, 
+                                as.integer(numberofguidewirepassestopancreaticduct)),
+         high_risk_patients = 1) %>%
+  select(column_names)
+
+# Compare results
+summary(clean_indieh)
+old_clean_dat %>%
+  filter(study == 2) %>%
+  summary()
+```
+
+# Study 3 - Luo
+```{r}
+raw_luo = read_excel("data/Luo RCT data.xlsx") %>%
+  clean_names()
+
+clean_luo = raw_luo %>%
+  mutate(study = 3,
+         age_50_female = as.integer(age < 50 & gender_1male_2female == 2), 
+         age_50_female = ifelse(is.na(age), 0, age_50_female),             # 9 NA
+         sod = ifelse(suspected_sod == 2, 1, 0),
+         history_of_pep = ifelse(prior_pep == 2, 1, 0),
+         recurr_panc = ifelse((prior_pancreatitis_times == "0" |
+                                 prior_pancreatitis_times == "1"), 0, 1),
+         panc_sphinc = ifelse(pancreatic_sphincterotomy == 2, 1, 0),
+         precut_sphinc = ifelse(canulation_methods_1_standard_2_double_wire_3_precut == 3, 1, 0),
+         min_pap_sphinc = NA,
+         failed_cann = ifelse(failed_cannulation == 2, 1, 0),
+         diff_cann = ifelse(difficult_cannulation_8 == 2, 1, 0),
+         pneum_dil_wo_bs = ifelse(balloon_dilatation_without_est == 2, 1, 0),
+         panc_inj_2 = ifelse(pancreatography_number > 2, 1, 0),             
+         panc_inj_2 = ifelse(is.na(pancreatography_number), 0, panc_inj_2), # 6 NA
+         acinarz = ifelse(pancreatography == 2, 1, 0),
+         panc_brush_cyto = NA,
+         panc_div = NA,
+         trainee = ifelse(trainee_involvement == 2, 1, 0),
+         cholecy = ifelse(cholecystectomy == 2, 1, 0),
+         pb_mal = ifelse(is.na(indications_malignant_biliary_stricture), 0, 1), # NA = "No"
+         gw_cann = NA,
+         x2gw_pass_pd = ifelse(inadvertent_pd_cannulation > 2, 1, 0),
+         bil_sphinc = NA,
+         indo = ifelse((pre_procedural_indo == 2 | post_procedural_indo == 2), 1, 0),
+         pd_stent = ifelse(prophylactic_pd_stent == 2, 1, 0),
+         pep = ifelse(pep_1no_2yes == 2, 1, 0),
+         pep_severity = pep_1no_2_mild_3moderate_4severe - 1,
+         age = age,
+         sex = ifelse(gender_1male_2female == 2, 1, 0),
+         num_panc_inj = pancreatography_number,
+         num_gw_passes = inadvertent_pd_cannulation,
+         high_risk_patients = ifelse(high_risk_patients == 2, 1, 0)) %>%
+  select(column_names)
+
+# Compare results
+summary(clean_luo)
+old_clean_dat %>%
+  filter(study == 3) %>%
+  summary()
+```
+
+
+# Combine the datasets and save
+```{r}
+my_clean_dat = bind_rows(clean_elmunzer, clean_indieh, clean_luo)
+write.csv(my_clean_dat, file = "data/Risk Factors INDIEH Elmunzer Luo version Albert.csv",
+          row.names = F)
+```
+

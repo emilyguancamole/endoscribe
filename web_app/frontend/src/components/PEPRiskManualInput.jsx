@@ -17,7 +17,7 @@ export const PEPRiskManualInput = ({ onDataChange, initialData = {} }) => {
   const handleChange = (field, value) => {
     const newData = { ...formData, [field]: value };
     setFormData(newData);
-    
+
     // Convert to proper types and filter out empty strings
     const processedData = {};
     Object.keys(newData).forEach(key => {
@@ -25,7 +25,7 @@ export const PEPRiskManualInput = ({ onDataChange, initialData = {} }) => {
       if (val === '' || val === null) {
         return; // Skip empty/null values
       }
-      
+
       if (key === 'age_years') {
         const parsed = parseInt(val);
         if (!isNaN(parsed)) processedData[key] = parsed;
@@ -36,7 +36,7 @@ export const PEPRiskManualInput = ({ onDataChange, initialData = {} }) => {
         processedData[key] = val;
       }
     });
-    
+
     onDataChange(processedData);
   };
 
@@ -52,22 +52,20 @@ export const PEPRiskManualInput = ({ onDataChange, initialData = {} }) => {
         <button
           type="button"
           onClick={() => handleChange(field, true)}
-          className={`px-4 py-2 rounded transition-colors ${
-            formData[field] === true
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-          }`}
+          className={`px-4 py-2 rounded transition-colors ${formData[field] === true
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
         >
           {option_yes ? option_yes : 'Yes'}
         </button>
         <button
           type="button"
           onClick={() => handleChange(field, false)}
-          className={`px-4 py-2 rounded transition-colors ${
-            formData[field] === false
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-          }`}
+          className={`px-4 py-2 rounded transition-colors ${formData[field] === false
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
         >
           {option_no ? option_no : 'No'}
         </button>
@@ -94,15 +92,24 @@ export const PEPRiskManualInput = ({ onDataChange, initialData = {} }) => {
 
   return (
     <div className="bg-white p-6 rounded-lg shadow mb-6">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800">
+      <h2 className="card-title text-lg font-bold mb-4 flex items-center gap-2">
         PEP Risk Factors - Manual
+        <span className="relative group text-gray-400 hover:text-gray-600 cursor-pointer text-sm">
+          ⓘ
+          <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-60 p-3 rounded-md
+                          bg-blue-50 text-blue-800 text-sm shadow-lg border border-blue-100
+                          opacity-0 group-hover:opacity-100 pointer-events-none">
+            Note: Additional risk factors will be automatically
+            extracted from the procedure transcript.
+          </div>
+        </span>
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Demographics */}
         <div>
           <h3 className="text-lg font-semibold mb-3 text-gray-700">Demographics</h3>
-          
+
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Age (years)
@@ -142,8 +149,8 @@ export const PEPRiskManualInput = ({ onDataChange, initialData = {} }) => {
           <div className="md:col-span-2">
             <h3 className="text-lg font-semibold mb-3 text-gray-700">Procedure Factors</h3>
             <BooleanField
-                label="Trainee Involvement"
-                field="trainee_involvement"
+              label="Trainee Involvement"
+              field="trainee_involvement"
             />
           </div>
         </div>
@@ -151,7 +158,7 @@ export const PEPRiskManualInput = ({ onDataChange, initialData = {} }) => {
         {/* Medical History */}
         <div>
           <h3 className="text-lg font-semibold mb-3 text-gray-700">Medical History</h3>
-          
+
           <BooleanField
             label="History of PEP"
             field="history_of_pep"
@@ -177,12 +184,6 @@ export const PEPRiskManualInput = ({ onDataChange, initialData = {} }) => {
             field="pancreo_biliary_malignancy"
           />
         </div>
-      </div>
-
-      <div className="mt-4 p-4 bg-blue-50 rounded-md">
-        <p className="text-sm text-blue-800">
-          <strong>Note:</strong> Additional risk factors (cannulation difficulty, sphincterotomy, etc.) will be automatically extracted from the procedure transcript.
-        </p>
       </div>
     </div>
   );

@@ -1,0 +1,281 @@
+---
+title: "Generate Figures and Tables"
+author: "Albert Kuo"
+date: "12/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages}
+library(pacman)
+p_load(tidyverse, cowplot, here, readxl, janitor, ROCR, gt, caret, gbm)
+```
+
+## Figure 1 - ROC and Calibration Plot
+
+```{r}
+trt_randomized_groups = readRDS(here("./data/trt_randomized_groups.rds"))
+```
+
+```{r}
+# Helper function to calculate AUC, FPR, TPR, NPV, PPV, and ACC
+get_performance = function(pred_dt){
+  pred_obj = prediction(pred_dt$pred, pred_dt$y)
+  auc = performance(pred_obj, measure = "auc")@y.values[[1]]
+  acc = performance(pred_obj, "acc")@y.values[[1]]
+  npv = performance(pred_obj, "npv")@y.values[[1]]
+  ppv = performance(pred_obj, "ppv")@y.values[[1]]
+  roc = performance(pred_obj, "tpr", "fpr")
+  fpr = roc@x.values[[1]]
+  tpr = roc@y.values[[1]]
+  threshold = roc@alpha.values[[1]]
+  
+  roc_dt = tibble(x = fpr, y = tpr, auc = auc,
+                  acc = acc, npv = npv, ppv = ppv,
+                  threshold = threshold)
+  return(roc_dt)
+}
+```
+
+```{r}
+pred_dt = readRDS(here("pep_risk_app", "data", "pred_dt_gbm.rds"))
+```
+
+```{r}
+# ROC for all patients
+roc_dt_all = get_performance(pred_dt) %>%
+  mutate(subset = "all")
+
+# ROC for no treatment patients only
+no_trt_patients = dt %>% filter(!(indomethacin_nsaid_prophylaxis == 1 | aggressive_hydration == 1 | pancreatic_duct_stent_placement == 1)) %>% pull(patient_id)
+# no_trt_patients = trt_randomized_groups %>% filter(!(trt_ah | trt_indo | trt_ah_indo | trt_pd)) %>% pull(patient_id)
+pred_dt_notrt = pred_dt %>%
+  filter(patient_id %in% no_trt_patients)
+
+roc_dt_notrt = get_performance(pred_dt_notrt) %>%
+  mutate(subset = "no trt")
+```
+
+
+```{r}
+# ROC plot
+roc_dt = bind_rows(roc_dt_all, roc_dt_notrt)
+auc_text = roc_dt %>%
+  distinct(subset, auc)
+print(auc_text)
+
+p1 = roc_dt %>%
+  ggplot(aes(x, y, color = subset)) + 
+  geom_line() +
+  geom_abline(slope = 1, intercept = 0, color = "darkgray") +
+  scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
+  scale_color_discrete(name = "",
+                       labels = c("All patients", "No prophylaxis")) +
+  labs(title = "ROC curve",
+       x = "1 - Specificity (False Positive Rate)",
+       y = "Sensitivity (True Positive Rate)") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+# Calibration plot
+# Arrange by prediction and group by 200 people
+pep_group_prob_all = pred_dt %>%
+  arrange(pred) %>%
+  mutate(row_num = 1:n(),
+         group = ceiling(row_num/200)) %>%
+  group_by(group) %>%
+  summarize(prop_pep = mean(as.numeric(y) - 1),
+            median_pred = median(pred)) %>%
+  ungroup() %>%
+  mutate(subset = "all")
+
+pep_group_prob_notrt = pred_dt_notrt %>%
+  arrange(pred) %>%
+  mutate(row_num = 1:n(),
+         group = ceiling(row_num/200)) %>%
+  group_by(group) %>%
+  summarize(prop_pep = mean(as.numeric(y) - 1),
+            median_pred = median(pred)) %>%
+  ungroup() %>%
+  mutate(subset = "no trt")
+
+pep_group_prob = bind_rows(pep_group_prob_all, pep_group_prob_notrt)
+
+p2 = pep_group_prob %>%
+  ggplot(aes(x = median_pred, y = prop_pep, color = subset)) +
+  geom_abline() +
+  geom_smooth(se = FALSE, method = "loess", span = 1.0) +
+  geom_point(alpha = 0.5) +
+  scale_color_discrete(name = "",
+                       labels = c("All patients", "No prophylaxis")) +
+  labs(x = "Median Prediction Score",
+       y = "Empirical Proportion of PEP",
+       title = "Calibration plot") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+fig_1 = plot_grid(p1, p2, labels = "auto", nrow = 1)
+print(fig_1)
+ggsave(here("./publication/figures/fig_1.pdf"), plot = fig_1,
+      width = 7, height = 4)
+```
+
+
+## Table - Variable Importance
+
+```{r}
+fit = readRDS(here("pep_risk_app", "data", "gbm_model.rds"))
+train = readRDS(here("pep_risk_app", "data", "train_new.rds"))
+var_names = readRDS(here("pep_risk_app", "data", "var_names.rds"))
+```
+
+```{r}
+# Calculate PEP incidence by variable
+calculate_pep_incidence = function(train, var){
+  n_levels = length(unique(train[[var]][!is.na(train[[var]])]))
+  if(n_levels > 5){ # continuous variable
+    cross_tab = train %>%
+      mutate(var_ind = !!sym(var) > mean(!!sym(var), na.rm = T)) %>% # create binary variable
+      tabyl(var_ind, pep) %>%
+      adorn_percentages("row")
+    n_levels = 2
+  } else { # categorical variable
+  cross_tab = train %>% 
+    tabyl(!!sym(var), pep) %>%
+    adorn_percentages("row")
+  }
+  
+  pep_incidence = sum(cross_tab[2:n_levels, 3]) # If multiple categories, return sum of pep_incidence for variable >= 1
+  return(pep_incidence)
+}
+```
+
+```{r}
+# Variable importance
+var_imp = varImp(fit)[[1]] %>% mutate(variable = rownames(.)) # average decrease in logloss by variable in gbm
+var_imp = var_imp %>%
+  rename(variable_imp = Overall)
+
+# Variable Mean
+var_mean = train %>% select(all_of(var_imp$variable)) %>% colMeans(na.rm = T)
+var_mean = tibble(variable = names(var_mean), mean = var_mean) 
+
+# PEP incidence by variable
+var_incid = sapply(var_imp$variable, function(x) calculate_pep_incidence(train, x))
+var_incid = tibble(variable = names(var_incid), incid = var_incid) # pep incidence for categorical variables
+
+table_varimp = var_names %>%
+  left_join(., var_mean, by = "variable") %>%
+  left_join(., var_incid, by = "variable") %>%
+  left_join(., var_imp, by = "variable") %>%
+  arrange(desc(variable_imp))
+
+table_varimp
+```
+
+
+```{r}
+gt_varimp = table_varimp %>% 
+  mutate(across(c("mean", "incid"), round, 3)) %>%
+  mutate(across(c("variable_imp"), round, 1)) %>%
+  select(-variable) %>%
+  gt() %>%
+  tab_header(title = "Variable Importance") %>%
+    cols_label(
+    var_label = "Variable",
+    mean = "Variable Mean",
+    incid = "PEP Incidence",
+    variable_imp = "Importance")
+gt_varimp
+```
+
+```{r}
+gtsave(gt_varimp, here("./publication/tables/table_varimp.rtf"))
+```
+
+
+## Table - Accuracy
+
+```{r}
+# Get accuracy table at Youden threshold given pred_dt
+get_youden = function(pred_dt){
+  # ROC for all patients
+  roc_dt_all = get_performance(pred_dt) %>%
+    mutate(subset = "all")
+  
+  # ROC for no treatment patients only
+  no_trt_patients = dt %>% filter(!(indomethacin_nsaid_prophylaxis == 1 | aggressive_hydration == 1 | pancreatic_duct_stent_placement == 1)) %>% pull(patient_id)
+  pred_dt_notrt = pred_dt %>%
+    filter(patient_id %in% no_trt_patients)
+  
+  roc_dt_notrt = get_performance(pred_dt_notrt) %>%
+    mutate(subset = "no trt")
+  
+  roc_dt = bind_rows(roc_dt_all, roc_dt_notrt)
+  out = roc_dt %>%
+    mutate(youden = y + (1 - x)) %>%
+    group_by(subset) %>%
+    filter(youden == max(youden)) %>%
+    ungroup() %>%
+    mutate(specificity = 1 - x,
+           sensitivity = y) %>%
+    select(-x, -y)
+  
+  return(out)
+}
+```
+
+```{r}
+roc_dt = list()
+pred_dt = readRDS(here("pep_risk_app", "data", "pred_dt_logit.rds"))
+roc_dt[["logit"]] = get_youden(pred_dt) %>% mutate(method = "logit")
+pred_dt = readRDS(here("pep_risk_app", "data", "pred_dt_gbm.rds"))
+roc_dt[["gbm"]] = get_youden(pred_dt) %>% mutate(method = "gbm")
+pred_dt = readRDS(here("pep_risk_app", "data", "pred_dt_rf.rds"))
+roc_dt[["rf"]] = get_youden(pred_dt) %>% mutate(method = "rf")
+```
+
+```{r}
+tb_accuracy = bind_rows(roc_dt)
+tb_accuracy = tb_accuracy %>%
+  arrange(subset, method) %>%
+  mutate(across(c("auc", "acc", "npv", "ppv", "specificity", "sensitivity"), round, 2)) 
+  
+# Change names
+subset_names = tibble(subset = c("all", "no trt"),
+                      subset_label = c("All patients", "No prophylaxis"))
+method_names = tibble(method = c("gbm", "logit", "rf"),
+                      method_label = c("Gradient Boosted Machine", "Ridge Regression", "Random Forest"))
+tb_accuracy = tb_accuracy %>%
+  left_join(., subset_names, by = "subset") %>%
+  left_join(., method_names, by = "method") %>%
+  select(-subset, -youden, -method) %>%
+  relocate(method_label)
+
+gt_accuracy = tb_accuracy %>%
+  group_by(subset_label) %>%
+  gt() %>%
+  tab_header(title = "Prediction Performance Metrics") %>%
+  cols_label(
+    method_label = "Model",
+    auc = "AUC",
+    acc = "Accuracy",
+    npv = "NPV",
+    ppv = "PPV",
+    specificity = "Specificity",
+    sensitivity = "Sensitivity")
+gt_accuracy
+```
+
+
+```{r}
+gtsave(gt_accuracy, here("./publication/tables/table_accuracy.rtf"))
+```

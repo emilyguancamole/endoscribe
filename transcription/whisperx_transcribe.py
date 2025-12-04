@@ -8,7 +8,7 @@ import torch
 if torch.cuda.is_available():
     # Use CUDA_VISIBLE_DEVICES env var if set, otherwise use default GPUs for WhisperX
     if "CUDA_VISIBLE_DEVICES" not in os.environ:
-        os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7,8,9"
+        os.environ["CUDA_VISIBLE_DEVICES"] = "8,9"
         print(f"CUDA detected. Setting CUDA_VISIBLE_DEVICES to: {os.environ['CUDA_VISIBLE_DEVICES']}")
 else:
     print("CUDA not available. WhisperX will run on CPU or MPS (Apple Silicon).")
@@ -16,10 +16,10 @@ else:
 import noisereduce as nr
 import soundfile as sf
 import pandas as pd
-try:
-    from transcription.convert_to_mono import batch_convert
-except ModuleNotFoundError:
-    from convert_to_mono import batch_convert
+# try: #? not needed bc whisperx should auto handle mono conversion
+#     from transcription.convert_to_mono import batch_convert
+# except ModuleNotFoundError:
+#     from convert_to_mono import batch_convert
 from dotenv import load_dotenv
 load_dotenv()
 hf_token = os.getenv("HF_TOKEN")
@@ -168,9 +168,9 @@ if __name__ == "__main__":
     parser.add_argument('--use_prompt', default=False, help='Whether to use the provided prompt for each audio file')
     args = parser.parse_args()
 
-    if args.convert_to_mono:
-        print(f"Converting all audio files in {args.audio_dir} to mono...")
-        batch_convert(args.audio_dir, inp_audio_format="wav")
+    # if args.convert_to_mono:
+    #     print(f"Converting all audio files in {args.audio_dir} to mono...")
+    #     batch_convert(args.audio_dir, inp_audio_format="wav")
 
     output_fp = f"transcription/results/longform/{args.save_filename}.csv" # longform directory for mixed procedure types
 

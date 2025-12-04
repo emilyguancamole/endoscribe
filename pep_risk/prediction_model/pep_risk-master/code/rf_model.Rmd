@@ -1,0 +1,394 @@
+---
+title: "Random Forest Model for PEP data"
+author: "Albert Kuo"
+date: "1/17/2018"
+output: 
+  html_document:
+    code_folding: "show"
+    toc: TRUE
+    toc_float: TRUE
+---
+
+```{r packages, include=F}
+library(pacman)
+p_load(tidyverse, janitor, readxl, randomForest, gridExtra, caret, ROCR, plotly)
+source("rf_functions.R")
+set.seed(1)
+```
+
+# Clean data
+
+```{r import_data}
+option = 2
+if(option == 1){
+  raw_dat = read_excel("../data/Risk Factors INDIEH Elmunzer Luo.xlsx")
+} else {
+  raw_dat = read_csv("../data/Risk Factors INDIEH Elmunzer Luo version Albert.csv")
+}
+```
+
+```{r clean_data}
+clean_dat = raw_dat %>% 
+  clean_names()     %>%
+  mutate_at(vars(study:pep_severity), funs(factor)) %>% # Make columns a factor class
+  mutate(pep = relevel(as.factor(pep), ref="1")) # Change reference level for pep column
+
+if(option == 2){
+  clean_dat = clean_dat %>%
+    mutate_at(c("sex"), funs(factor))
+}
+```
+
+## Training data
+
+Filtering choices (in the following order):
+
+1. Take data from all three studies.
+
+2. Reserve 20% of data as test set, not to be used until the model has been finalized. 
+
+3. Within the remaining 80% of data, impute missing variables in study 1 and study 3 using study 2.
+
+4. Select patients from study 1 and study 3 (moderate risk only) as our training set. This is so that we can estimate the effect of indo. More details are in the supplement.
+
+```{r sample_data}
+set.seed(10)
+sample_dat = clean_dat %>%
+  select(-pep_severity, -age_50_female, -num_panc_inj, -num_gw_passes)   # Redundant/duplicate variables
+
+train_dat_ls = vector(mode = "list", length = 3)
+test_dat_ls = vector(mode = "list", length = 3)
+
+# Split data into training and test set
+for(study_num in 1:3){
+  temp = sample_dat %>%
+    filter(study == study_num)
+  
+  train_ind = createDataPartition(temp$pep, p = 0.8, list = F)
+  train_dat_ls[[study_num]] = temp[train_ind,]
+  test_dat_ls[[study_num]] = temp[-train_ind,]
+  rm(temp)
+}
+
+# Impute missing in training set
+train_dat = bind_rows(train_dat_ls)
+train_dat = rfImpute(pep ~ ., data = train_dat)
+
+# Fill NA with 0 in test set
+test_dat = bind_rows(test_dat_ls) %>%
+  mutate_all(funs(replace(., is.na(.), 0)))
+
+# Training data option 3 (see supplement)
+train_dat = train_dat %>%
+  filter(study == 1 | (study == 3 & high_risk_patients == 0)) %>%
+  select(-study, -high_risk_patients)
+```
+
+## Feature selection
+
+Feature selection steps:
+
+1. I retain all 8 features considered to be clinically important.
+
+2. In addition to the 8 from step 1, I add features that the model believes is important. Specifically, I use recursive feature elimination from the `caret` package (took the union of the top 5 features from any fold to get n features in total) and looked at the importance scores from the trained model (choose the top n features by importance score) and took the intersection of these two sets of features.
+
+Note: For more details on options for selecting features, see supplement.
+
+```{r}
+# rfe
+# Source: https://community.rstudio.com/t/caret-recursive-feature-elimination-with-upsamling/6903/4
+set.seed(1)
+rf_fit = function(x, y, first, last, ...){
+  loadNamespace("randomForest")
+  sample_size = min(table(y))
+  randomForest::randomForest(
+    x, y, strata = y, sampsize = c(sample_size, sample_size),
+    #cutoff = c(0.2, 0.8),  
+    ...)
+}
+
+my_rf = rfFuncs
+my_rf$fit = rf_fit
+my_rf$summary = twoClassSummary
+control = rfeControl(functions = my_rf, method = "cv", number = 5, 
+                     saveDetails = T)
+rfe_prof = rfe(x = select(train_dat, -pep), y = train_dat$pep, 
+               rfeControl = control, sizes = 1:20, 
+               metric = "ROC")
+
+selected_vars = rfe_prof$control$functions$selectVar(rfe_prof$variables, 7)
+
+# Importance scores
+p = 0.5                                  
+sample_size = min(table(train_dat$pep))
+rf_model = randomForest(pep ~ ., data = train_dat, proximity = T, type="classification",
+                        strata = train_dat$pep, sampsize = c(sample_size, sample_size), 
+                        cutoff = c(p, 1-p))
+
+imp_df = get_imp_scores(rf_model) %>%
+  arrange(-imp_scores) %>%
+  mutate(ord = order(imp_scores, decreasing = T)) %>%
+  mutate(imp_names = factor(imp_names, levels = imp_names[ord]))
+high_imp_vars = imp_df %>% slice(1:length(selected_vars)) %>% pull(imp_names)
+
+intersect(selected_vars, high_imp_vars)
+```
+
+This resulted in the following features: `
+
+1. `gw_cann` (clinically important and chosen by algorithm)
+2. `x2gw_pass_pd` (clinically important)
+3. `history_of_pep` (clinically important)
+4. `panc_sphinc` (clinically important)
+5. `precut_sphinc` (clinically important)
+6. `diff_cann` (clinically important)
+7. `sod` (clinically important)
+8. `pb_mal` (clinically important)
+9. `age` (chosen by algorithm)
+10. `panc_div` (chosen by algorithm)
+11. `sex` (chosen by algorithm)
+12. `trainee` (chosen by algorithm)
+13. `min_pap_sphinc` (chosen by algorithm) **Double check if it is `bil_sphinc`**
+14. `indo`
+15. `pd_stent` 
+
+```{r}
+train_dat = train_dat %>%
+  select(gw_cann, x2gw_pass_pd, history_of_pep, panc_sphinc, precut_sphinc, diff_cann, sod, pb_mal, age, panc_div, sex, trainee, min_pap_sphinc, indo, pd_stent, pep)
+```
+
+# Random forest model
+
+```{r fit_random_forest}
+p = 0.5                                  
+sample_size = min(table(train_dat$pep))
+rf_model = randomForest(pep ~ ., data = train_dat, proximity = T, type="classification",
+                        strata = train_dat$pep, sampsize = c(sample_size, sample_size), 
+                        cutoff = c(p, 1-p), keep.forest = T) 
+```
+
+**Importance Scores**
+
+```{r importance_scores, echo=F}
+imp_df = get_imp_scores(rf_model)
+ord = order(imp_df$imp_scores, decreasing = T)
+imp_df$imp_names = factor(imp_df$imp_names, levels = imp_df$imp_names[ord])
+
+ggplot(imp_df, aes(x = imp_names, y = imp_scores)) +
+  geom_col(position = "stack") +
+  coord_flip() +
+  labs(title = "Random Forest Importance Scores", x = "", y = "Importance Score") + 
+  theme_classic() +
+  theme(axis.ticks=element_blank()) 
+```
+
+# Validation & Prediction
+
+## Histograms
+
+Below I plot the distribution of votes by pep class. Quantiles can be used to create risk classes (e.g. low risk, moderate risk, high risk).
+
+```{r plot_votes, echo=F}
+count_plot = plot_votes(rf_model, train_dat, y_scale = "count")
+density_plot = plot_votes(rf_model, train_dat, y_scale = "density")
+grid.arrange(count_plot, density_plot, ncol = 2)
+```
+
+```{r acc_df, echo=F}
+votes = rf_model$votes[, 1]
+normal_votes = votes[train_dat$pep==0]
+split1 = quantile(normal_votes, 0.7)
+split2 = quantile(normal_votes, 0.95)
+low_risk_group = train_dat[votes < split1, ]
+med_risk_group = train_dat[(split1 <= votes) & (votes <= split2), ]
+high_risk_group = train_dat[votes > split2, ]
+
+acc_df = data.frame(rbind(table(low_risk_group$pep), 
+                          table(med_risk_group$pep),
+                          table(high_risk_group$pep)))
+colnames(acc_df) = c("pep=1", "pep=0")
+rownames(acc_df) = c("low_risk_group", "med_risk_group", "high_risk_group")
+accuracy = c(acc_df[1, 2]/rowSums(acc_df)[1],
+             NA,
+             acc_df[3, 1]/rowSums(acc_df)[3])
+acc_df$accuracy = accuracy
+print(acc_df)
+```
+
+## ROC curves
+
+Using 10-fold cross validation, I plot the ROC curve for random forest. Then I test the random forest model on the test set. For any values that are missing in the test set, I set them to 0.
+
+```{r echo=F}
+set.seed(2)
+
+# Cross-validated ROC
+rf_roc_df = get_ROC(train_dat, model = "rf", folds = 10)
+lr_roc_df = get_ROC(train_dat, model = "lr", folds = 10)
+
+# Test data ROC
+rf_test_roc_df = pred_ROC(test_dat, rf_model) 
+
+ss_df = bind_rows(rf_roc_df, rf_test_roc_df) %>%
+  mutate(model_name = ifelse(model_name == "rf", "Cross-validated", model_name),
+         model_name = as.factor(model_name)) 
+
+ss_auc_df = ss_df %>%
+  slice(c(nrow(rf_roc_df)/2, nrow(rf_roc_df) + nrow(rf_test_roc_df)/2)) %>%
+  mutate(auc = paste("AUC = ", round(auc, 3)),
+         x = 0.9,
+         y = c(0.8, 0.9))
+
+ss_df %>%
+  ggplot(aes(x = specificity, y = sensitivity)) +
+  geom_line(aes(color = model_name), size = 1) +
+  geom_label(data = ss_auc_df, aes(x = x, y = y, label = auc, fill = model_name)) +
+  labs(title = "ROC Curves for Random Forest Model",
+       x = "Specificity",
+       y = "Sensitivity") + 
+  scale_color_discrete(name = "") +
+  scale_fill_discrete(guide = F) +
+  theme_bw(base_size = 12) +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.text = element_text(size = 12))
+```
+
+## Ad-hoc analysis
+
+At 80% specificity, what is the highest sensitivity and accuracy?
+
+```{r}
+ss_df %>%
+  filter(model_name == "Test set",
+         specificity >= 0.8) %>%
+  arrange(acc) %>%
+  slice(1)
+```
+
+Plot ROC for indo = 0 and indo = 1 separately in cross-validation and test set.
+
+```{r}
+# Cross-validation
+sens_vec = spec_vec = cutoff_vec = c()
+folds = createFolds(train_dat$pep, k = 10, list = F)
+predicted_values = actual_values = indo_vec = c()
+
+for(fold in unique(folds)){
+  # Separate into train and test
+  train = train_dat[folds!=fold,]
+  test = train_dat[folds==fold,]
+  sample_size = min(table(train$pep)) # num of obs for bootstrap samples per class
+  
+  # Model predictions
+  model_fold = randomForest(pep ~ ., data = train, proximity = T, type="classification",
+                            strata = train$pep, sampsize = c(sample_size, sample_size))
+  predicted_values = c(predicted_values, predict(model_fold, test, type="prob")[, 1])
+  actual_values = c(actual_values, test$pep)
+  indo_vec = c(indo_vec, test$indo)
+}
+
+indo_vec = indo_vec - 1 # due to factor to numeric conversion
+ind = which(indo_vec == 0)
+actual_values = sapply(as.numeric(actual_values), function(x) ifelse(x==2, 0, 1))
+
+pred_1 = prediction(predicted_values[-ind], actual_values[-ind])
+pred_0 = prediction(predicted_values[ind], actual_values[ind])
+
+sens_vec = spec_vec = cutoff_vec = c()
+pred = pred_0
+perf = performance(pred, "sens", "spec")
+acc = performance(pred, "acc")@y.values[[1]]
+auc = as.numeric(performance(pred, "auc")@y.values)
+cutoff_vec = c(cutoff_vec, perf@alpha.values[[1]])
+sens_vec = c(sens_vec, perf@y.values[[1]])
+spec_vec = c(spec_vec, perf@x.values[[1]])
+
+sens_spec_cv_df = data.frame(sensitivity = sens_vec,
+                             specificity = spec_vec,
+                             cutoff = cutoff_vec,
+                             auc = auc,
+                             acc = acc)
+
+print(sens_spec_cv_df %>%
+        filter(specificity >= 0.8 & specificity <= 0.85))
+
+
+# Test set
+rf_test_roc_df_0 = pred_ROC(test_dat %>% filter(indo == 0), rf_model) %>%
+  mutate(model_name = "Indo = 0")
+rf_test_roc_df_1 = pred_ROC(test_dat %>% filter(indo == 1), rf_model) %>%
+  mutate(model_name = "Indo = 1")
+
+rf_test_roc_df_0 %>% 
+  filter(specificity >= 0.8 & specificity <= 0.85)
+rf_test_roc_df_1 %>%
+  filter(specificity >= 0.8 & specificity <= 0.85)
+```
+
+
+## ROC for reference samples
+
+Using 10-fold cross-validation. 
+
+```{r, echo = F}
+sens_vec = spec_vec = cutoff_vec = c()
+folds = createFolds(train_dat$pep, k = 10, list = F)
+predicted_values = actual_values = c()
+
+for(fold in unique(folds)){
+  # Separate into train and test
+  train = train_dat[folds!=fold,]
+  test = train_dat[folds==fold,]
+  
+  predicted_values = c(predicted_values, get_ref_prop(train, test, n_ref = 50))
+  actual_values = c(actual_values, test$pep)
+}
+
+actual_values = sapply(as.numeric(actual_values), function(x) ifelse(x==2, 0, 1))
+pred = prediction(predicted_values, actual_values)
+perf = performance(pred, "sens", "spec")
+auc = as.numeric(performance(pred, "auc")@y.values)
+
+cutoff_vec = c(cutoff_vec, perf@alpha.values[[1]])
+sens_vec = c(sens_vec, perf@y.values[[1]])
+spec_vec = c(spec_vec, perf@x.values[[1]])
+
+sens_spec_cv_df = data.frame(sensitivity = sens_vec,
+                             specificity = spec_vec,
+                             cutoff = cutoff_vec)
+
+sens_spec_cv_df = sens_spec_cv_df %>%
+  mutate(model_name = "ref_samples",
+         auc = auc)
+
+plot_ROC(sens_spec_cv_df)
+```
+
+```{r}
+saveRDS(rf_model, "../pep_risk_app/data/rf_model.rds")   # Random forest model
+saveRDS(train_dat, "../pep_risk_app/data/train_dat.rds") # Training dataset used in random forest model
+```
+
+[comment]: # (Effects of indo and pd stent)
+
+```{r, eval = F, include = F}
+# Test data of all possibilities
+# Note: uses old model where all features are binary
+match_dat = expand(train_dat, age_50_female, bil_sphinc, trainee, 
+                 x2gw_pass_pd, gw_cann, failed_cann, diff_cann, 
+                 min_pap_sphinc, sod, panc_div, indo, pd_stent)
+
+match_votes = predict(rf_model, match_dat, votes = T)$votes[, 1]
+# Plot treatment effects across all possible combinations of selected features
+match_dat %>%
+  mutate(votes = match_votes) %>%
+  ggplot(aes(x = indo, y = votes)) +
+  geom_boxplot() + 
+  theme_bw()
+
+match_dat %>%
+  mutate(votes = match_votes) %>%
+  ggplot(aes(x = pd_stent, y = votes)) + 
+  geom_boxplot() + 
+  theme_bw()
+```

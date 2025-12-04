@@ -58,27 +58,6 @@ export function MyComponent({ prop1, prop2 }) {
 import { MyComponent } from './components/MyComponent';
 
 // 3. Use in render
-<MyComponent prop1="value" prop2={state} />
-```
-
-### Adding a New Custom Hook
-```jsx
-// 1. Create hook in src/hooks/useMyHook.js
-import { useState, useCallback } from 'react';
-
-export function useMyHook() {
-  const [state, setState] = useState(null);
-  
-  const doSomething = useCallback(() => {
-    // logic here
-  }, []);
-  
-  return { state, doSomething };
-}
-
-// 2. Use in component
-const { state, doSomething } = useMyHook();
-```
 
 ### Adding a New API Endpoint
 ```jsx
@@ -125,13 +104,6 @@ rm -rf web_app/static/dist/
 ```
 
 ## Best Practices
-
-### Component Design
-- Keep components small and focused
-- Pass data down via props, events up via callbacks
-- Use custom hooks for complex state logic
-- Avoid prop drilling (use context if needed)
-
 ### State Management
 - Keep state close to where it's used
 - Lift state up only when multiple components need it

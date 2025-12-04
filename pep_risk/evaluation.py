@@ -63,7 +63,11 @@ def map_ground_truth_columns(row: pd.Series) -> Dict[str, object]:
     """
     column_mapping = {
         # ground_truth_column: extraction_field_name
+        "age": "age_years",
+        "sex": "gender_male",
         "malignancy": "pancreo_biliary_malignancy",
+        "pep_history": "history_of_pep",
+        "history_of_pancreatitis": "hx_of_recurrent_pancreatitis",
         "guidewire_passes": "guidewire_passage_into_pancreatic_duct",
         "guidewire_passes_number": "guidewire_passage_into_pancreatic_duct_2",
         "pd_injections": "pancreatic_duct_injections",
@@ -76,12 +80,22 @@ def map_ground_truth_columns(row: pd.Series) -> Dict[str, object]:
     # Apply explicit remaps
     for gt_col, ext_col in column_mapping.items():
         if gt_col in row:
-            mapped[ext_col] = _unwrap_scalar(row[gt_col])
+            val = _unwrap_scalar(row[gt_col])
+            # Special conversion for gender: 1=male=True, 2=female=False
+            if ext_col == "gender_male" and val is not None:
+                try:
+                    mapped[ext_col] = bool(int(val) == 1)
+                except (ValueError, TypeError):
+                    mapped[ext_col] = val
+            else:
+                mapped[ext_col] = val
     
     # For columns that already match extraction field names, copy them directly
     standard_fields = [
         "indications", "samples_taken", "egd_findings", "ercp_findings",
         "biliary_stent_type", "pd_stent", "impressions",
+        "bmi", "sod", "cholecystectomy", "trainee_involvement",
+        "age_years", "gender_male", "history_of_pep", "hx_of_recurrent_pancreatitis",
         "pancreatic_sphincterotomy", "precut_sphincterotomy",
         "minor_papilla_sphincterotomy", "failed_cannulation",
         "difficult_cannulation", "acinarization",
@@ -134,14 +148,19 @@ def compare_extraction_to_truth(extraction: Dict[str, object], truth: Dict[str, 
     Note: For boolean/numeric fields, False/0/None/""/NaN are all treated as equivalent (falsy),
     and True/1 are treated as equivalent (truthy).
     """
+    # LLM-extracted fields: 8 manual + 17 procedural = 25 total
     fields = [
-        "indications",
-        "samples_taken",
-        "egd_findings",
-        "ercp_findings",
-        "biliary_stent_type",
-        "pd_stent",
-        "impressions",
+        #! LLM-extracted manual fields (not for r model)
+        # "age_years",
+        # "gender_male",
+        # "bmi",
+        # "cholecystectomy",
+        # "history_of_pep",
+        # "hx_of_recurrent_pancreatitis",
+        # "sod",
+        # "trainee_involvement",
+        
+        # LLM-extracted procedural risk factors
         "pancreatic_sphincterotomy",
         "precut_sphincterotomy",
         "minor_papilla_sphincterotomy",
@@ -156,7 +175,6 @@ def compare_extraction_to_truth(extraction: Dict[str, object], truth: Dict[str, 
         "guidewire_passage_into_pancreatic_duct",
         "guidewire_passage_into_pancreatic_duct_2",
         "biliary_sphincterotomy",
-        "indomethacin_nsaid_prophylaxis",
         "aggressive_hydration",
         "pancreatic_duct_stent_placement"
     ]
@@ -167,33 +185,16 @@ def compare_extraction_to_truth(extraction: Dict[str, object], truth: Dict[str, 
     for f in fields:
         ext_val = _unwrap_scalar(extraction.get(f))
         gt_val = _unwrap_scalar(truth.get(f))
-        
-        # Special handling for list fields (like impressions)
-        if f == "impressions":
-            ext_list = set(parse_list_field(ext_val))
-            gt_list = set(parse_list_field(gt_val))
-            tp = len(ext_list & gt_list)
-            fp = len(ext_list - gt_list)
-            fn = len(gt_list - ext_list)
-            precision = tp / (tp + fp) if (tp + fp) else 1.0
-            recall = tp / (tp + fn) if (tp + fn) else 1.0
-            f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 1.0
-            results[f] = {
-                "precision": float(safe_float(precision)),
-                "recall": float(safe_float(recall)),
-                "f1": float(safe_float(f1)),
-                "tp": int(tp), "fp": int(fp), "fn": int(fn),
-            }
-            # Consider a match when F1 is perfect
-            matches.append(1 if f1 == 1.0 else 0)
         # Boolean/numeric fields - normalize to boolean for comparison
-        elif f in [
+        if f in [
+            "gender_male", "cholecystectomy", "history_of_pep",
+            "hx_of_recurrent_pancreatitis", "sod", "trainee_involvement",
             "pancreatic_sphincterotomy", "precut_sphincterotomy",
             "minor_papilla_sphincterotomy", "failed_cannulation",
             "difficult_cannulation", "acinarization",
             "guidewire_cannulation", "biliary_sphincterotomy",
             "indomethacin_nsaid_prophylaxis", "aggressive_hydration",
-            "pancreatic_duct_stent_placement", "samples_taken", "pd_stent",
+            "pancreatic_duct_stent_placement",
             "pneumatic_dilation_of_intact_biliary_sphincter",
             "pancreo_biliary_malignancy"
         ]:
@@ -203,7 +204,7 @@ def compare_extraction_to_truth(extraction: Dict[str, object], truth: Dict[str, 
             results[f] = {"match": bool(match), "extracted": bool(ext_bool), "truth": bool(gt_bool)}
             matches.append(1 if match else 0)
         # Numeric count fields - compare as numbers but treat empty/None as 0
-        elif f in ["pancreatic_duct_injections_2", "guidewire_passage_into_pancreatic_duct_2"]:
+        elif f in ["age_years", "bmi", "pancreatic_duct_injections_2", "guidewire_passage_into_pancreatic_duct_2"]:
             try:
                 ext_num = float(safe_float(ext_val)) if ext_val not in [None, "", "nan", "NaN"] else 0.0
                 gt_num = float(safe_float(gt_val)) if gt_val not in [None, "", "nan", "NaN"] else 0.0
@@ -227,7 +228,7 @@ def compare_extraction_to_truth(extraction: Dict[str, object], truth: Dict[str, 
             matches.append(1 if match else 0)
         # Text fields (indications, findings, etc)
         else:
-            # For text fields, None should match None, and empty should match empty
+            # None should match None, and empty should match empty
             ext_norm = normalize_text(ext_val) if ext_val not in [None, "", "nan", "NaN"] else ""
             gt_norm = normalize_text(gt_val) if gt_val not in [None, "", "nan", "NaN"] else ""
             match = bool(ext_norm == gt_norm)

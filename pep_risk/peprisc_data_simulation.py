@@ -1,6 +1,4 @@
-
-
-# from rpy2.rinterface_lib.embedded import RRuntimeError
+# * pep_risk/peprisc_data_simulation.py
 from peprisc_bridge import PepriscBridge
 import pandas as pd
 # import numpy as np
@@ -66,8 +64,8 @@ def build_input_df(
 
 if __name__ == "__main__":
     print("alrighty")
-    #location of R bridge file
-    bridge_path = "../Albert code files/pep_risk-master/pep_risk_app/bridge_exports.R"
+    # location of R bridge file
+    bridge_path = "pep_risk/prediction_model/pep_risk-master/pep_risk_app/bridge_exports.R"
 
     #python R bridge
     pep = PepriscBridge(bridge_path,'peprisk_predict')
@@ -96,8 +94,9 @@ if __name__ == "__main__":
         biliary_sphincterotomy=1,
         patient_id=1
     )
-    print("Input DataFrame:")
+    print("Input DataFrame created, calling R model")
 
     out = pep.peprisk_predict(input_df)
 
-    print(out)
+    print("Type of output:", type(out))
+    print("Output of R model:\n", out)

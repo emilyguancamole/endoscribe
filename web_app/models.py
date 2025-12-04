@@ -27,7 +27,7 @@ class PEPRiskManualInput(BaseModel):
     bmi: float
     cholecystectomy: bool
     history_of_pep: bool
-    hx_of_recurrent_pancreatitis:bool
+    hx_of_recurrent_pancreatitis: bool
     sod: bool
     pancreo_biliary_malignancy: bool
     trainee_involvement: bool

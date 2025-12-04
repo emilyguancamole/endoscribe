@@ -1,0 +1,23 @@
+{
+    "model_configs": {
+        "local_whisper": {
+            "model_type": "local",
+            "model_path": "large-v3",
+            "compute_type": "float16"
+        },
+        "azure_whisper": {
+            "model_type": "azure",
+            "model_path": "gpt-4o",
+            "use_azure": true,
+            "azure_endpoint": "https://eastus.api.cognitive.microsoft.com/",
+            "api_version": "2025-03-01-preview"
+        },
+        "azure_speech": {
+            "model_type": "azure_speech",
+            "language": "en-US",
+            "enable_diarization": false,
+            "max_speakers": 2
+        }
+    },
+    "default_config": "azure_speech"
+}

@@ -7,7 +7,7 @@ from data_models.data_models import EGDData
 class EGDProcessor(BaseProcessor):
     def process_transcripts(self, filenames_to_process, transcripts_df):
         outputs = []
-        # Prompt files
+        #! Prompt files
         prompt_field_definitions_fp = './prompts/egd/egd.txt'
         fewshot_examples_dir = "./prompts/egd/fewshot"
 

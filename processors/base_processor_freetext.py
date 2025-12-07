@@ -1,7 +1,12 @@
 from abc import ABC, abstractmethod
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List
 import pandas as pd
+"""NOTE 12/7/2025:
+This file is the fallback for freetext extraction as I move to structured llm extraction
+migrating ercp first, so i want rest of procedures to still work
+then col
+"""
 
 class BaseProcessor:
     def __init__(self, procedure_type, system_prompt_fp, output_fp, llm_handler, to_postgres=False):
@@ -39,27 +44,24 @@ class BaseProcessor:
 
         return examples
 
-    def build_messages(self, transcript, prompt_field_definitions_fp: str, fewshot_examples_dir: Optional[str], prefix: Optional[str]) -> List[Dict[str, str]]:
+    def build_messages(self, transcript, system_prompt_fp: str, prompt_field_definitions_fp: str, fewshot_examples_dir: str, prefix) -> List[Dict[str, str]]:
 
         system_prompt = open(self.system_prompt_fp).read().replace(
             '{{prompt_field_definitions}}',
             open(prompt_field_definitions_fp).read()
         )
-        print("Loaded system prompt:\n", system_prompt)
         messages = [{"role": "system", "content": system_prompt}]
 
         # Load and add few-shot examples
-        if fewshot_examples_dir:
-            fewshot_examples = self.load_fewshot_examples(fewshot_examples_dir, prefix)
-            for ex in fewshot_examples:
-                messages.append({"role": "user", "content": ex["user"]})
-                messages.append({"role": "assistant", "content": ex["assistant"]})
+        fewshot_examples = self.load_fewshot_examples(fewshot_examples_dir, prefix)
+        for ex in fewshot_examples:
+            messages.append({"role": "user", "content": ex["user"]})
+            messages.append({"role": "assistant", "content": ex["assistant"]})
         
-        messages.append({
-            "role": "user", 
-            "content": f"""Extract procedure entities from the following transcript:\n\n{transcript}"""
-        })
-        print("Built messages for LLM:\n", messages)
+        # Final, actual task
+        messages.append({"role": "user", 
+                    "content": f"""Extract procedure entities from the following transcript:\n\n{transcript}"""
+                    })
         return messages
 
 

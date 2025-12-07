@@ -26,147 +26,161 @@ An AI-powered scribe for automating endoscopy documentation. At a high level, th
 The scribe currently processes 4 types of endoscopy procedures: Colonoscopy, EGD, ERCP, and EUS. Logic across these procedure types are similar, with key differences. Therefore, several folders in this repo (i.e. `processors`, `prompts`, `results`, `drafters`) are organized by procedure type.
 
 ## Repository Structure
-Below is a simplified file tree for this repo. 
+# EndoScribe
 
-```
-.
-├── README.md
-├── main.py                 # main entry point for Part 2 (processors)
-├── data_models             # Pydantic models for each procedure's extracted data
-├── db                      # Postgres writer/upsert helpers
-├── drafter.py              # Main entry point for Part 3 (drafters)
-├── drafters                # Converts model data into Word docs
-├── llm                     # LLM client (vllm/llama) and prompt helpers
-├── processors              # Build prompts, call LLM, validate, save outputs
-├── prompts                 # System instructions, data field definitions, fewshot examples
-├── results                 # CSV outputs produced by processors
-└── transcription
-    ├── results                 # Text transcripts as CSV
-    └── whisper_transcribe.py   # Main entry + logic for Part 1 (transcription)
-```
+## Introduction
 
+EndoScribe is an AI-powered scribe for automating endoscopy documentation. It converts recorded procedure dictations into structured data and draft clinical notes to reduce physician documentation time.
 
-## How to Run in Development
-NOTE: A case example is found in `demo.ipynb`, using one procedure to run the full pipeline in a Jupyter notebook.
+This README documents the current (Dec 2025) state of the project and how to run the three main stages:
+- Transcription (audio -> transcripts)
+- LLM Extraction (transcripts -> structured data)
+- Drafting/Templating (structured data -> `.docx` draft)
 
-Prerequisites
-- Python 3.10+ (project uses 3.10 in development)
-- GPU + CUDA for local Llama/Whisper acceleration
-- [uv](https://github.com/astral-sh/uv) - Fast Python package installer (install via `pip install uv` or `brew install uv`)
+---
 
-Install dependencies. Note that `requirements.txt` includes heavy packages like `vllm` and `torch`:
+## High-level architecture (current)
 
+1. Transcription
+   - Converts raw audio into textual transcripts.
+   - Backends supported:
+     - WhisperX (local GPU-based, offline, highly customizable)
+     - Azure Speech Service (cloud-managed, scalable, supports phrase lists)
+   - A unified interface (`transcription/transcription_service.py`) selects the backend and forwards options such as `procedure_type`, `phrase_list`, and `save_filename`.
+   - Transcripts are saved under `transcription/results/{procedure_type}/` or a specified filename.
+
+2. Processors / LLM Extraction
+   - Processors (in `processors/`) build prompts from `prompts/{procedure}/`, call an LLM via `llm/llm_client.py`, parse the result, and validate with Pydantic models (`data_models/`).
+   - Default local LLM: Llama via `vllm`; adapters allow other providers.
+
+3. Drafters / Templating
+   - Drafters (in `drafters/` and `templating/`) format extracted data into a clinical note draft (`.docx`).
+   - Output saved in `drafters/results/{procedure}/`.
+
+---
+
+## Transcription
+
+Supported entry points
+- `transcription/transcription_service.py` — unified API, auto-selects Azure or WhisperX
+- `transcription/azure_transcribe.py` — Azure Speech Service implementation
+- `transcription/whisperx_transcribe.py` — WhisperX implementation
+
+Storage and filenames
+- Default aggregated CSV for a procedure: `transcription/results/{procedure_type}/transcriptions.csv`
+- If you pass `save_filename`, transcription will write to `transcription/results/{procedure_type}/{save_filename}.csv` (or `_misc` if no `procedure_type`).
+
+Phrase lists and medical vocabulary
+- Azure supports `PhraseListGrammar` to bias recognition towards medical terms. Place one phrase per line in:
+  - `prompts/{procedure_type}/phrases.txt` or
+  - `prompts/{procedure_type}_phrases.txt`
+- If no phrase file exists the system uses a small built-in fallback list for common procedures (`ercp`, `col`, `egd`, `eus`).
+
+Examples
+- Run Azure transcription and save to a named file:
 ```bash
-# Install uv if you haven't already
-pip install uv
-
-# Install dependencies (much faster than pip)
-uv pip install -r requirements.txt
-python -m spacy download en_core_web_sm
+python -m transcription.azure_transcribe --audio_file path/to/audio.wav --procedure_type ercp --save_filename=run-2025-12-07
+```
+- Unified programmatic API:
+```python
+from transcription.transcription_service import transcribe_unified
+res = transcribe_unified(
+    "audio.wav",
+    service="azure",
+    procedure_type="ercp",
+    save_filename="run-2025-12-07"
+)
 ```
 
-Run transcription on a folder of audio files:
+Notes and recommendations
+- Phrase lists improve recognition but are not equivalent to a full custom language model. For heavy medical vocabulary consider Azure Custom Speech or fine-tuning WhisperX.
+- For long recordings consider VAD-based chunking.
+
+---
+
+## LLM Extraction (processors)
+
+Key files
+- `processors/` — per-procedure processors (Col, ERCP, EGD, EUS)
+- `llm/llm_client.py` — LLM client adapter (local or remote)
+- `prompts/{procedure}/` — `system.txt`, `field_definitions.txt`, `fewshot/`
+- `data_models/` — Pydantic models for validation
+
+Workflow
+1. Processor builds messages from prompt files and transcript text.
+2. Calls `LLMClient` for a completion.
+3. Parses and validates LLM output into structured records.
+4. Writes validated outputs to `results/{procedure}/` and optionally to Postgres.
+
+Run an extraction example
 ```bash
-python -m transcription.whisper_transcribe --procedure_type=col --save_filename=demo_whisper_lg --model=openai/whisper-large-v3 --audio_dir=/path/to/audio_files_folder
+python main.py --procedure_type=col --transcripts_fp=transcription/results/col/run-2025-12-07.csv --output_filename=run-2025-12-07 --files_to_process all
 ```
 
-This generates a CSV under `transcription/results/{procedure_type}/{save_filename}.csv` with the transcripts.
+Notes
+- Prompts and fewshot examples control extraction behavior; adjust them to influence the LLM's output format.
 
-Run extraction for a procedure type (example: colonoscopy):
+---
+
+## Drafting / Templating
+
+Files
+- `drafters/` and `templating/` contain templates and the rendering code.
+
+What it does
+- Converts structured LLM-extracted data into a formatted clinical note (`.docx`).
+
+Example
 ```bash
-python main.py --procedure_type=col --transcripts_fp=dev_transcripts_file.csv --output_filename=demo_llm_output --files_to_process all
+python drafter.py --procedure=col --pred_csv=results/col/run-2025-12-07_colonoscopies.csv --polyp_csv=results/col/run-2025-12-07_polyps.csv --output_dir=drafters/results/col --samples_to_process all
 ```
 
-- `main.py` wires up `LLMHandler` (vllm/llama), loads prompt files from `prompts/col/`, and writes CSV outputs to `results/col/`. Note that for colonoscopies, 2 output CSVs will be generated, with `colonoscopies` and `polyps` appended to `output_filename`. For all other procedures, 1 output CSV will be generated with name `{output_filename}.csv`.
+---
 
-Draft a Word document from extracted CSVs (example: colonoscopy):
+## Environment & dependencies
+
+Python 3.10+ recommended.
+
+Install dependencies:
 ```bash
-python drafter.py --procedure=col --pred_csv=results/col/demo_llm_output_colonoscopies.csv --polyp_csv=results/col/demo_llm_output_polyps.csv --output_dir=drafters/results/col --samples_to_process all
+pip install -r requirements.txt
+# Using vllm/WhisperX needs GPU drivers and suitable torch/vllm installs.
 ```
 
+Environment variables (in `.env`)
+- `AZURE_SPEECH_KEY` — Azure Speech API key (for Azure)
+- `AZURE_SPEECH_REGION` — Azure region (e.g., `eastus`)
+- `TRANSCRIPTION_SERVICE` — `azure` or `whisperx` (default service for unified API)
+- `HF_TOKEN` — Hugging Face token (if needed for WhisperX)
 
-## Implementation Details
+`.env.example` is included as a template.
 
-### Part 1: Transcription
-Purpose: convert raw audio recordings into reliable, time-ordered textual transcripts.
+---
 
-Approach: 
-- Lightweight preprocessing (stereo->mono conversion and resampling). I experimented with other utils for further preprocessing (e.g. vocal separation), but currently am not using.
-- Whisper model for transcription (usually use whisper-lg-v3) pulled from HuggingFace.
-- Outputs CSV rows with at least these columns: `file` (string id), `pred_transcript` (transcribed text).
+## Migration notes & tips
 
-Future transcription-related work I'm exploring:
-- Heavier preprocessing for full-procedure-length audio, such as removing silent segments before transcription.
-- Noise suppression.
-- Using **WhisperX**: built on top of faster-whisper and includes preprocessing, e.g. voice activity detection and speaker diarization.
+- The repo supports a gradual migration from WhisperX (on-prem) to Azure (managed) via `transcription/transcription_service.py`.
+- Keep tests that compare Azure vs WhisperX on a representative set of audio before switching fully.
 
+---
 
-### Part 2: Processors
+## Troubleshooting
 
-**Purpose:** Data extraction from text transcripts. 
-Each procedure type (col, egd, ercp, eus) has its own Processor subclass that implements parsing/shape-specific logic.
+- If transcriptions hang: ensure Azure callbacks signatures accept the event parameter (`evt`) — recent fixes addressed this.
+- If phrase lists are not applied: confirm the phrase file path and that you passed `procedure_type` or `phrase_list` explicitly.
+- If extraction fails validation: update prompt format and fewshot examples to match expected JSON shapes.
 
-**LLM**
-- Default LLM: local Llama via `vllm` (see `llm/llm_handler.py`). This gives low-latency, on-prem inference for sensitive clinical data. An Azure OpenAI or other backend can be added with a thin adapter.
-- Processors build a list of messages in chat format and pass them to the `llm_handler.chat(messages)` method. LLM is expected to return a textual completion that can be post-processed into JSON.
+---
 
-**Prompts**
-- Files live in `prompts/{procedure}/` and are composed of:
-    - a small field-definition file (`colonoscopies.txt`, `eus.txt`, etc.) describing expected extraction fields and their formats;
-    - `system.txt` which becomes the system message and includes field definitions;
-    - `fewshot/` which contains `*_user.txt` / `*_assistant.txt` pairs used as conversational few-shot examples.
+## Future steps
 
-**Steps inside a Processor** (e.g. `ColProcessor`):
-    1. Call `build_messages(...)` (BaseProcessor) to create system + fewshot + user messages.
-    2. Send messages to `llm_handler.chat(...)` and retrieve the text completion.
-    3. Parse JSON and validate with the appropriate Pydantic model in `data_models/data_models.py`.
-    4. Convert/clean types, append to outputs list, and finally call `save_outputs(...)`.
+- Add automated Azure vs WhisperX comparison scripts.
+- Replace aggregated CSVs with a database and background workers for production.
 
-**Error modes and handling**
-- JSON parsing failures: we currently skip the sample and continue. 
-- Validation failures: Pydantic `ValidationError` is logged; by default the sample is skipped.
-- Future: add retries or a secondary cleanup LLM call.
+---
 
-**Important note about Colonoscopy procedures:**
-- Colonoscopy procedures have 2 processing parts.
-    - `colonoscopies` extracts core procedure details. 
-    - `polyps` extracts polyp-level output with sizes, locations, classification of polyps found during the procedure. 
-    - These are separated to allow futher analysis with just the polyp findings. This means 2 LLM calls are made for each Colonoscopy procedure extraction.
-- All other procedures have just 1 processing part.
-    - For example, each EUS procedure has 1 call to the LLM to extract EUS procedure details.
+## Contact
 
+Repo owner: Emily Guan — emilymguan@gmail.com
 
-### Part 3: Drafters
-
-**Purpose:** Turn structured data into a readable clinical draft (.docx). Drafters don't need to understand LLM or extraction internals—they only receive data records.
-
-**Key notes**
-- Each drafter implements `EndoscopyDrafter` in `drafters/base.py`.
-- Drafters expect the `pred_df` index to be the sample `id`. They use `self._get_sample_row(...)` to pick a single sample row and then render sections (Indications, Findings, Impressions, Recommendations, Repeat Exam).
-- Formatting: we use `python-docx` to add headings, paragraphs, and more complex inline formatting (for example `drafters/utils.py` contains helper logic to bold subheadings inside long `findings` text).
-
-**Patient info**
-- Drafters pull patient info (e.g. sex, indications) and incorporate into the note. Currently, this info comes from CSV files exported from RedCap. Future: comes from EHR system.
-
-**Recall / Recommendations**
-- Beyond formatting data into drafts, drafters also contain small, deterministic decision rules to construct recall and/or recommendations sections from extracted data.
-    - Example: suggests colonoscopy recall intervals based on `polyp_count` and `size_max_mm`.
-    - Note: recommendations are rule-based only, and I change what is extracted by LLM in order to accomodate more complicated recommendations. 
-    Future idea: another LLM call to construct smart recommendations.
-
-
-## Anticipated Changes Needed
-From dev to production, we'll need some changes. These may include:
-- Heavier audio pre-processing and changes to transcription pipeline, as described above.
-- Replace local CSV wiring with tighter database use and message queue / API for near-real-time processing. End goal is to have near-real-time transcription; note generation done post-procedure.
-- Automated validation of LLM-extracted data. Currently, validation of generated notes is done with human reviewers.
-- Major future tasks: integration with EHR.
-
-## Contact + Notes
-Feel free to contact the owner of the repo, Emily Guan, with any questions. Email: emilymguan@gmail.com
-
-
-
-**Note:**
-
-Some old files (e.g. GPT extraction Python files) are only in the [old repository](https://github.com/emilyguancamole/endoscribe-old). I don't anticipate ever needing them again, but they exist as history. (Old repo also has a more complete commit history.)
+README last updated: 12/7/2025

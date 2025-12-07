@@ -1,6 +1,7 @@
 """
 Unified transcription interface.
 Provides a simple way to switch between WhisperX (GPU) and Azure Speech Service.
+! not reviewed as of 12/7
 """
 import os
 from typing import Dict, Optional
@@ -41,6 +42,8 @@ def transcribe_unified(
     device: Optional[str] = None,
     language: str = "en-US",
     enable_diarization: bool = False,
+    procedure_type: Optional[str] = None,
+    phrase_list: Optional[list] = None,
     **kwargs
 ) -> Dict:
     """
@@ -98,11 +101,12 @@ def transcribe_unified(
     if use_azure:
         print(f"Transcribing with Azure Speech Service...")
         from transcription.azure_transcribe import transcribe_azure
-        
         result = transcribe_azure(
             audio_file=audio_file,
             language=language,
             enable_diarization=enable_diarization,
+            procedure_type=procedure_type,
+            phrase_list=phrase_list,
             **kwargs
         )
         result["service"] = "azure"
@@ -117,7 +121,10 @@ def transcribe_unified(
         result = transcribe_whisperx(
             audio_file=audio_file,
             whisper_model=whisper_model,
-            device=device
+            device=device,
+            phrase_list=phrase_list,
+            procedure_type=procedure_type,
+            **kwargs
         )
         result["service"] = "whisperx"
         result["language"] = whisperx_language
@@ -179,6 +186,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Enable speaker diarization (only supported by Azure)"
     )
+    parser.add_argument(
+        "--procedure_type",
+        type=str,
+        default=None,
+        help="Procedure type (e.g., ercp, col, egd, eus)"
+    )
     
     args = parser.parse_args()
     
@@ -188,7 +201,8 @@ if __name__ == "__main__":
             service=args.service,
             whisper_model=args.whisper_model,
             language=args.language,
-            enable_diarization=args.enable_diarization
+            enable_diarization=args.enable_diarization,
+            procedure_type=args.procedure_type
         )
         
         print("\n" + "="*80)

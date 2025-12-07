@@ -45,10 +45,9 @@ class ERCPProcessor(BaseProcessor):
         }
     
     def process_transcripts(self, filenames_to_process, transcripts_df):
+        print("Processing ERCP transcripts...")
         outputs = []
-        # Prompt files for ERCP
-        prompt_field_definitions_fp = './prompts/ercp/ercp.txt'
-        fewshot_examples_dir = "./prompts/ercp/fewshot"
+        prompt_field_definitions_fp = './prompts/ercp/generated_ercp_base_prompt.txt'
 
         for _, row in transcripts_df.iterrows():
             if filenames_to_process[0] != "all" and row["participant_id"] not in filenames_to_process:
@@ -57,16 +56,15 @@ class ERCPProcessor(BaseProcessor):
             cur_transcript = row["pred_transcript"]
             filename = row["participant_id"]
 
+            print(f"File: {filename} - Transcript: {cur_transcript[:200]}") #!!!
             messages = self.build_messages(
                 cur_transcript,
-                system_prompt_fp=self.system_prompt_fp,
-                prompt_field_definitions_fp=prompt_field_definitions_fp,
-                fewshot_examples_dir=fewshot_examples_dir,
-                prefix="ercp"
+                prompt_field_definitions_fp=prompt_field_definitions_fp,  
+                # fewshot_examples_dir=None,
+                # prefix="ercp" #! todo fewshot examples
             )
             if self.llm_handler.model_type == "local": #! diff response processing for local vs openai
                 pass
-                # response = self.llm_handler.chat(messages)[0].outputs[0].text.strip()
             elif self.llm_handler.model_type in ["openai", "anthropic"]:
                 response = self.llm_handler.chat(messages)
             try:

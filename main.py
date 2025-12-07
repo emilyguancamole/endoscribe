@@ -1,19 +1,9 @@
-
-
-import os
 import argparse
 import pandas as pd
+from llm.llm_client import LLMClient
+from processors import ColProcessor, ERCPProcessor, EUSProcessor, EGDProcessor
 import torch
-
-# Dynamic CUDA configuration - only set if CUDA is available
-if torch.cuda.is_available():
-    # Use CUDA_VISIBLE_DEVICES env var if set, otherwise use default GPUs
-    if "CUDA_VISIBLE_DEVICES" not in os.environ:
-        os.environ["CUDA_VISIBLE_DEVICES"] = "6,9"
-        print(f"CUDA detected. Setting CUDA_VISIBLE_DEVICES to: {os.environ['CUDA_VISIBLE_DEVICES']}")
-else:
-    print("CUDA not available. Running on CPU or MPS (Apple Silicon).")
-
+import argparse
 from llm.llm_client import LLMClient
 from processors import ColProcessor, ERCPProcessor, EUSProcessor, EGDProcessor
 
@@ -34,21 +24,19 @@ def main():
     
     # Model config options
     parser.add_argument('--model_config', choices=['local_llama', 'openai_gpt4o', 'anthropic_claude'],
-                       default='local_llama', help="Predefined model configuration to use")
+                       default='openai_gpt4o', help="Predefined model configuration to use")
     parser.add_argument('--model_type', choices=['local', 'openai', 'anthropic'], help="Override model type (local, openai, or anthropic)")
     parser.add_argument('--model_path', help="Override model path, OpenAI model name, or Anthropic model name")
     parser.add_argument('--system_prompt_fp', help="Path to system prompt file")
     
     args = parser.parse_args()
 
-    system_prompt_fp = args.system_prompt_fp or f'prompts/{args.procedure_type}/system_prompt.txt'
+    system_prompt_fp = args.system_prompt_fp or f'prompts/{args.procedure_type}/system.txt'
     # args.model_dir = "/scratch/eguan2/llama33-70/llama33-70_model"
     output_fp = f"results/{args.procedure_type}/extractions/{args.output_filename}.csv"
 
-    print("CUDA Available:", torch.cuda.is_available())
     if torch.cuda.is_available():
-        for i in range(torch.cuda.device_count()):
-            print(f"Device no.{i}: {torch.cuda.get_device_name(i)}")
+        print(f"CUDA Available")
 
     # Initialize LLM with flexible configuration
     llm_kwargs = {}
@@ -87,6 +75,7 @@ def main():
 
     transcripts_df["participant_id"] = transcripts_df["participant_id"].astype(str)
     processor = processor_class(args.procedure_type, system_prompt_fp, output_fp, llm_handler, args.to_postgres)
+    print(f"Initialized processor for procedure type: {args.procedure_type}")
     processor.process_transcripts(args.files_to_process, transcripts_df)
 
     print(f"Processing complete for {args.procedure_type}. Outputs saved to {output_fp}")

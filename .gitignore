@@ -44,3 +44,5 @@ llama_testjob.sh
 llama_extraction.py
 llama_vllm.py
 structure.txt
+
+*untracked*

@@ -3,6 +3,7 @@ import argparse
 import os
 import pandas as pd
 import torch
+from typing import Optional, List
 
 # Dynamic CUDA configuration - only set if CUDA is available
 if torch.cuda.is_available():
@@ -80,13 +81,13 @@ def transcribe(audio_file, whisper_model="large-v3", device=None):
     # print("SPEAKER TRANSCRIPT:\n", speaker_transcript)
     # print("BKG :\n", bkg_segments)
     result_text = [seg['text'] for seg in result['segments']] 
-    # join into one string but leave single quotes between segments
-    result_text = " '".join(result_text).replace("  ", " ").strip()
+    #? join into one string used to be single quote
+    result_text = " ".join(result_text).replace("  ", " ").strip()
     print("Final transcript:\n", result_text)
     return result_text
 
 
-def transcribe_whisperx(audio_file, whisper_model="large-v3", device=None):
+def transcribe_whisperx(audio_file, whisper_model="large-v3", device=None, phrase_list: Optional[List[str]] = None, procedure_type: Optional[str] = None, save_filename: Optional[str] = None):
     """
     Transcribe an audio file using WhisperX with alignment. based on above old transcribe() function
     Returns the full text and segment details.
@@ -113,7 +114,6 @@ def transcribe_whisperx(audio_file, whisper_model="large-v3", device=None):
     result = model.transcribe(audio, batch_size=8, language="en")
     # print("Transcription result:\n", result)
 
-    # Alignment
     print("Aligning transcription for better accuracy...")
     model_a, metadata = whisperx.load_align_model(language_code="en", device=device)
     aligned_result = whisperx.align(
@@ -127,11 +127,47 @@ def transcribe_whisperx(audio_file, whisper_model="large-v3", device=None):
 
     # Join all segments into one text string, separated by single quote
     result_text = " '".join(seg["text"] for seg in aligned_result["segments"]).replace("  ", " ").strip()
-
-    return {
+    result_obj = {
         "text": result_text,
         "segments": aligned_result["segments"]
     }
+    if procedure_type or save_filename:
+        try:
+            _save_transcription_result_whisperx(result_obj, audio_file, procedure_type, save_filename)
+        except Exception as e:
+            print(f"Warning: failed to save whisperx transcription result: {e}")
+    return result_obj
+
+
+def _save_transcription_result_whisperx(result: dict, audio_file: str, procedure_type: Optional[str], save_filename: Optional[str] = None) -> None:
+    """Save whisperx transcription result to transcription/results/{procedure_type}/<save_filename>.csv or transcriptions.csv"""
+    repo_root = os.path.dirname(os.path.dirname(__file__))
+    proc_folder = procedure_type if procedure_type else "_misc"
+    results_dir = os.path.join(repo_root, "transcription", "results", proc_folder)
+    os.makedirs(results_dir, exist_ok=True)
+
+    if save_filename:
+        fn = save_filename if save_filename.lower().endswith(".csv") else f"{save_filename}.csv"
+        out_fp = os.path.join(results_dir, fn)
+        write_header = not os.path.exists(out_fp)
+    else:
+        out_fp = os.path.join(results_dir, "transcriptions.csv")
+        write_header = not os.path.exists(out_fp)
+
+    import csv
+    file_id = os.path.splitext(os.path.basename(audio_file))[0]
+    row = {
+        "file": file_id,
+        "procedure_type": procedure_type,
+        "audio_fp": audio_file,
+        "pred_transcript": result.get("text", "")
+    }
+    with open(out_fp, "a", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=["file", "procedure_type", "audio_fp", "pred_transcript"])
+        if write_header:
+            writer.writeheader()
+        writer.writerow(row)
+    print(f"Saved whisperx transcription to {out_fp}")
 
 
 def get_procedure_type(proc_row):

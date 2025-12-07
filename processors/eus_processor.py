@@ -8,7 +8,7 @@ from data_models.data_models import EUSData
 class EUSProcessor(BaseProcessor):
     def process_transcripts(self, filenames_to_process, transcripts_df):
         outputs = []
-        # Prompt files for EUS
+        #! Prompt files for EUS
         prompt_field_definitions_fp = './prompts/eus/eus.txt'
         fewshot_examples_dir = "./prompts/eus/fewshot"
 

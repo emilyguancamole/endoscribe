@@ -9,7 +9,9 @@
                 "max_tokens": 8000,
                 "temperature": 0.15,
                 "top_p": 0.95,
-                "stop": ["<|eot_id|>"]
+                "stop": [
+                    "<|eot_id|>"
+                ]
             }
         },
         "openai_gpt4o": {
@@ -34,5 +36,5 @@
             }
         }
     },
-    "default_config": "local_llama"
+    "default_config": "openai_gpt4o"
 }

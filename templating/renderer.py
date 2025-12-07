@@ -11,15 +11,36 @@ def _filter_skip_unknown(value: Any) -> str:
 
 
 def _filter_sentence(text: str) -> str:
-    """Normalize spacing and ensure a trailing period if not present (for non-empty)."""
+    """Normalize spacing, capitalize first word (unless begins with a number), and ensure a trailing sentence terminator
+    """
     if not text:
         return ""
     t = str(text).strip()
     if not t:
         return ""
-    if t[-1] in ".!?":
+    first_token = t.split(None, 1)[0] if t.split(None, 1) else t
+    if not first_token[0].isdigit():
+        for i, ch in enumerate(t):
+            if ch.isalpha():
+                t = t[:i] + ch.upper() + t[i+1:]
+                break
+
+    if t[-1] in '.!?':
         return t
-    return t + "."
+    return t + '.'
+
+
+def _filter_period(text: str) -> str:
+    """Add a period to the end of text only if it doesn't already end with . ! ?.
+    """
+    if not text:
+        return ""
+    t = str(text).strip()
+    if not t:
+        return ""
+    if t[-1] in '.!?':
+        return t
+    return t + '.'
 
 
 def _filter_capfirst(text: str) -> str:
@@ -52,6 +73,18 @@ def _filter_default_if_unknown(value: Any, default: str = "") -> str:
     return default if _is_unknown(value) else str(value)
 
 
+def _filter_default_if_unknown_sentence(value: Any, default: str = "") -> str:
+    """Return the `default` if value is unknown; otherwise return the value.
+    Ensure output is capitalized and ends with a sentence terminator.
+    Useful for short free-text sections where you want a nicely formatted fallback.
+    """
+    s = _filter_default_if_unknown(value, default)
+    if not s:
+        return ""
+    # Apply capfirst + sentence formatting
+    return _filter_sentence(_filter_capfirst(s))
+
+
 def _filter_join_nonempty(values: Any, sep: str = ", ") -> str:
     if not values:
         return ""
@@ -65,11 +98,14 @@ def _filter_join_nonempty(values: Any, sep: str = ", ") -> str:
 
 
 def build_env() -> Environment:
+    ''' Register Jinja environment with custom filters'''
     env = Environment(undefined=StrictUndefined, autoescape=False, trim_blocks=True, lstrip_blocks=True)
-    env.filters["skip_unknown"] = _filter_skip_unknown
-    env.filters["sentence"] = _filter_sentence
+    env.filters["sku"] = _filter_skip_unknown
+    env.filters["sent"] = _filter_sentence
     env.filters["capfirst"] = _filter_capfirst
     env.filters["default_if_unknown"] = _filter_default_if_unknown
+    env.filters["default_if_unknown_sentence"] = _filter_default_if_unknown_sentence
+    env.filters["period"] = _filter_period
     env.filters["join_nonempty"] = _filter_join_nonempty
     return env
 

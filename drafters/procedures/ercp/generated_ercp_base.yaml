@@ -11,7 +11,7 @@ templates:
   history: 'The patient reports {{ symptoms_duration | skip_unknown }} history of
     {{ chief_complaints | lower | skip_unknown }}.
 
-    {{ symptoms_description | skip_unknown | sentence | capfirst }}
+    {{ symptoms_narrative | skip_unknown | sentence | capfirst }}
 
     {% if negative_history | skip_unknown %} No history of {{ negative_history | skip_unknown
     }} is reported unless otherwise specified.{% endif %}
@@ -23,10 +23,9 @@ templates:
     {% if family_history | skip_unknown %}{{ family_history | skip_unknown | sentence
     }}{% endif %} {% if social_history | skip_unknown %}{{ social_history | skip_unknown
     | sentence }}{% endif %}'
-  medications: Refer to record of source.
-  monitoring: Johns Hopkins Standard.
-  pre-procedure exam: Please see pre-procedure history and physical exam in Medical
-    Records.
+  medications: '{{ medications | default_if_unknown(''Refer to record of source'')
+    }}'
+  monitoring: '{{ monitoring | default_if_unknown(''Johns Hopkins Standard'') }}'
   description_of_procedure: '{% set scope_type = duodenoscope_type | default('''')
     | skip_unknown %}
 
@@ -38,16 +37,13 @@ templates:
     from the esophagus into the stomach. From the stomach, the scope was directed
     to the second portion of the duodenum.'
   ercp_quality_metrics: 'Difficulty of ERCP: {% if grade_of_ercp | skip_unknown %}Grade
-    {{ grade_of_ercp }}.{% endif %}{% if pd_cannulation | skip_unknown %} pancreatic
-    duct cannulation {{ pd_cannulation | sentence }}
+    {{ grade_of_ercp }}.{% endif %}
 
-    {% endif %}
+    {% if pd_cannulation_status | skip_unknown %}Pancreatic duct cannulation {{ pd_cannulation_status
+    | sentence }}{% endif %}
 
-    {% if cannulation_success is defined %}
-
-    Cannulation success: {% if cannulation_success %}Yes{% else %}No{% endif %}.
-
-    {% endif %}
+    {% if cannulation_success is defined %}Cannulation success: {% if cannulation_success
+    %}Yes{% else %}No{% endif %}.{% endif %}
 
     {% if lactated_ringers is defined %}
 

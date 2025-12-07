@@ -93,9 +93,9 @@ For `ercp_cholangioscopy`:
 - `drafters/procedures/ercp/generated_ercp_cholangioscopy.yaml` (template)
 - `prompts/ercp/generated_ercp_cholangioscopy_model.py` (Pydantic)
 
-## 📝 Adding a New Subtype
+## Adding a Subtype
 
-### Step 1: Create Field Definition
+Step 1: Create Field Definition
 
 ```yaml
 # prompts/ercp/fields_stone_extraction.yaml
@@ -112,42 +112,28 @@ field_groups:
     template: |
       {% if stone_present %}
       Bile duct stones were identified.
-      {% if stone_size | skip_unknown %}Stone size: {{ stone_size }}.{% endif %}
-      {% if extraction_method | skip_unknown %}
-      Extraction method: {{ extraction_method }}.
-      {% endif %}
-      {% endif %}
     fields:
       - name: stone_present
         type: boolean
         prompt_instruction: "Were bile duct stones identified? yes/no"
-      
-      - name: stone_size
-        type: string
-        prompt_instruction: "Size of largest stone if present, e.g. '8mm'"
-      
-      - name: extraction_method
-        type: string
-        prompt_instruction: "Method used for stone extraction, e.g. 'basket', 'balloon', 'lithotripsy'"
 ```
 
-### Step 2: Register in procedure_registry.yaml
+Step 2: Register in procedure_registry.yaml
 
 ```yaml
 procedures:
   ercp_stone_extraction:
-    fields_file: prompts/ercp/fields_stone_extraction.yaml
+    fields_file: prompts/ercp/yaml/fields_stone_extraction.yaml
     config_file: drafters/procedures/ercp/config_stone_extraction.yaml
-    description: "ERCP for bile duct stone extraction"
 ```
 
-### Step 3: Generate
+Step 3: Generate
 
 ```bash
 python templating/generate_from_fields.py --all
 ```
 
-### Step 4: Create Variant Config
+Step 4: Create Variant Config
 
 ```yaml
 # drafters/procedures/ercp/stone_extraction.yaml
@@ -155,9 +141,9 @@ $extends: ./generated_ercp_stone_extraction.yaml
 # Add any final customizations if needed
 ```
 
-## 🎨 Customization Strategies
+### Customization Strategies
 
-### Override a Template
+**Override a Template**
 ```yaml
 # In subtype file
 field_groups:
@@ -165,7 +151,7 @@ field_groups:
     template: "Custom template for this subtype only..."
 ```
 
-### Add Fields to Existing Group
+**Add Fields to Existing Group**
 ```yaml
 # In subtype file
 field_groups:
@@ -175,7 +161,7 @@ field_groups:
         prompt_instruction: "Subtype-specific risk factor"
 ```
 
-### Add New Section
+**Add New Section**
 ```yaml
 # In subtype file
 field_groups:

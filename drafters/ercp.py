@@ -105,7 +105,7 @@ class ERCPDrafter(EndoscopyDrafter):
                         'indications': indications or indications_fallback,
                         'medications': sections.get('medications', '').strip(),
                         'monitoring': sections.get('monitoring', '').strip(),
-                        'pre_procedure_exam': sections.get('pre_procedure_exam', '').strip(),
+                        'post_procedure_static': sections.get('post_procedure_static', '').strip(),
                         'history': hist,
                         'description_of_procedure': desc,
                         'findings': findings,
@@ -125,10 +125,7 @@ class ERCPDrafter(EndoscopyDrafter):
                     doc.add_heading('Monitoring', level=3)
                     doc.add_paragraph(monitoring_text)
 
-                pre_procedure_text = sections.get("pre_procedure_exam", "").strip()
-                if pre_procedure_text:
-                    doc.add_heading('Pre-Procedure Exam', level=3)
-                    doc.add_paragraph(pre_procedure_text)
+                post_procedure_static = sections.get("post_procedure_static", "").strip()
 
                 if hist:
                     doc.add_heading('History', level=2)
@@ -140,6 +137,8 @@ class ERCPDrafter(EndoscopyDrafter):
                     doc.add_heading('Findings', level=2)
                     paragraph = doc.add_paragraph()
                     add_bold_subheading(paragraph, findings)
+                    if post_procedure_static:
+                        doc.add_paragraph(post_procedure_static)
                 if quality:
                     doc.add_heading('ERCP Quality Metrics', level=2)
                     doc.add_paragraph(quality)

@@ -104,13 +104,13 @@ def generate_prompt_text(config: dict) -> str:
     return "\n".join(lines)
 
 
-def generate_base_yaml(config: dict, procedure_meta: dict = None) -> str:
-    """Generate the base.yaml template from field definitions."""
+def generate_base_yaml(config: dict, procedure_meta: dict) -> str:
+    """Generate the base.yaml template from field definitions (e.g. from fields_base.yaml + subtypes)
+    - This new base.yaml merges $extends and field groups into a single template yaml file.
+    """
     if procedure_meta is None:
-        procedure_meta = {
-            'procedure_group': 'ercp',
-            'title': 'Endoscopic Retrograde Cholangiopancreatography'
-        }
+        print(f"Error: procedure_meta is required to generate base.yaml")
+        sys.exit(1)
     
     # Generate prompt file reference based on procedure type
     proc_group = procedure_meta.get('procedure_group', 'ercp')
@@ -242,9 +242,8 @@ def generate_pydantic_model(config: dict, model_name: str = "ERCPData") -> str:
 def main():
     if len(sys.argv) < 2:
         print("Usage: python templating/generate_from_fields.py <fields.yaml>")
-        print("Example: python templating/generate_from_fields.py prompts/ercp/fields_cholangioscopy.yaml")
-        print("\nOr generate all registered procedures:")
-        print("       python templating/generate_from_fields.py --all")
+        print("Example: python templating/generate_from_fields.py prompts/ercp/yaml/fields_cholangioscopy.yaml")
+        print("\nOr all registered procedures: python templating/generate_from_fields.py --all")
         sys.exit(1)
     
     if sys.argv[1] == '--all':
@@ -295,7 +294,7 @@ def generate_single(fields_yaml_path: str, proc_type: str = None):
     # Generate prompt
     prompt_text = generate_prompt_text(config)
     base_name = os.path.basename(fields_yaml_path).replace('.yaml', '')
-    prompt_output = fields_yaml_path.replace(base_name + '.yaml', f'generated_{proc_type}_prompt.txt')
+    prompt_output = fields_yaml_path.replace('yaml/' + base_name + '.yaml', f'generated_{proc_type}_prompt.txt')
     with open(prompt_output, 'w') as f:
         f.write(prompt_text)
     print(f"✓ Generated prompt: {prompt_output}")
@@ -309,7 +308,9 @@ def generate_single(fields_yaml_path: str, proc_type: str = None):
     
     # Determine output path based on procedure group
     proc_group = procedure_meta.get('procedure_group', 'ercp')
-    base_output = os.path.join('drafters/procedures', proc_group, f'generated_{proc_type}.yaml')
+    print("PROC GROUP:", proc_group)
+    
+    base_output = os.path.join('prompts', proc_group, f'generated_{proc_type}.yaml')
     os.makedirs(os.path.dirname(base_output), exist_ok=True)
     with open(base_output, 'w') as f:
         f.write(base_yaml)

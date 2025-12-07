@@ -22,7 +22,7 @@ field_groups:
     description: "Patient demographics, in indications"
     report_section: "indications"
     template: |
-      {{ age }}-year-old {{ sex }} patient is here for an ERCP procedure {% if chief_complaints | skip_unknown %}for {{ chief_complaints | skip_unknown | lower }}{% endif %}.
+      {{ age }}-year-old {{ sex }} patient is here for an ERCP procedure {% if chief_complaints | sku %}for {{ chief_complaints | sku | lower }}{% endif %}.
     fields:
       - name: age
         type: integer
@@ -30,7 +30,7 @@ field_groups:
         
       - name: sex
         type: string
-        prompt_instruction: "male or female"
+        prompt_instruction: "male, female, other, or unknown"
         
       - name: chief_complaints
         type: string
@@ -40,66 +40,65 @@ field_groups:
     description: "Patient medical and social history"
     report_section: "history"
     template: |
-      The patient reports {{ symptoms_duration | skip_unknown }} history of {{ chief_complaints | lower | skip_unknown }}.
-      {{ symptoms_description | skip_unknown | sentence | capfirst }}
-      {% if negative_history | skip_unknown %} No history of {{ negative_history | skip_unknown }} is reported unless otherwise specified.{% endif %}
-      {% if past_medical_history | skip_unknown %}{{ past_medical_history | skip_unknown | capfirst | sentence }}{% endif %} {% if current_medications | skip_unknown %}Current medications include {{ current_medications | skip_unknown }}.{% endif %}
-      {% if family_history | skip_unknown %}{{ family_history | skip_unknown | sentence }}{% endif %} {% if social_history | skip_unknown %}{{ social_history | skip_unknown | sentence }}{% endif %}
+      The patient reports {{ symptoms_duration | sku }} history of {{ chief_complaints | lower | sku }}.
+      {{ symptoms_narrative | sku | sent }}
+      {% if negative_history | sku %}No history of {{ negative_history | sku }} is reported unless otherwise specified.{% endif %}
+      {% if past_medical_history | sku %}{{ past_medical_history | sku | sent }}{% endif %} {% if current_medications | sku %} Current medications include {{ current_medications | sku }}.{% endif %}
+      {% if family_history | sku %}{{ family_history | sku | sent }}{% endif %} {% if social_history | sku %}{{ social_history | sku | sent }}{% endif %}
     fields:
       - name: symptoms_duration
         type: string
         prompt_instruction: "Duration of symptoms if mentioned, e.g. '3 months'"
         
-      - name: symptoms_description
+      - name: symptoms_narrative
         type: string
-        prompt_instruction: "Describe symptoms in detail as complete sentence(s), e.g. 'Patient's stributre was initially thought to be malignant, however given negative biopsies this was felt to be benign.'"
+        prompt_instruction: "Describe symptoms in detail as complete sentence, e.g. 'Patient's stributre was initially thought to be malignant; however, given negative biopsies this was felt to be benign.'"
         
       - name: negative_history
         type: string
-        prompt_instruction: "Any negative history mentioned"
+        prompt_instruction: "Relevant negative history if mentioned. Will be used as 'No history of {{negative_history}} is reported'"
         
       - name: past_medical_history
         type: string
-        prompt_instruction: "Describe past medical history as a sentence"
+        prompt_instruction: "Describe past non-negative medical history as sentence(s)"
         
       - name: current_medications
         type: string
-        prompt_instruction: "current medications if mentioned"
+        prompt_instruction: "Describe current medications as sentence(s)"
         
       - name: family_history
         type: string
-        prompt_instruction: "family history if mentioned"
+        prompt_instruction: "Describe family history as sentence(s)"
         
       - name: social_history
         type: string
-        prompt_instruction: "social history if mentioned"
+        prompt_instruction: "Describe social history as sentence(s) only if non-negative social history is mentioned"
 
   medications:
-    description: "Medications (STATIC)"
+    description: "Medications with default"
     report_section: "medications"
-    template: |
-      Refer to record of source.
-    fields: []
+    template:  |
+      {{ medications | default_if_unknown('Refer to record of source.') }}
+    fields:
+      - name: medications
+        type: string
+        prompt_instruction: "If specific medications are mentioned, include them with doses if available, else 'unknown"
 
   monitoring:
-    description: "Monitoring (STATIC)"
+    description: "Monitoring with default"
     report_section: "monitoring"
     template: |
-      Johns Hopkins Standard.
-    fields: []
-
-  pre_procedure_exam:
-    description: "Pre-procedure note (STATIC)"
-    report_section: "pre-procedure exam"
-    template: |
-      Please see pre-procedure history and physical exam in Medical Records.
-    fields: []
+      {{ monitoring | default_if_unknown('Johns Hopkins Standard.') }}
+    fields:
+      - name: monitoring
+        type: string
+        prompt_instruction: "If the transcript describes monitoring, include details, else 'unknown'"
 
   procedure_description:
     description: "Equipment and procedure specifics"
     report_section: "description_of_procedure"
     template: |
-      {% set scope_type = duodenoscope_type | default('') | skip_unknown %}
+      {% set scope_type = duodenoscope_type | default('') | sku %}
       After the risks, benefits and alternatives of the procedure were thoroughly explained, informed consent was verified, confirmed and timeout was successfully executed by the treatment team. With the patient in the left semi-prone position, medications were administered intravenously. The duodenoscope {% if scope_type %}{{ scope_type }} {% endif %}was passed from the mouth into the esophagus and further advanced from the esophagus into the stomach. From the stomach, the scope was directed to the second portion of the duodenum.
     fields:
       - name: duodenoscope_type
@@ -116,13 +115,16 @@ field_groups:
     description: "ERCP quality and technical details"
     report_section: "ercp_quality_metrics"
     template: |
-      Difficulty of ERCP: {% if grade_of_ercp | skip_unknown %}Grade {{ grade_of_ercp }}.{% endif %}{% if pd_cannulation | skip_unknown %} pancreatic duct cannulation {{ pd_cannulation | sentence }}
+      Difficulty of ERCP: {% if grade_of_ercp | sku %}
+      Grade {{ grade_of_ercp }}.
       {% endif %}
-      {% if cannulation_success is defined %}
-      Cannulation success: {% if cannulation_success %}Yes{% else %}No{% endif %}.
+      {% if pd_cannulation_status | sku %}
+      Pancreatic duct cannulation {{ pd_cannulation_status | sent }}
+      {% endif %}
+      {% if cannulation_success is defined %}Cannulation success: {% if cannulation_success %}Yes{% else %}No{% endif %}.
       {% endif %}
       {% if lactated_ringers is defined %}
-      Post-ERCP pancreatitis prophylaxis:{% if lactated_ringers %}Lactated ringers: Yes, refer to record of source{% else %}No{% endif %}.
+      Post-ERCP pancreatitis prophylaxis: {% if lactated_ringers %}Lactated ringers: Yes, refer to record of source{% else %}No{% endif %}.
       {% endif %}
       {% if rectal_indomethacin is defined %}Rectal indomethacin: {% if rectal_indomethacin %} Yes
       {% else %}No{% endif %}.
@@ -136,7 +138,7 @@ field_groups:
         type: integer
         prompt_instruction: "ERCP difficulty grade as a integer (1, 2, 3, 4), or -1 if unknown"
         
-      - name: pd_cannulation
+      - name: pd_cannulation_status
         type: string
         prompt_instruction: "pancreatic duct cannulation status, e.g. 'not attempted', 'successful', 'unsuccessful'"
       
@@ -160,20 +162,20 @@ field_groups:
         type: boolean
         prompt_instruction: "true if it was, otherwise false"
 
-## FINDINGS ##
+  ## FINDINGS ##
   scout_film:
   # chol: A scout film of the abdomen was performed. If normal: It appeared normal. Optional findings include: surgical clips in the xxx quadrant, pneumobilia, a biliary stent in situ, surgical drain, or residual contrast from prior study. If not obtained: A scout film was not obtained 
     description: "Abdominal scout film findings"
     report_section: "findings"
     report_subsection: "scout_film"
     template: |
-      {% set status = scout_film_status | default('') | skip_unknown %}
+      {% set status = scout_film_status | default('') | sku %}
       {% if status == 'not_obtained' %}
       A scout film was not obtained.
       {% else %}
       A scout film of the abdomen was performed. {% if status == 'normal' %}It appeared normal.{% endif %}
-      {% if scout_film_optional_findings | skip_unknown and scout_film_optional_findings != 'none' %} {{ scout_film_optional_findings }}.{% endif %}
-      {% if scout_film_free_text | skip_unknown and scout_film_free_text != 'none' %} {{ scout_film_free_text | capfirst }}.{% endif %}
+      {% if scout_film_optional_findings | sku and scout_film_optional_findings != 'none' %} {{ scout_film_optional_findings }}.{% endif %}
+      {% if scout_film_free_text | sku and scout_film_free_text != 'none' %} {{ scout_film_free_text | capfirst }}.{% endif %}
       {% endif %}
     fields:
       - name: scout_film_status
@@ -195,13 +197,13 @@ field_groups:
     report_section: "findings"
     report_subsection: "scope_advancement"
     template: |
-      {% set difficulty = scope_advancement_difficulty | default('') | skip_unknown %}
-      {% set gi_findings = upper_gi_findings | default('') | skip_unknown %}
+      {% set difficulty = scope_advancement_difficulty | default('') | sku %}
+      {% set gi_findings = upper_gi_findings | default('') | sku %}
       {% set exam_type = upper_gi_examination | default('limited') %}
       
-      The duodenoscope {% if duodenoscope_type | skip_unknown %}{{ duodenoscope_type }} {% endif %}was advanced to the second portion of the duodenum {% if difficulty == 'difficult' %}with difficulty{% else %}without difficulty{% endif %} and {% if exam_type == 'detailed' %}with detailed{% else %}without detailed{% endif %} examination of the upper GI tract.
-      {% if gi_findings == 'normal' or not gi_findings %} The esophagus, stomach, and duodenum appeared unremarkable on limited inspection.{% else %} {{ gi_findings | capfirst }} were seen.{% endif %}
-      {% if difficulty == 'difficult' %} Scope advancement was challenging due to {{ scope_advancement_difficulty_reason  | skip_unknown }} {% endif %}
+      The duodenoscope {% if duodenoscope_type | sku %}{{ duodenoscope_type }} {% endif %}was advanced to the second portion of the duodenum {% if difficulty == 'difficult' %}with difficulty{% else %}without difficulty{% endif %} and {% if exam_type == 'detailed' %}with detailed{% else %}without detailed{% endif %} examination of the upper GI tract.
+      {% if gi_findings == 'normal' or not gi_findings %}The esophagus, stomach, and duodenum appeared unremarkable on limited inspection.{% else %} {{ gi_findings | capfirst }} were seen.{% endif %}
+      {% if difficulty == 'difficult' %} Scope advancement was challenging due to {{ scope_advancement_difficulty_reason  | sku }} {% endif %}
     fields:
       - name: scope_advance_difficulty
         type: enum
@@ -228,15 +230,15 @@ field_groups:
     report_section: "findings"
     report_subsection: "major_papilla"
     template: |
-      {% set status = major_papilla_status | default('') | skip_unknown %}
+      {% set status = major_papilla_status | default('') | sku %}
       {% if status == 'not visualized' %}
       The major papilla could not be located, and the procedure was aborted.
       {% else %}
-      The major papilla was identified. {% if status == 'normal' %}It appeared normal in position and morphology, with an intact orifice and no surrounding erythema or edema.{% elif status == 'abnormal' and major_papilla_abnormal_morphology | skip_unknown and major_papilla_abnormal_morphology != 'none' %}The papilla appeared {{ major_papilla_abnormal_morphology }}.{% endif %}
-      {% if prior_biliary_sphincterotomy_evidence %}After removal of the previously placed stent, evidence of prior sphincterotomy was present. {% if prior_biliary_sphincterotomy_orifice_patency | skip_unknown %}Orifice was {{ prior_biliary_sphincterotomy_orifice_patency }}.{% endif %}{% endif %}
+      The major papilla was identified. {% if status == 'normal' %}It appeared normal in position and morphology, with an intact orifice and no surrounding erythema or edema.{% elif status == 'abnormal' and major_papilla_abnormal_morphology | sku and major_papilla_abnormal_morphology != 'none' %}The papilla appeared {{ major_papilla_abnormal_morphology }}.{% endif %}
+      {% if prior_biliary_sphincterotomy_evidence %}After removal of the previously placed stent, evidence of prior sphincterotomy was present. {% if prior_biliary_sphincterotomy_orifice_patency | sku %}Orifice was {{ prior_biliary_sphincterotomy_orifice_patency }}.{% endif %}{% endif %}
       {% if papilla_stent_present %}A previously placed plastic or metal stent was seen emerging from the major papilla.{% endif %}
-      {% if periampullary_diverticulum_present %} Periampullary diverticulum present.{% if papilla_diverticulum_relationship | skip_unknown and papilla_diverticulum_relationship not in ['not_applicable', 'not_described'] %} Papilla located {% if papilla_diverticulum_relationship == 'inside_diverticulum' %}inside the diverticulum{% elif papilla_diverticulum_relationship == 'on_rim' %}on the rim of the diverticulum{% elif papilla_diverticulum_relationship == 'adjacent' %}directly adjacent to the diverticulum{% elif papilla_diverticulum_relationship == 'away' %}away from the diverticulum{% endif %}.{% endif %}{% endif %}
-      {% if major_papilla_free_text | skip_unknown and major_papilla_free_text != 'none' %} {{ major_papilla_free_text | capfirst }}.{% endif %}
+      {% if periampullary_diverticulum_present %} Periampullary diverticulum present.{% if papilla_diverticulum_relationship | sku and papilla_diverticulum_relationship not in ['not_applicable', 'not_described'] %} Papilla located {% if papilla_diverticulum_relationship == 'inside_diverticulum' %}inside the diverticulum{% elif papilla_diverticulum_relationship == 'on_rim' %}on the rim of the diverticulum{% elif papilla_diverticulum_relationship == 'adjacent' %}directly adjacent to the diverticulum{% elif papilla_diverticulum_relationship == 'away' %}away from the diverticulum{% endif %}.{% endif %}{% endif %}
+      {% if major_papilla_free_text | sku and major_papilla_free_text != 'none' %} {{ major_papilla_free_text | capfirst }}.{% endif %}
       {% endif %}
     fields:
       - name: major_papilla_status
@@ -284,15 +286,15 @@ field_groups:
     report_section: "findings"
     report_subsection: "minor_papilla"
     template: |
-      {% set status = minor_papilla_status | default('') | skip_unknown %}
+      {% set status = minor_papilla_status | default('') | sku %}
       {% if status == 'not_inspected' %}
       The minor papilla was not inspected.
       {% elif status == 'not_visualized' %}
       The minor papilla could not be located.
       {% elif status in ['normal', 'abnormal'] %}
-      The minor papilla was identified and inspected. {% if status == 'normal' %}It appeared normal in position and morphology, with an intact orifice and no surrounding erythema or edema.{% elif minor_papilla_morphology | skip_unknown %}The papilla appeared {{ minor_papilla_morphology }}.{% endif %}
-      {% if minor_papilla_prior_sphincterotomy_evidence %}After removal of the previously placed stent, evidence of prior sphincterotomy was present. {% if minor_papilla_orifice_patency | skip_unknown and minor_papilla_orifice_patency not in ['none', 'unknown'] %}Orifice was {{ minor_papilla_orifice_patency | replace('_', ' ') }}.{% endif %}{% endif %}
-      {% if minor_papilla_free_text | skip_unknown and minor_papilla_free_text != 'none' %} {{ minor_papilla_free_text | sentence }}.{% endif %}
+      The minor papilla was identified and inspected. {% if status == 'normal' %}It appeared normal in position and morphology, with an intact orifice and no surrounding erythema or edema.{% elif minor_papilla_morphology | sku %}The papilla appeared {{ minor_papilla_morphology }}.{% endif %}
+      {% if minor_papilla_prior_sphincterotomy_evidence %}After removal of the previously placed stent, evidence of prior sphincterotomy was present. {% if minor_papilla_orifice_patency | sku and minor_papilla_orifice_patency not in ['none', 'unknown'] %}Orifice was {{ minor_papilla_orifice_patency | replace('_', ' ') }}.{% endif %}{% endif %}
+      {% if minor_papilla_free_text | sku and minor_papilla_free_text != 'none' %} {{ minor_papilla_free_text | sent }}.{% endif %}
       {% endif %}
     fields:
       - name: minor_papilla_status
@@ -323,10 +325,10 @@ field_groups:
     report_section: "findings"
     report_subsection: "ampulla"
     template: |
-      {% if ampulla_overall_appearance | skip_unknown %}
+      {% if ampulla_overall_appearance | sku %}
       The ampulla was identified and found to be {{ ampulla_overall_appearance }}.{% if ampulla_pus_present %} Pus was seen draining.{% endif %}
       {% if ampulla_active_bleeding %} Active bleeding was observed.{% endif %}
-      {% if ampulla_free_text | skip_unknown and ampulla_free_text != 'none' %} {{ ampulla_free_text | capfirst }}.{% endif %}{% endif %}
+      {% if ampulla_free_text | sku and ampulla_free_text != 'none' %} {{ ampulla_free_text | capfirst }}.{% endif %}{% endif %}
     fields:
       - name: ampulla_overall_appearance
         type: string
@@ -342,7 +344,7 @@ field_groups:
 
       - name: ampulla_free_text
         type: string
-        prompt_instruction: "Any additional ampullary or periampullary details as complete sentence(s); else 'none'"
+        prompt_instruction: "Any additional ampullary or periampullary details or features as complete sentence(s)"
 
   ampullectomy:
   # If ampullectomy was done: 
@@ -353,7 +355,7 @@ field_groups:
     report_subsection: "ampullectomy"
     template: |
       {% if ampullectomy_performed %}
-      After a submucosal lift{% if snare_size_mm > 0 %}, a {{ snare_size_mm }} mm snare{% else %}, a snare{% endif %} was used to perform ampullectomy. Resection was performed {% if resection_style | skip_unknown and resection_style not in ['none', 'unknown'] %}{{ resection_style | replace('_', ' ') }}{% endif %}{% if energy_settings | skip_unknown and energy_settings != 'not specified' %} using electrocautery {{ energy_settings }}{% endif %}. The specimen was retrieved {% if specimen_retrieval_method | skip_unknown and specimen_retrieval_method != 'not specified' %}{{ specimen_retrieval_method }}{% endif %} and sent for histopathology. The resection base and margins were carefully inspected; {% if resection_base_assessment | skip_unknown %}{{ resection_base_assessment }}{% endif %}.{% if ampullectomy_hemostasis_method | skip_unknown and ampullectomy_hemostasis_method != 'none' %} Hemostasis was achieved with {{ ampullectomy_hemostasis_method }}.{% endif %}
+      After a submucosal lift{% if snare_size_mm > 0 %}, a {{ snare_size_mm }} mm snare{% else %}, a snare{% endif %} was used to perform ampullectomy. Resection was performed {% if resection_style | sku and resection_style not in ['none', 'unknown'] %}{{ resection_style | replace('_', ' ') }}{% endif %}{% if energy_settings | sku and energy_settings != 'not specified' %} using electrocautery {{ energy_settings }}{% endif %}. The specimen was retrieved {% if specimen_retrieval_method | sku and specimen_retrieval_method != 'not specified' %}{{ specimen_retrieval_method }}{% endif %} and sent for histopathology. The resection base and margins were carefully inspected; {% if resection_base_assessment | sku %}{{ resection_base_assessment }}{% endif %}.{% if ampullectomy_hemostasis_method | sku and ampullectomy_hemostasis_method != 'none' %} Hemostasis was achieved with {{ ampullectomy_hemostasis_method }}.{% endif %}
       {% endif %}
     fields:
       - name: ampullectomy_performed
@@ -393,14 +395,16 @@ field_groups:
     report_section: "findings"
     report_subsection: "bile_duct_cannulation"
     template: |
-      {% if sphincterotome_type | skip_unknown or guidewire_type | skip_unknown %}
-      Bile duct cannulation was attempted using a sphincterotome{% if sphincterotome_type | skip_unknown %} ({{ sphincterotome_type }}){% endif %} preloaded with a guidewire{% if guidewire_type | skip_unknown %} ({{ guidewire_type }}){% endif %}.
+      {% if sphincterotome_type | sku or guidewire_type | sku %}
+      Bile duct cannulation was attempted using a sphincterotome{% if sphincterotome_type | sku %} ({{ sphincterotome_type }}){% endif %} preloaded with a guidewire{% if guidewire_type | sku %} ({{ guidewire_type }}){% endif %}.
       {% endif %}
       {% if bile_duct_cannulation_successful is defined %}
       {% if bile_duct_cannulation_successful %}
-      Bile duct cannulation was successful. Biliary cannulation was achieved{% if bile_duct_cannulation_difficulty | skip_unknown %}. {{ bile_duct_cannulation_difficulty | capfirst }}{% else %} without pancreatic duct entry{% endif %}.{% if advanced_cannulation_techniques | skip_unknown and advanced_cannulation_techniques != 'none' %} Cannulation achieved via {{ advanced_cannulation_techniques }}.{% endif %}
+      Bile duct cannulation was successful. Biliary cannulation was achieved{% if bile_duct_cannulation_difficulty | sku %}. {{ bile_duct_cannulation_difficulty | capfirst }}{% else %} without pancreatic duct entry{% endif %}.{% if advanced_cannulation_techniques | sku and advanced_cannulation_techniques != 'none' %} Cannulation achieved via {{ advanced_cannulation_techniques }}.{% endif %}
       {% else %}
-      Bile duct cannulation was unsuccessful.{% if bile_duct_cannulation_difficulty | skip_unknown %} {{ bile_duct_cannulation_difficulty | capfirst }}.{% endif %}{% if advanced_cannulation_techniques | skip_unknown and advanced_cannulation_techniques != 'none' %} {{ advanced_cannulation_techniques | capfirst }} was performed.{% endif %}{% if rendezvous_attempted %}{% if rendezvous_result | skip_unknown %} EUS-guided rendezvous was performed and was {{ rendezvous_result }}.{% else %} Rendezvous was planned.{% endif %}{% else %} The procedure was terminated.{% endif %}
+      Bile duct cannulation was unsuccessful.
+      {% if bile_duct_cannulation_difficulty | sku %} {{ bile_duct_cannulation_difficulty | capfirst }}.{% endif %}{% if advanced_cannulation_techniques | sku and advanced_cannulation_techniques != 'none' %} {{ advanced_cannulation_techniques | capfirst }} was performed.{% endif %}{% if rendezvous_attempted %}{% if rendezvous_result | sku %} EUS-guided rendezvous was performed and was {{ rendezvous_result }}.{% else %} Rendezvous was planned.{% endif %}
+      {% else %} The procedure was terminated.{% endif %}
       {% endif %}
       {% endif %}
     fields:
@@ -438,13 +442,13 @@ field_groups:
     report_section: "findings"
     report_subsection: "pancreatic_duct_cannulation"
     template: |
-      {% set attempt = pancreatic_duct_cannulation_attempted | default('') | skip_unknown %}
+      {% set attempt = pancreatic_duct_cannulation_attempted | default('') | sku %}
       {% if attempt == 'intentional' %}
-      Pancreatic duct cannulation was attempted.{% if pancreatic_duct_cannulation_success %} Pancreatic duct was selectively cannulated{% if pancreatic_duct_cannulation_technique | skip_unknown %} with {{ pancreatic_duct_cannulation_technique }}{% endif %}.{% else %} Cannulation was unsuccessful.{% endif %}
+      Pancreatic duct cannulation was attempted.{% if pancreatic_duct_cannulation_success %} Pancreatic duct was selectively cannulated{% if pancreatic_duct_cannulation_technique | sku %} with {{ pancreatic_duct_cannulation_technique }}{% endif %}.{% else %} Cannulation was unsuccessful.{% endif %}
       {% elif attempt == 'not_attempted_inadvertent' %}
       Pancreatic duct cannulation was not attempted but was inadvertently cannulated.
       {% endif %}
-      {% if biliary_rendezvous_route | skip_unknown and biliary_rendezvous_route != 'not applicable' %} {{ biliary_rendezvous_route | capfirst }} puncture was performed.{% endif %}
+      {% if biliary_rendezvous_route | sku and biliary_rendezvous_route != 'not applicable' %} {{ biliary_rendezvous_route | capfirst }} puncture was performed.{% endif %}
     fields:
       - name: pancreatic_duct_cannulation_attempted
         type: enum
@@ -480,13 +484,13 @@ field_groups:
       {% if contrast_injection_performed %}
       Contrast was injected under fluoroscopic guidance and cholangiogram was performed.
       {% if cbd_diameter_mm > 0 %}The common bile duct (CBD) measured {{ cbd_diameter_mm }} mm{% if cbd_diameter_mm >= 6 and cbd_diameter_mm <= 10 %} and was normal{% endif %}.{% endif %}
-      {% if ihd_status | skip_unknown and ihd_status not in ['unknown', 'none'] %} Intrahepatic ducts were {{ ihd_status | replace('_', ' ') }}{% if ihd_status == 'normal' %} in caliber, and contrast drained freely into the duodenum{% endif %}.{% endif %}
-      {% if stone_description | skip_unknown and stone_description != 'none' %} {{ stone_description | capfirst }}.{% endif %}
-      {% if stricture_description | skip_unknown and stricture_description != 'none' %} {{ stricture_description | capfirst }}.{% endif %}
-      {% if non_stone_filling_defects | skip_unknown and non_stone_filling_defects != 'none' %} {{ non_stone_filling_defects | capfirst }}.{% endif %}
-      {% if bile_leak_location | skip_unknown and bile_leak_location != 'none' %} Contrast extravasation from the {{ bile_leak_location }} consistent with a bile leak.{% endif %}
-      {% if prior_stent_status | skip_unknown and prior_stent_status != 'none' %} {{ prior_stent_status | capfirst }}.{% endif %}
-      {% if cholangiogram_free_text | skip_unknown and cholangiogram_free_text != 'none' %} {{ cholangiogram_free_text | capfirst }}.{% endif %}
+      {% if ihd_status | sku and ihd_status not in ['unknown', 'none'] %} Intrahepatic ducts were {{ ihd_status | replace('_', ' ') }}{% if ihd_status == 'normal' %} in caliber, and contrast drained freely into the duodenum{% endif %}.{% endif %}
+      {% if stone_description | sku and stone_description != 'none' %} {{ stone_description | capfirst }}.{% endif %}
+      {% if stricture_description | sku and stricture_description != 'none' %} {{ stricture_description | capfirst }}.{% endif %}
+      {% if non_stone_filling_defects | sku and non_stone_filling_defects != 'none' %} {{ non_stone_filling_defects | capfirst }}.{% endif %}
+      {% if bile_leak_location | sku and bile_leak_location != 'none' %} Contrast extravasation from the {{ bile_leak_location }} consistent with a bile leak.{% endif %}
+      {% if prior_stent_status | sku and prior_stent_status != 'none' %} {{ prior_stent_status | capfirst }}.{% endif %}
+      {% if cholangiogram_free_text | sku and cholangiogram_free_text != 'none' %} {{ cholangiogram_free_text | capfirst }}.{% endif %}
       {% else %}
       Contrast injection was not performed.
       {% endif %}
@@ -541,10 +545,10 @@ field_groups:
     report_subsection: "pancreatogram"
     template: |
       {% if pancreatogram_obtained %}
-      Pancreatogram was obtained{% if pancreatogram_overall | skip_unknown %} and {{ pancreatogram_overall }} identified{% endif %}.
+      Pancreatogram was obtained{% if pancreatogram_overall | sku %} and {{ pancreatogram_overall }} identified{% endif %}.
       {% if main_pd_diameter_head_mm > 0 or main_pd_diameter_body_mm > 0 or main_pd_diameter_tail_mm > 0 %} Main PD diameter was{% if main_pd_diameter_head_mm > 0 %} {{ main_pd_diameter_head_mm }} mm at head{% endif %}{% if main_pd_diameter_body_mm > 0 %}{% if main_pd_diameter_head_mm > 0 %},{% endif %} {{ main_pd_diameter_body_mm }} mm at body{% endif %}{% if main_pd_diameter_tail_mm > 0 %}{% if main_pd_diameter_head_mm > 0 or main_pd_diameter_body_mm > 0 %},{% endif %} {{ main_pd_diameter_tail_mm }} mm at tail{% endif %}.{% endif %}
-      {% if side_branch_status | skip_unknown and side_branch_status not in ['unknown', 'none'] %} Side branches were {{ side_branch_status }}.{% endif %}
-      {% if pd_stricture_location | skip_unknown and pd_stricture_location != 'none' %} Stricture was located at {{ pd_stricture_location }}.{% endif %}
+      {% if side_branch_status | sku and side_branch_status not in ['unknown', 'none'] %} Side branches were {{ side_branch_status }}.{% endif %}
+      {% if pd_stricture_location | sku and pd_stricture_location != 'none' %} Stricture was located at {{ pd_stricture_location }}.{% endif %}
       {% if pd_pseudocyst_communication is defined %} There was {% if not pd_pseudocyst_communication %}no {% endif %}communication with pseudocyst.{% endif %}
       {% else %}
       Pancreatogram was not performed.
@@ -589,22 +593,22 @@ field_groups:
     report_section: "findings"
     report_subsection: "sphincterotomy"
     template: |
-      {% if sphincterotomy_type | skip_unknown and sphincterotomy_type != 'none' %}
+      {% if sphincterotomy_type | sku and sphincterotomy_type != 'none' %}
       {% set ns = namespace(parts=[]) %}
       {# base sentence: mention sphincterotomy and optional instrument #}
       {% set base = 'Sphincterotomy was performed' %}
-      {% if sphincterotome_used | skip_unknown %}
+      {% if sphincterotome_used | sku %}
         {% set base = base ~ ' using a ' ~ (sphincterotome_used) %}
       {% endif %}
       {% set base = base ~ '.' %}
       {% set ns.parts = ns.parts + [base] %}
 
       {# optional incision details: direction, extent, and goal #}
-      {% if incision_direction | skip_unknown %}
+      {% if incision_direction | sku %}
         {% set clause = 'The incision was directed toward the ' ~ incision_direction ~ ' position' %}
-        {% if sphincterotomy_extent | skip_unknown and sphincterotomy_extent != 'none' %}
+        {% if sphincterotomy_extent | sku and sphincterotomy_extent != 'none' %}
           {% set clause = clause ~ ' and extended to a ' ~ sphincterotomy_extent ~ ' papillotomy' %}
-          {% if sphincterotomy_goal_achieved | skip_unknown %}
+          {% if sphincterotomy_goal_achieved | sku %}
             {% set clause = clause ~ ' until ' ~ sphincterotomy_goal_achieved ~ ' was achieved' %}
           {% endif %}
         {% endif %}
@@ -645,8 +649,7 @@ field_groups:
     report_subsection: "biliary_stent"
     template: |
       {% if biliary_stent_placed %}
-      {% if plastic_stent_details | skip_unknown %}A {{ plastic_stent_details}} was placed. {% elif metal_stent_details | skip_unknown %}A {{ metal_stent_details }} was placed. {% endif %}
-      The scope was then completely withdrawn from the patient and the procedure completed.
+      {% if plastic_stent_details | sku %}A {{ plastic_stent_details}} was placed. {% elif metal_stent_details | sku %}A {{ metal_stent_details }} was placed. {% endif %}
       {% endif %}
     fields:
       - name: biliary_stent_placed
@@ -674,12 +677,12 @@ field_groups:
     template: |
       {% if pancreatic_stent_placed %}
       {% if pancreatic_stent_purpose == 'pep_prophylaxis' %}
-      A pancreatic stent for PEP prophylaxis was placed.{% if pancreatic_stent_details | skip_unknown %} {{ pancreatic_stent_details | capfirst }}.{% endif %}
+      A pancreatic stent for PEP prophylaxis was placed.{% if pancreatic_stent_details | sku %} {{ pancreatic_stent_details | capfirst }}.{% endif %}
       {% elif pancreatic_stent_purpose == 'therapeutic' %}
-      A therapeutic pancreatic stent was placed.{% if pancreatic_stent_details | skip_unknown %} {{ pancreatic_stent_details | capfirst }}.{% endif %}
+      A therapeutic pancreatic stent was placed.{% if pancreatic_stent_details | sku %} {{ pancreatic_stent_details | capfirst }}.{% endif %}
       {% endif %}
-      {% if stent_optimal_description | skip_unknown %} {{ stent_optimal_description | capfirst }}.{% endif %}
-      {% if bile_and_contrast_drainage | skip_unknown %} {{ bile_and_contrast_drainage | capfirst }}.{% endif %}
+      {% if stent_optimal_description | sku %} {{ stent_optimal_description | capfirst }}.{% endif %}
+      {% if bile_and_contrast_drainage | sku %} {{ bile_and_contrast_drainage | capfirst }}.{% endif %}
       {% if final_fluoroscopic_image_obtained %} Final fluoroscopic picture was done for confirmation.{% endif %}
       {% endif %}
     fields:
@@ -707,6 +710,14 @@ field_groups:
       - name: final_fluoroscopic_image_obtained # "Final fluoroscopic picture done for confirmation"
         type: boolean
         prompt_instruction: "true if a final fluoroscopic image was obtained for confirmation; false if not mentioned"
+  
+  post_procedure_static:
+    description: ""
+    report_section: "findings"
+    report_subsection: "post_procedure_static"
+    template: |
+      The scope was then completely withdrawn from the patient and the procedure completed.
+    fields: []
     
   blood_loss:
     # "XX ml blood loss"
@@ -729,8 +740,8 @@ field_groups:
     report_section: "findings"
     report_subsection: "specimens"
     template: |
-      {% if specimens_removed | skip_unknown and specimens_removed != 'none' %}
-      Specimens removed: Specimens were optained. {{ specimens_removed | capfirst | sentence }}.
+      {% if specimens_removed | sku and specimens_removed != 'none' %}
+      Specimens removed: Specimens were optained. {{ specimens_removed | capfirst | sent }}.
       {% elif specimens_removed == 'none' %}
       Specimens removed: None.
       {% endif %}
@@ -744,7 +755,7 @@ field_groups:
     report_section: "findings"
     report_subsection: "complications"
     template: |
-      {% if complications | skip_unknown and complications != 'none' %}
+      {% if complications | sku and complications != 'none' %}
       Complications: {{ complications | capfirst }}.
       {% elif complications == 'none' %}
       Complications: There were no immediate complications.
@@ -759,11 +770,12 @@ field_groups:
     description: "Impressions summarizing key findings"
     report_section: "impressions"
     template: |
-      
+      {{ impressions }}
+    # todo in drafter, capialize and make into numbered list
     fields:
       - name: impressions
         type: list
         prompt_instruction: |
-          Summarize the most important findings, procedures, and biopsies as a list of strings.
+          Summarize the most important findings, procedures, and biopsies as a comma-separated list of strings.
           If there are multiple normal findings, combine them into a single list item for EGD and another for ERCP (for example: "Normal ERCP examination of x, y, z" where x, y, z are different areas with normal ERCP findings). Normal findings do not need to be in the order of examination.
-          Do not include scout film results in impressions.
+          Do not include scout film results.

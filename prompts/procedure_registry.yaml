@@ -4,17 +4,17 @@
 procedures:
   # ERCP subtypes
   ercp_cholangioscopy:
-    fields_file: prompts/ercp/fields_cholangioscopy.yaml
+    fields_file: prompts/ercp/yaml/fields_cholangioscopy.yaml
     config_file: drafters/procedures/ercp/config_cholangioscopy.yaml
     description: "ERCP with cholangioscopy for bile duct evaluation"
     
   ercp_nfu:
-    fields_file: prompts/ercp/fields_nfu.yaml
+    fields_file: prompts/ercp/yaml/fields_nfu.yaml
     config_file: drafters/procedures/ercp/config_nfu.yaml
     description: "Follow-up ERCP for stent management"
     
   ercp_gastrogastrostomy:
-    fields_file: prompts/ercp/fields_gastrogastrostomy.yaml
+    fields_file: prompts/ercp/yaml/fields_gastrogastrostomy.yaml
     config_file: drafters/procedures/ercp/config_gastrogastrostomy.yaml
     description: "ERCP through gastrogastrostomy anastomosis"
   

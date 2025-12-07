@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Test script for Azure Speech Service integration.
-This script helps validate your Azure setup and compare results with WhisperX.
+This script helps validate Azure setup and compare results with WhisperX.
 """
 import os
 import sys
@@ -15,26 +15,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 def check_azure_credentials():
-    """Verify Azure credentials are configured."""
-    print("Checking Azure Speech Service credentials...")
-    
     azure_key = os.getenv("AZURE_SPEECH_KEY")
-    azure_region = os.getenv("AZURE_SPEECH_REGION", "eastus")
-    
     if not azure_key:
-        print("❌ AZURE_SPEECH_KEY not found in environment")
-        print("\nPlease add to your .env file:")
-        print("  AZURE_SPEECH_KEY=your_api_key_here")
-        print("  AZURE_SPEECH_REGION=eastus")
+        print("AZURE_SPEECH_KEY not found in environment")
         return False
-    
-    print(f"✅ Azure credentials found")
-    print(f"   Region: {azure_region}")
-    print(f"   Key: {azure_key[:8]}...{azure_key[-4:]}")
-    return True
-
 
 def test_azure_transcription(audio_file: str):
     """Test Azure Speech Service transcription."""
@@ -48,23 +33,20 @@ def test_azure_transcription(audio_file: str):
             service="azure",
             language="en-US"
         )
-        
-        print(f"\n✅ Azure transcription successful!")
+        print(f"\nSuccessful Azure transcription!")
         print(f"   Service: {result['service']}")
-        print(f"   Language: {result['language']}")
         print(f"   Duration: {result.get('duration', 'N/A'):.2f}s")
         print(f"   Segments: {len(result.get('segments', []))}")
-        print(f"\n   Transcript preview (first 200 chars):")
+        print(f"\n   Transcript preview:")
         print(f"   {result['text'][:200]}...")
         
         return result
         
     except Exception as e:
-        print(f"\n❌ Azure transcription failed: {e}")
+        print(f"\nAzure transcription failed: {e}")
         import traceback
         traceback.print_exc()
         return None
-
 
 def test_whisperx_transcription(audio_file: str):
     """Test WhisperX transcription (if available)."""
@@ -78,8 +60,7 @@ def test_whisperx_transcription(audio_file: str):
             service="whisperx",
             whisper_model="large-v3"
         )
-        
-        print(f"\n✅ WhisperX transcription successful!")
+        print(f"\nWhisperX transcription successful!")
         print(f"   Service: {result['service']}")
         print(f"   Language: {result.get('language', 'N/A')}")
         print(f"   Duration: {result.get('duration', 'N/A'):.2f}s")

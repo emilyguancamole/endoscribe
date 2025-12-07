@@ -6,15 +6,17 @@ class ErcpBaseData(BaseModel):
     sex: Optional[str] = None
     chief_complaints: Optional[str] = None
     symptoms_duration: Optional[str] = None
-    symptoms_description: Optional[str] = None
+    symptoms_narrative: Optional[str] = None
     negative_history: Optional[str] = None
     past_medical_history: Optional[str] = None
     current_medications: Optional[str] = None
     family_history: Optional[str] = None
     social_history: Optional[str] = None
+    medications: Optional[str] = None
+    monitoring: Optional[str] = None
     duodenoscope_type: Optional[str] = None
     grade_of_ercp: Optional[int] = None
-    pd_cannulation: Optional[str] = None
+    pd_cannulation_status: Optional[str] = None
     cannulation_success: Optional[bool] = None
     lactated_ringers: Optional[bool] = None
     rectal_indomethacin: Optional[bool] = None
@@ -107,10 +109,13 @@ class ErcpBaseData(BaseModel):
             return v
         if isinstance(v, str):
             v_lower = v.lower().strip()
+            # Treat unknown/none as None
             if v_lower in ('unknown', 'none', 'n/a', 'na'):
                 return None
+            # Coerce truthy/falsey strings
             if v_lower in ('true', 'yes', '1'):
                 return True
             if v_lower in ('false', 'no', '0'):
                 return False
+        # Pass through as-is and let pydantic handle validation
         return v

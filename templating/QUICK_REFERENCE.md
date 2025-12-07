@@ -1,29 +1,25 @@
 # YAML Field-to-Report Pipeline - Quick Reference
 
-## 🎯 Core Concept
-
 **ONE YAML FILE** → generates → **Prompt + Template + Model**
 
 ```
 fields.yaml  →  [generator]  →  prompt.txt + base.yaml + model.py
 ```
 
-## ⚡ Quick Commands
+## Quick Commands
 
 ```bash
 # Generate all artifacts from fields.yaml
 python reporting/generate_from_fields.py prompts/ercp/fields.yaml
 
-# Test the generated template
-python reporting/demo_yaml_pipeline.py
-
 # View generated files
 cat prompts/ercp/generated_prompt.txt
 cat prompts/procedures/ercp/generated_base.yaml
 cat prompts/ercp/generated_model.py
-```
 
-## 📝 fields.yaml Cheat Sheet
+# Test the generated template with dummy data
+python templating/demo_ercp_yaml_pipeline.py
+```
 
 ### Minimal Field Group
 ```yaml
@@ -64,24 +60,15 @@ field_groups:
 {% set var = field | default('') | skip_unknown %}
 ```
 
-## 🔧 Workflow
+## WORKFLOW
 
-1. **Edit** `prompts/ercp/fields.yaml`
-2. **Generate**: `python reporting/generate_from_fields.py prompts/ercp/fields.yaml`
-3. **Test**: `python reporting/demo_yaml_pipeline.py`
+1. **Edit** `prompts/ercp/yaml/fields_base.yaml`
+2. **Generate**: `python templating/generate_from_fields.py prompts/ercp/yaml/fields_base.yaml`
+3. **Test**: Has dummy data (may need to update after yaml changes) so I can test the flow without LLM calls: `python templating/demo_ercp_yaml_pipeline.py`
 4. **Review** generated files
 5. **Deploy**: Copy to production when satisfied
 
-## 📂 File Map
-
-| Purpose | Source | Generated | Production |
-|---------|--------|-----------|------------|
-| Field defs | `prompts/ercp/fields.yaml` | — | — |
-| LLM prompt | — | `generated_prompt.txt` | `ercp_def_1.txt` |
-| Template | — | `generated_base.yaml` | `base.yaml` |
-| Data model | — | `generated_model.py` | merge into `data_models.py` |
-
-## ✨ Jinja Filters
+## Jinja Filters
 
 | Filter | Use |
 |--------|-----|
@@ -89,60 +76,33 @@ field_groups:
 | `sentence` | Add period |
 | `capfirst` | Capitalize first letter |
 | `default_if_unknown` | Fallback value |
+| `default_if_unknown_sentence` | Fallback as sentence, fallback presented as a properly capitalized sentence with punctuation. |
 | `join_nonempty` | Join list, skip empty |
 
-## 🚀 Adding a Field
 
+## Adding a Field
 ```yaml
 # 1. Add to fields.yaml
 fields:
   - name: new_field
     prompt_instruction: "Extract this info"
 
-# 2. Add to template
-template: "{{ new_field | skip_unknown }}"
-
 # 3. Regenerate
 python reporting/generate_from_fields.py prompts/ercp/fields.yaml
 ```
 
-## 🎨 Report Sections
+## Adding a Subtype
 
-Standard section names:
-- `indications`
-- `history`
-- `description_of_procedure`
-- `findings`
-- `ercp_quality_metrics`
-- `impressions`
-- `recommendations`
+described in [PROCEDURE_SUBTYPES.md](./PROCEDURE_SUBTYPES.md)
 
-Use `report_subsection` for nested content.
-
-## 💡 Pro Tips
-
-- **Test first**: Use demo before deploying
-- **Version control**: Keep fields.yaml in git
-- **Incremental**: Add one field at a time
-- **Comments**: Document complex logic in YAML
-- **DRY**: Put common text in base, override in variants
-
-## 🐛 Common Issues
+## Issues
 
 **Field not rendering?**
 - Check spelling (case-sensitive)
 - Add `| default('')` before filters
 
-**Template syntax error?**
-- Validate Jinja with demo
-- Check for unmatched `{% %}`
+## More Docs
 
-**Generated prompt incomplete?**
-- Ensure field is under `fields:` array
-- Check YAML indentation
-
-## 📚 Full Docs
-
-- `reporting/YAML_DRIVEN_PIPELINE.md` - Complete guide
 - `reporting/README.md` - Template customization
-- `reporting/demo_yaml_pipeline.py` - Working example
+- `reporting/demo_ercp_yaml_pipeline.py` - Working example full pipeline
+- `reporting/PROCEDURE_SUBTYPES.md` - How to add new procedure subtypes

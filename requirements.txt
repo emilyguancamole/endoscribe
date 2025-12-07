@@ -5,13 +5,12 @@ whisperx==3.3.1
     # had trouble with whisperx 3.7.4 and torch 2.8.0
     # check:    
         # python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}')"
-# Azure Speech Service
-azure-cognitiveservices-speech
 fastapi
 openai
 python-dotenv
 websockets
 # pip
+azure-cognitiveservices-speech
 noisereduce
 uvicorn[standard]
 soundfile
@@ -22,13 +21,12 @@ negspacy
 python-multipart
 
 python-docx
+jinja2
+pyyaml
+
 pytest
 transformers
 
 # vllm
 # psycopg2-binary
-anthropic
-jinja2
-
-
-pyyaml
+# anthropic

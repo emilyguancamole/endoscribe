@@ -5,21 +5,22 @@ and organized (record information in a manner that matches clinical standards).
 Not all fields may be mentioned in the transcript. Unless explicitly otherwise specified, if you do not know the answer, record "unknown", and if it wasn't mentioned, record "none".
 
 The entities you must extract are listed below. Follow the instructions.
-
 ###ENTITIES############################
 age: patient age as integer
-sex: male or female
+sex: male, female, other, or unknown
 chief_complaints: State all main symptoms, indications, or reasons for the procedure, e.g. 'the evaluation and treatment of bile duct stricture'
 symptoms_duration: Duration of symptoms if mentioned, e.g. '3 months'
-symptoms_description: Describe symptoms in detail as complete sentence(s), e.g. 'Patient's stributre was initially thought to be malignant, however given negative biopsies this was felt to be benign.'
-negative_history: Any negative history mentioned
-past_medical_history: Describe past medical history as a sentence
-current_medications: current medications if mentioned
-family_history: family history if mentioned
-social_history: social history if mentioned
+symptoms_narrative: Describe symptoms in detail as complete sentence, e.g. 'Patient's stributre was initially thought to be malignant; however, given negative biopsies this was felt to be benign.'
+negative_history: Relevant negative history if mentioned. Will be used as 'No history of {{negative_history}} is reported'
+past_medical_history: Describe past non-negative medical history as sentence(s)
+current_medications: Describe current medications as sentence(s)
+family_history: Describe family history as sentence(s)
+social_history: Describe social history as sentence(s) only if non-negative social history is mentioned
+medications: If specific medications are mentioned, include them with doses if available, else 'unknown
+monitoring: If the transcript describes monitoring, include details, else 'unknown'
 duodenoscope_type: duodenoscope type used, e.g. TJF-Q180V, TJF-Q190V, ED-530XT
 grade_of_ercp: ERCP difficulty grade as a integer (1, 2, 3, 4), or -1 if unknown
-pd_cannulation: pancreatic duct cannulation status, e.g. 'not attempted', 'successful', 'unsuccessful'
+pd_cannulation_status: pancreatic duct cannulation status, e.g. 'not attempted', 'successful', 'unsuccessful'
 cannulation_success: if intent was biliary cannulation and bile duct cannulated; true/false
 lactated_ringers: true/false
 rectal_indomethacin: true/false
@@ -100,9 +101,9 @@ final_fluoroscopic_image_obtained: true if a final fluoroscopic image was obtain
 estimated_blood_loss: Estimated blood loss in ml, as a integer. -1 if not mentioned
 specimens_removed: If speciments were obtained, describe their details/findings
 complications: If complications, describe details/findings
-impressions: Summarize the most important findings, procedures, and biopsies as a list of strings.
+impressions: Summarize the most important findings, procedures, and biopsies as a comma-separated list of strings.
 If there are multiple normal findings, combine them into a single list item for EGD and another for ERCP (for example: "Normal ERCP examination of x, y, z" where x, y, z are different areas with normal ERCP findings). Normal findings do not need to be in the order of examination.
-Do not include scout film results in impressions.
+Do not include scout film results.
 
 ###FURTHER INSTRUCTIONS############################
 If the transcript contains spelling mistakes, use your domain expertise of endoscopy to correct them in your report. If there are self-corrections for a finding later in the transcript, include only the most recent correct information. For example, if the transcript has: 'There were no masses or polyps found. But I'm checking again and I now see a 6 mm polyp in the transverse colon.' The second statement is a correction, since polyps were later found. The actual polyps size in mm you should record is 6.

@@ -1,0 +1,560 @@
+﻿# Colonoscopy Base Field Definitions
+system_instructions: |
+  I am giving you a transcript from an ERCP procedure. The task is to extract procedure entities. 
+  Make sure you are accurate (no mistakes), complete (do not miss any relevant information), 
+  and organized (record information in a manner that matches clinical standards).
+  
+  Not all fields may be mentioned in the transcript. Unless explicitly otherwise specified, if you do not know the answer, record "unknown", and if it wasn't mentioned, record "none".
+
+meta:
+  procedure_group: colonoscopy
+  title: Colonoscopy
+
+field_groups:
+  # header:
+  #   description: "Administrative identifiers and provider information"
+  #   report_section: "header"
+  #   fields:
+  #     - name: patient_name
+  #       type: string
+  #       prompt_instruction: "Patient name if present in the header (NAME: XXXX)."
+
+  #     - name: exam_date
+  #       type: string
+  #       prompt_instruction: "Exam date if mentioned (EXAM DATE: XXXX)."
+
+  #     - name: date_of_birth
+  #       type: string
+  #       prompt_instruction: "Date of birth if mentioned (DATE OF BIRTH: XXXX)."
+
+  #     - name: mrn
+  #       type: string
+  #       prompt_instruction: "Medical record number (MR #: XXXXX)."
+
+  #     - name: csn
+  #       type: string
+  #       prompt_instruction: "Visit ID / CSN (VISIT ID (CSN): CSNxxxxxx)."
+
+  #     - name: attending_physician
+  #       type: string
+  #       prompt_instruction: "Attending physician name from the header."
+
+  #     - name: assisting_physician
+  #       type: string
+  #       prompt_instruction: "Assisting physician name if present."
+
+  #     - name: referring_physician
+  #       type: string
+  #       prompt_instruction: "Referring physician name if present."
+
+  patient_demographics:
+    description: "Basic patient information used in HISTORY / INDICATIONS"
+    report_section: "indications"
+    template: |
+      {{ age }}-year-old {{ sex }} patient is here for a colonoscopy for the evaluation of {{ chief_complaints }}.
+    fields:
+      - name: age
+        type: integer
+        prompt_instruction: "Patient age as an integer (e.g., 55)."
+
+      - name: sex
+        type: string
+        prompt_instruction: "Patient sex"
+
+      - name: chief_complaints
+        type: string
+        prompt_instruction: "Main indication(s) or reason(s) for colonoscopy corresponding to '[chief complaints]' (e.g., 'screening', 'iron deficiency anemia', 'hematochezia', 'change in bowel habits')."
+
+  history:
+    description: "Patient symptom history and background"
+    report_section: "history"
+    template: |
+      {{ age }}-year-old {{ sex }} patient is here for a colonoscopy for the evaluation of {{ chief_complaints }}. The patient reports {{ symptoms_duration }} history of {{ symptoms_description }}. Symptoms are described as {{ symptoms_qualitative_description }}. No history of {{ negative_history }} is reported unless otherwise specified. Past medical history, current medications, prior interventions, family history, and social history were reviewed: {{ history_from_records }}.
+    fields:
+      - name: symptoms_duration
+        type: string
+        prompt_instruction: "Duration of symptoms corresponding to '[duration]' (e.g., '3 months', '2 weeks')."
+
+      - name: symptoms_description
+        type: string
+        prompt_instruction: "Primary symptoms corresponding to '[symptoms]' (e.g., 'rectal bleeding', 'abdominal pain', 'diarrhea')."
+
+      - name: symptoms_qualitative_description
+        type: string
+        prompt_instruction: "Qualitative symptom description corresponding to '[relevant symptoms]' (e.g., 'intermittent crampy lower abdominal pain', 'bright red blood on toilet paper')."
+
+      # - name: negative_history
+      #   type: string
+      #   prompt_instruction: "Relevant negative history corresponding to '[list relevant negative history]' (e.g., 'no weight loss, no melena, no family history of CRC')."
+
+      - name: past_medical_history
+        type: string
+        prompt_instruction: "Past medical history if mentioned in the transcript; 'none' if explicitly absent."
+
+      - name: current_medications
+        type: string
+        prompt_instruction: "Current medications if mentioned"
+
+      - name: prior_interventions
+        type: string
+        prompt_instruction: "Prior interventions relevant to GI/colon if mentioned (e.g., prior colectomy, polypectomy)."
+
+      # - name: family_history
+      #   type: string
+      #   prompt_instruction: "Family history relevant to colonoscopy (e.g., CRC, polyps, IBD)."
+
+      # - name: social_history
+      #   type: string
+      #   prompt_instruction: "Social history if mentioned (e.g., alcohol, smoking, NSAID use)."
+
+  last_colonoscopy:
+    description: "Details of prior colonoscopy, if any"
+    report_section: "history"
+    report_subsection: "last_colonoscopy"
+    template: |
+      LAST COLONOSCOPY: {{ last_colonoscopy_narrative }}
+    fields:
+      - name: last_colonoscopy_status
+        type: enum
+        enum_values: ["no_prior_colonoscopy", "prior_colonoscopy"]
+        prompt_instruction: |
+          From the template:
+          'No prior colonoscopy / Prior colonoscopy date at location showing findings of normal exam / polyps removed / adenomas / serrated polyps / hyperplastic polyps / inflammatory polyps / incomplete exam to location / poor prep.'
+          - Choose:
+            - 'no_prior_colonoscopy' if explicitly stated.
+            - 'prior_colonoscopy' if any prior exam is described.
+
+      - name: last_colonoscopy_date
+        type: string
+        prompt_instruction: "Date of prior colonoscopy if mentioned; otherwise 'unknown'."
+
+      - name: last_colonoscopy_location
+        type: string
+        prompt_instruction: "Location where prior colonoscopy was performed if mentioned (e.g., 'outside hospital', 'our institution')."
+
+      - name: last_colonoscopy_findings_summary
+        type: string
+        prompt_instruction: |
+          Use wording from the template:
+          - 'normal exam'
+          - 'polyps removed'
+          - 'adenomas'
+          - 'serrated polyps'
+          - 'hyperplastic polyps'
+          - 'inflammatory polyps'
+          - 'incomplete exam to [location]'
+          - 'poor prep'
+          - or any combination explicitly described.
+
+      - name: last_colonoscopy_pathology
+        type: string
+        prompt_instruction: |
+          From the template:
+          'Pathology from prior exam showed tubular adenoma / tubulovillous adenoma / villous adenoma / sessile serrated polyp / traditional serrated adenoma / hyperplastic polyp / high-grade dysplasia / low-grade dysplasia / no dysplasia.'
+          - Record the exact histology terms and dysplasia grade as specified, or 'none' if not applicable.
+
+      - name: last_colonoscopy_narrative
+        type: string
+        prompt_instruction: |
+          Construct a concise narrative using all elements above, mirroring the template:
+          'No prior colonoscopy' OR
+          'Prior colonoscopy on [date] at [location] showing findings of [normal exam / polyps removed / adenomas / etc.]. Pathology from prior exam showed [tubular adenoma / ... / no dysplasia].'
+
+  medications_and_monitoring:
+    description: "Medications and monitoring references"
+    report_section: "pre_procedure"
+    fields:
+      - name: medications_reference
+        type: string
+        prompt_instruction: "Typically 'Refer to record of source.' Capture any specific medication-related notes if they appear; otherwise record the generic phrase."
+
+      - name: monitoring_standard
+        type: string
+        prompt_instruction: "Typically 'Johns Hopkins Standard' for monitoring; record any alternative if explicitly specified."
+
+  pre_procedure_exam:
+    description: "Pre-procedure note (STATIC)"
+    report_section: "pre-procedure exam"
+    template: |
+      Please see pre-procedure history and physical exam in Medical Records.
+    fields: []
+
+  prep_quality:
+    description: "Bowel preparation quality and BBPS score"
+    report_section: "prep_quality"
+    template: |
+      PREP QUALITY: The overall prep quality was {{ overall_prep_quality }}. The Boston Bowel Prep Score was: Right colon {{ bbps_right_colon }}, Transverse colon {{ bbps_transverse_colon }}, Left colon {{ bbps_left_colon }}. Total BBPS = {{ bbps_total }}.
+    fields:
+      - name: overall_prep_quality
+        type: string
+        prompt_instruction: "e.g. good/poor/excellent"
+
+      - name: bbps_right_colon
+        type: integer
+        prompt_instruction: "right colon subscore"
+
+      - name: bbps_transverse_colon
+        type: integer
+        prompt_instruction: "transverse colon subscore"
+
+      - name: bbps_left_colon
+        type: integer
+        prompt_instruction: "left colon subscore"
+
+      - name: bbps_total
+        type: integer
+        prompt_instruction: "Total BBPS score if provided, otherwise compute from subscores if all present."
+
+  # scope_withdrawal_time:
+  #   description: "Scope withdrawal time"
+  #   report_section: "procedure_metrics"
+  #   template: |
+  #     SCOPE WITHDRAWAL TIME: {{ scope_withdrawal_time_minutes }} minutes
+  #   fields:
+  #     - name: scope_withdrawal_time_minutes
+  #       type: float
+  #       prompt_instruction: "Withdrawal time in minutes corresponding to 'SCOPE WITHDRAWAL TIME: XX minutes'."
+
+  procedure_description:
+    description: "Description of colonoscope insertion, extent, and basic technical details"
+    report_section: "description_of_procedure"
+    template: |
+      DESCRIPTION OF PROCEDURE: After the risks, benefits and alternatives of the procedure were thoroughly explained, informed consent was obtained and confirmed. Immediately prior to the procedure a time-out was performed to verify the correct patient, procedure and site. {{ digital_rectal_exam_narrative }} The {{ colonoscope_model }} colonoscope was introduced through the anus and advanced to the {{ extent_reached }} without difficulty{{ inability_to_advance_clause }}. {{ cecum_identification_narrative }} The ileocecal valve appeared {{ ic_valve_appearance }}.
+    fields:
+      - name: digital_rectal_exam_narrative #! i like narrative
+        type: string
+        prompt_instruction: Summarize rectal exam as a sentence: e.g., 'A digital rectal examination revealed normal sphincter tone with no abnormalities.' Or 'A digital rectal examination revealed decreased sphincter tone and internal hemorrhoids with trace blood.'
+
+      - name: colonoscope_model
+        type: string
+        prompt_instruction: Select from: Olympus CF-H190L, CF-HQ190L, CF-H180AL, PCF-H190DL, Pentax EC-3890Li, Fujifilm EC-760R-V/L, or specify other.
+
+      - name: extent_reached
+        type: string
+        prompt_instruction: Maximal extent reached as stated; choose: cecum, ascending colon, hepatic flexure, transverse colon, splenic flexure, descending colon, sigmoid colon, rectum only, or unknown.
+
+      - name: inability_to_advance_reason
+        type: string
+        prompt_instruction: |
+          If the colonoscope advanced without difficulty, record 'none'. If unable to advance, record reasons such as: severe diverticular disease, stricture, severe inflammation, looping, patient discomfort, poor prep, and obstructing mass.'
+
+      - name: cecum_identification_narrative
+        type: string
+        prompt_instruction: Summarize how cecum was identified: e.g., 'The cecum was identified by the { appendiceal orifice and ileocecal valve }.' If cecum was not reached or not identified, note that explicitly.
+
+      - name: ic_valve_appearance
+        type: string
+        prompt_instruction: normal / patulous / stenotic / ulcerated / with polyp
+
+  cecum_and_appendiceal_orifice:
+    description: "Findings in cecum and appendiceal orifice"
+    report_section: "findings"
+    report_subsection: "cecum"
+    template: |
+      CECUM: {{ cecum_narrative }}
+    fields:
+      - name: cecum_narrative
+        type: string
+        prompt_instruction: |
+          Use the full CECUM and appendiceal text:
+          "CECUM The cecal mucosa appeared 
+          If normal: The cecal mucosa appeared normal with intact vascular pattern and no ulcers, polyps, masses, or inflammation.
+          If diverticulosis: Mild / moderate / severe; wide-mouthed / narrow-mouthed diverticulosis seen; no diverticulitis. 
+          If Polyp: xx number of polyp found in cecum / ascending / transverse / descending / sigmoid / rectum at xx cm from anal verge / ileocecal valve / hepatic flexure / splenic flexure. Size xx mm. Morphology: pedunculated (Ip) / subpedunculated (Isp) / sessile (Is) / flat elevated (IIa) / completely flat (IIb) / depressed (IIc) / excavated (III) / laterally spreading tumor granular type / non-granular type. Paris classification: 0-Ip / 0-Isp / 0-Is / 0-IIa / 0-IIb / 0-IIc / 0-III. If laterally spreading tumor (LST): LST-G (granular type) with homogeneous / nodular mixed subtype / LST-NG (non-granular type) with flat elevated / pseudo-depressed subtype. Size xx X xx mm. Surface pattern: smooth / lobulated / granular / mixed. (Additional polyps to be documented similarly with sequential numbering) / other findings: FREE TEXT
+          If ulcer identified: Ulcer located at position measuring xx mm in diameter, with clean base / flat pigmented spot / visible vessel / adherent clot / active oozing / spurting hemorrhage. Edges were regular with smooth margins / irregular / heaped-up / undermined / overhanging. Surrounding mucosa showed normal appearance / erythema / induration / nodularity.
+          If inflammation: If inflammation identified: Inflammation characterized by erythema / edema / granularity / friability / contact bleeding / spontaneous bleeding / loss of vascular pattern. Distribution continuous from rectum / patchy / segmental / skip areas. Ulcerations present - aphthous / linear / deep / serpiginous / confluent / punched-out. Inflammatory changes consistent with ulcerative colitis / Crohn's disease / ischemic colitis / infectious colitis / indeterminate colitis. 
+          If ulcerative colitis: features suggestive of ulcerative colitis with normal findings suggestive of inactive disease / with erythema decreased vascular pattern, mild friability suggestive of mild disease / with marked erythema, absent vascular pattern, friability, erosions suggestive of moderate disease / with spontaneous bleeding, ulcerations suggestive of severe disease. Mayo Score: 0/1/2/3 
+          If Crohn's disease: features suggestive of Crohn's disease, with no / Aphthous 0.1-0.5cm / Large 0.5-2cm / Very large >2cm ulcers found. Score: xx. Extent of ulcerated surface: None / <10% / 10-30% / >30%. Score: XX. Extent of affected surface: unaffected / <50% / 50-75% / >75%. Score: XX. Presence of narrowing: None / Single, can pass / Multiple, can pass / Cannot pass. Score: XX. Total SES-CD Score: XX (sum of all UC scores)
+
+          If mass identified: Mass located at position measuring xx cm in maximum dimension, causing partial / near-complete / complete obstruction. Surface appearance ulcerated / fungating / smooth / irregular / necrotic / friable with contact bleeding. Margins well-defined / ill-defined / shouldered / infiltrative. The mass was firm / soft / fixed / mobile on manipulation. Proximal extent at xx cm from ileocecal valve / anal verge, distal extent at xx cm. The scope could traverse / could not traverse the lesion. Tattooing performed proximally / distally / both / not performed due to obvious location / planned surgery.
+          If other abnormal findings: On examination lipoma / arteriovenous malformation/ Other findings: FREE TEXT was observed. 
+          The appendiceal orifice was normal / showed inverted appendiceal stump / mucocele / inflammation / polyp at orifice / not visualized. / Other findings: FREE TEXT."
+
+          Instructions:
+          - If cecum normal: state that the cecal mucosa appeared normal with intact vascular pattern and no ulcers, polyps, masses, or inflammation.
+          - For diverticulosis:
+            - grade (mild/moderate/severe),
+            - morphology (wide-mouthed/narrow-mouthed),
+            - explicitly state 'no diverticulitis' if appropriate.
+          - For polyps:
+            - number of polyps in each segment,
+            - exact segment (cecum/ascending/transverse/descending/sigmoid/rectum),
+            - distance from anal verge or landmarks (ileocecal valve/hepatic flexure/splenic flexure),
+            - size in mm,
+            - morphology (Ip/Isp/Is/IIa/IIb/IIc/III; LST-G vs LST-NG),
+            - Paris classification (0-Ip, etc.),
+            - LST subtype (homogeneous/nodular mixed; flat elevated/pseudo-depressed),
+            - surface pattern (smooth/lobulated/granular/mixed).
+          - For ulcers:
+            - location (position, distance if given),
+            - size (xx mm),
+            - stigmata of recent hemorrhage (clean base/flat pigmented spot/visible vessel/adherent clot/active oozing/spurting),
+            - edge morphology (regular/irregular/heaped-up/undermined/overhanging),
+            - surrounding mucosa (normal/erythema/induration/nodularity).
+          - For inflammation and IBD:
+            - mucosal features (erythema/edema/granularity/friability/contact bleeding/spontaneous bleeding/loss of vascular pattern),
+            - distribution (continuous from rectum/patchy/segmental/skip areas),
+            - ulcer type (aphthous/linear/deep/serpiginous/confluent/punched-out),
+            - diagnostic impression (ulcerative colitis/Crohn's/ischemic/infectious/indeterminate),
+            - UC Mayo score (0–3) if given,
+            - Crohn SES-CD components and total score if given.
+          - For masses:
+            - size (xx cm),
+            - degree of obstruction (partial/near-complete/complete),
+            - surface appearance (ulcerated/fungating/smooth/irregular/necrotic/friable),
+            - margins (well-defined/ill-defined/shouldered/infiltrative),
+            - consistency (firm/soft),
+            - mobility (fixed/mobile),
+            - proximal and distal extent (distance from IC valve/anal verge),
+            - whether the scope could traverse the lesion,
+            - whether tattooing was performed (proximally/distally/both/not performed) and why.
+          - For appendiceal orifice:
+            - normal vs inverted stump vs mucocele vs inflammation vs polyp vs not visualized,
+            - include any additional free-text findings.
+          - Remember: slashes indicate alternative options. Only choose those supported by the transcript; multiple can be combined with commas.
+
+  ascending_colon:
+    description: "Findings in ascending colon and hepatic flexure"
+    report_section: "findings"
+    report_subsection: "ascending_colon"
+    template: |
+      ASCENDING COLON: {{ ascending_colon_narrative }}
+    fields:
+      - name: ascending_colon_narrative
+        type: string
+        prompt_instruction: |
+          Use the full ASCENDING COLON text:
+
+          "ASCENDING COLON: The mucosa appeared normal throughout / showed diverticulosis - mild / moderate / severe / melanosis coli / arteriovenous malformations / lipomas. The hepatic flexure was navigated easily / with moderate difficulty / with significant difficulty requiring position change / abdominal pressure / Other findings: FREE TEXT.
+          If Polyp: [same detailed polyp template as above]
+          If ulcer identified: [same ulcer description]
+          If inflammation: [same inflammation / UC / Crohn template as above]
+          If mass identified: [same mass description and tattooing template]."
+
+          Instructions:
+          - Document:
+            - whether the mucosa is normal or has diverticulosis (grade), melanosis coli, AVMs, lipomas,
+            - difficulty navigating hepatic flexure (easily/moderate/significant with position change or abdominal pressure),
+            - presence and details of polyps, ulcers, inflammation/IBD, and masses using the same structured template as for cecum.
+          - Apply the same rules for polyp morphology, Paris classification, ulcer description, inflammatory patterns, UC Mayo score, Crohn SES-CD scoring, and mass description as described under cecum.
+          - Use 'Other findings: FREE TEXT' to capture any additional ascending colon findings.
+
+  transverse_colon:
+    description: "Findings in transverse colon and splenic flexure"
+    report_section: "findings"
+    report_subsection: "transverse_colon"
+    template: |
+      TRANSVERSE COLON: {{ transverse_colon_narrative }}
+    fields:
+      - name: transverse_colon_narrative
+        type: string
+        prompt_instruction: |
+          Use the full TRANSVERSE COLON text:
+
+          "TRANSVERSE COLON: The mucosa appeared normal / showed diverticulosis / melanosis coli. The lumen was normal / showed extrinsic compression from liver / spleen / other organ. The splenic flexure was navigated easily / with difficulty / required position change / abdominal pressure / could not be navigated / Other findings: FREE TEXT.
+          If Polyp: [same detailed polyp template]
+          If ulcer identified: [same ulcer description]
+          If inflammation: [same inflammation / UC / Crohn template]
+          If mass identified: [same mass description and tattooing template]."
+
+          Instructions:
+          - Summarize:
+            - mucosal status (normal vs diverticulosis vs melanosis coli),
+            - presence of extrinsic compression (liver/spleen/other),
+            - difficulty crossing splenic flexure (easily/difficulty/position change/abdominal pressure/could not be navigated),
+            - polyps, ulcers, inflammatory changes, IBD features, and masses, as per colon-wide templates.
+          - Use structured descriptions for polyps, ulcers, and masses identical to the cecum section.
+
+  descending_colon:
+    description: "Findings in descending colon"
+    report_section: "findings"
+    report_subsection: "descending_colon"
+    template: |
+      DESCENDING COLON: {{ descending_colon_narrative }}
+    fields:
+      - name: descending_colon_narrative
+        type: string
+        prompt_instruction: |
+          Use the full DESCENDING COLON text:
+
+          "DESCENDING COLON: The mucosa appeared normal / showed diverticulosis without inflammation / diverticulitis with inflammation / melanosis coli / stricture with smooth / irregular narrowing measuring xx cm in length, xx mm residual lumen / arteriovenous malformations. The lumen was patent / narrowed / showed extrinsic compression / Other findings: FREE TEXT.
+          If Polyp: [same detailed polyp template]
+          If ulcer identified: [same ulcer description]
+          If inflammation: [same inflammation / UC / Crohn template]
+          If mass identified: [same mass description and tattooing template]."
+
+          Instructions:
+          - Document:
+            - whether mucosa is normal, diverticulosis (with or without diverticulitis), melanosis coli, AVMs,
+            - presence of strictures with description: smooth vs irregular, length (xx cm), residual lumen (xx mm),
+            - lumen patency vs narrowing vs extrinsic compression.
+          - For polyps, ulcers, inflammation/IBD, and masses, reuse the same descriptive framework as in cecum and ascending colon.
+
+  sigmoid_colon:
+    description: "Findings in sigmoid colon"
+    report_section: "findings"
+    report_subsection: "sigmoid_colon"
+    template: |
+      SIGMOID COLON: {{ sigmoid_colon_narrative }}
+    fields:
+      - name: sigmoid_colon_narrative
+        type: string
+        prompt_instruction: |
+          Use the full SIGMOID COLON text:
+
+          "SIGMOID COLON: The mucosa appeared normal / showed mild / moderate / severe diverticulosis / diverticulitis / stricture with smooth / irregular narrowing measuring xx cm in length, xx mm residual lumen/ radiation changes / ischemic changes. The lumen showed normal haustrations / loss of haustrations / narrowing / tortuosity / fixation suggesting prior inflammation / surgery / Other findings: FREE TEXT.
+          If Polyp: [same detailed polyp template]
+          If ulcer identified: [same ulcer description]
+          If inflammation: [same inflammation / UC / Crohn template]
+          If mass identified: [same mass description and tattooing template]."
+
+          Instructions:
+          - Document:
+            - degree of diverticulosis (mild/moderate/severe) and whether diverticulitis is present,
+            - presence of strictures (smooth vs irregular, length, residual lumen),
+            - radiation or ischemic changes if present,
+            - lumen morphology (normal haustrations vs loss of haustrations, narrowing, tortuosity, fixation suggesting prior inflammation/surgery).
+          - For polyps, ulcers, inflammation, UC/Crohn scoring, and masses, apply the same full template.
+
+  rectum:
+    description: "Findings in rectum, hemorrhoids, and retroflexion"
+    report_section: "findings"
+    report_subsection: "rectum"
+    template: |
+      RECTUM: {{ rectum_narrative }}
+    fields:
+      - name: rectum_narrative
+        type: string
+        prompt_instruction: |
+          Use the full RECTUM text:
+
+          "RECTUM: The rectal mucosa appeared normal / showed internal hemorrhoids - Grade I / II / III / IV / external hemorrhoids / radiation proctitis / proctitis. The dentate line was visualized at normal position / not well visualized. Retroflexion in the rectum was performed showing normal perianal area / hemorrhoids / fissure / fistula opening / mass / incomplete visualization / not performed due to patient discomfort / technical factors / Other findings: FREE TEXT.
+          If Polyp: [same detailed polyp template]
+          If ulcer identified: [same ulcer description]
+          If inflammation: [same inflammation / UC / Crohn template]
+          If ulcerative colitis: [same UC grading and Mayo score]
+          If Crohn's disease: [same SES-CD scoring]
+          If mass identified: [same mass description and tattooing template]."
+
+          Instructions:
+          - Record:
+            - rectal mucosa status (normal vs internal hemorrhoids grade I–IV vs external hemorrhoids vs radiation proctitis vs proctitis),
+            - dentate line visualization (normal vs not well visualized),
+            - retroflexion findings:
+              - whether retroflexion was performed,
+              - perianal area findings (normal, hemorrhoids, fissure, fistula opening, mass, incomplete visualization),
+              - if retroflexion was not performed due to patient discomfort or technical factors, state this.
+          - For rectal polyps, ulcers, inflammation, hemorrhoidal findings, UC/Crohn features and scoring, and masses, use the same structured options as in prior segments.
+          - Combine findings coherently while respecting that slash-separated options represent different possible findings, not all at once.
+
+  ibd_scoring_global:
+    description: "Global UC and Crohn’s scoring when explicitly provided"
+    report_section: "findings"
+    report_subsection: "ibd_scoring"
+    fields:
+      - name: uc_mayo_score
+        type: integer
+        prompt_instruction: |
+          Mayo Score: 0/1/2/3 as mentioned under 'If ulcerative colitis' in any segment.
+          - If a single global Mayo score is given, record it here.
+          - If multiple segmental scores are given but not summed, record the most clearly stated global value; otherwise 'unknown'.
+
+      - name: crohn_ses_cd_total
+        type: integer
+        prompt_instruction: |
+          From the template:
+          'Total SES-CD Score: XX (sum of all UC scores)' (text appears under Crohn's disease description).
+          - Record the total SES-CD score if explicitly stated; otherwise 'unknown'.
+
+      - name: crohn_ses_cd_ulcer_size_score
+        type: integer
+        prompt_instruction: "Ulcer size subscore if explicitly stated (Score: xx)."
+
+      - name: crohn_ses_cd_ulcerated_surface_score
+        type: integer
+        prompt_instruction: "Extent of ulcerated surface Score: XX if explicitly stated."
+
+      - name: crohn_ses_cd_affected_surface_score
+        type: integer
+        prompt_instruction: "Extent of affected surface Score: XX if explicitly stated."
+
+      - name: crohn_ses_cd_narrowing_score
+        type: integer
+        prompt_instruction: "Presence of narrowing Score: XX if explicitly stated."
+
+  procedure_completion:
+    description: "Procedure completion"
+    report_section: "procedure_outcome"
+    template: |
+      The scope was withdrawn and the procedure was completed.
+      ESTIMATED BLOOD LOSS: {{ estimated_blood_loss_value }} ml if > 0 / No blood loss
+      SPECIMENS: {{ specimens_narrative }}
+      COMPLICATIONS: {{ complications_narrative }}
+    fields:
+      - name: procedure_completed
+        type: boolean
+        prompt_instruction: |
+          From the template:
+          'The scope was withdrawn and the procedure was completed.'
+          - Set to true if this or equivalent wording is present.
+          - Set to false only if the transcript explicitly contradicts completion.
+
+      - name: estimated_blood_loss_value
+        type: float
+        prompt_instruction: Estimated blood loss in ml if provided. If no blood loss, record 0.
+        # template: 'ESTIMATED BLOOD LOSS: XXX ml / No blood loss'
+
+      - name: specimens_narrative
+        type: string
+        prompt_instruction: Whether specimens were obtained or not, and description of specimens if provided. E.g. 'Specimens were obtained. Four cold forceps biopsies were taken from sigmoid colon.'
+
+      - name: complications_narrative
+        type: string
+        prompt_instruction: Describe any intraprocedural or immediate post-procedure complications in detail. If none, record 'No immediate complications'.
+      # template: 'COMPLICATIONS:  Include details about complications if any.'
+
+  #? impressions:
+  #   description: "Overall impressions summarizing colonoscopy findings"
+  #   report_section: "impressions"
+  #   template: |
+  #     IMPRESSIONS: {{ impression_summary }}
+  #   fields:
+  #     - name: impression_summary
+  #       type: string
+  #       prompt_instruction: |
+  #         From the template:
+  #         'IMPRESSIONS: Summarized from findings and reports.'
+  #         - Provide a concise diagnostic summary integrating findings from all colon segments:
+  #           - e.g., 'Normal colonoscopy with no polyps or mucosal abnormalities.'
+  #           - 'Three small tubular adenomas in sigmoid colon removed with cold snare; mild sigmoid diverticulosis.'
+  #           - 'Pancolitis consistent with moderate ulcerative colitis; Mayo endoscopic score 2.'
+  #           - 'Obstructing mass in ascending colon suspicious for carcinoma; biopsies obtained and tattoo placed.'
+  #         - Focus on clinically relevant endpoints rather than repeating all descriptive detail.
+
+  # repeat_exam:
+  #   description: "Plan for repeat colonoscopy"
+  #   report_section: "repeat_exam"
+  #   template: |
+  #     REPEAT EXAM: {{ repeat_exam_text }}
+  #   fields:
+  #     - name: repeat_exam_text
+  #       type: string
+  #       prompt_instruction: |
+  #         From the template:
+  #         'REPEAT EXAM:     Return for a colonoscopy as clinically indicated'
+  #         - If a specific interval is provided (e.g., 3 years, 5 years, 1 year, 6 months), document it explicitly with an indication (e.g., 'Repeat colonoscopy in 3 years for adenoma surveillance').
+  #         - If only general guidance is provided, use the wording 'Return for a colonoscopy as clinically indicated.'
+
+  # attending_presence:
+  #   description: "Attending physician presence attestation"
+  #   report_section: "attestation"
+  #   template: |
+  #     An attending physician was present for the entire procedure.
+  #   fields:
+  #     - name: attending_present_entire_procedure
+  #       type: boolean
+  #       prompt_instruction: |
+  #         From the template:
+  #         'An attending physician was present for the entire procedure.'
+  #         - Set to true if this or equivalent wording is present.
+  #         - Set to false only if the transcript explicitly indicates otherwise.

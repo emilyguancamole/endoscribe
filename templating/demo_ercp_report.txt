@@ -1,0 +1,53 @@
+== INDICATIONS ==
+
+58-year-old female patient is here for an ERCP procedure for recurrent bile duct stones.
+
+== HISTORY ==
+
+The patient reports 1 month history of recurrent bile duct stones.
+Intermittent right upper quadrant pain for one month.
+No history of jaundice is reported unless otherwise specified.Cholecystectomy 2 years ago. No relevant family history. Patient has smoked for ten years.
+
+== MEDICATIONS ==
+
+Refer to record of source.
+
+== MONITORING ==
+
+Cardiac and pulse oximetry monitoring
+
+== DESCRIPTION_OF_PROCEDURE ==
+
+After the risks, benefits and alternatives of the procedure were thoroughly explained, informed consent was verified, confirmed and timeout was successfully executed by the treatment team. With the patient in the left semi-prone position, medications were administered intravenously. The duodenoscope TJF-Q190V was passed from the mouth into the esophagus and further advanced from the esophagus into the stomach. From the stomach, the scope was directed to the second portion of the duodenum.
+
+== ERCP_QUALITY_METRICS ==
+
+Difficulty of ERCP: Grade 2.
+Pancreatic duct cannulation Not_attempted.
+Cannulation success: Yes.
+Post-ERCP pancreatitis prophylaxis: Lactated ringers: Yes, refer to record of source.
+Rectal indomethacin: No.
+Successful completion of intended procedure: Yes.
+Failed ERCP from another facility or provider: No.
+
+== FINDINGS ==
+
+A scout film of the abdomen was performed. It appeared normal.
+
+The duodenoscope TJF-Q190V was advanced to the second portion of the duodenum without difficulty and without detailed examination of the upper GI tract.
+The esophagus, stomach, and duodenum appeared unremarkable on limited inspection.
+The major papilla was identified. 
+
+Bile duct cannulation was unsuccessful. The procedure was terminated.
+
+Contrast injection was not performed.
+
+Pancreatogram was not performed.
+
+A 10 Fr x 5 cm plastic biliary stent was placed. 
+
+The scope was then completely withdrawn from the patient and the procedure completed.
+
+== IMPRESSIONS ==
+
+['ERCP performed; stones removed.']

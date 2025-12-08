@@ -16,19 +16,17 @@ def convert_to_wav(src, dest):
 
 def transcribe_azure(
     audio_file: str,
-    language: str = "en-US",
     enable_word_level_timestamps: bool = True,
     enable_diarization: bool = False,
     max_speakers: int = 2,
     phrase_list: Optional[List[str]] = None,
     procedure_type: Optional[str] = None,
-    save_filename: Optional[str] = 'azure_trs.csv',
+    save_filename: Optional[str] = None,
 ) -> Dict[str, any]:
     """
     Transcribe an audio file using Azure Speech Service. Similar interface to transcribe_whisperx() for migration.
     Args:
         audio_file (str): Path to audio file (supports wav, mp3, ogg, flac, etc.)
-        language (str): Language code (e.g., "en-US", "en-GB")
         enable_word_level_timestamps (bool): Include word-level timestamps in segments
         enable_diarization (bool): Enable speaker diarization (identifies different speakers)
         max_speakers (int): Maximum number of speakers for diarization (if enabled)
@@ -45,8 +43,8 @@ def transcribe_azure(
         subscription=speech_key,
         region=speech_region
     )
-    speech_config.speech_recognition_language = language
     
+    print("filename:", save_filename)
     # Enable detailed results with word-level timestamps
     # speech_config.request_word_level_timestamps()
     # speech_config.output_format = speechsdk.OutputFormat.Detailed
@@ -289,8 +287,8 @@ def _save_transcription_result(result: Dict, audio_file: str, save_filename: Opt
     proc_folder = procedure_type if procedure_type else "_misc"
     results_dir = os.path.join(repo_root, "transcription", "results", proc_folder)
     os.makedirs(results_dir, exist_ok=True)
-
-    out_fp = os.path.join(results_dir, save_filename if save_filename.lower().endswith(".csv") else f"{save_filename}.csv")
+    
+    out_fp = os.path.join(results_dir, save_filename if save_filename.endswith(".csv") else f"{save_filename}.csv")
     write_header = not os.path.exists(out_fp)
     import csv
     file_id = os.path.splitext(os.path.basename(audio_file))[0]
@@ -320,7 +318,6 @@ def transcribe(audio_file: str, **kwargs) -> Dict:
 
 if __name__ == "__main__":
     """
-    Test the Azure transcription service.
         python -m transcription.azure_transcribe --audio_file path/to/audio.wav
     """
     import argparse
@@ -330,7 +327,7 @@ if __name__ == "__main__":
     parser.add_argument("--enable_diarization", action="store_true", help="Enable speaker diarization")
     parser.add_argument("--max_speakers", type=int,default=2, help="Maximum number of speakers for diarization (default: 2)")
     parser.add_argument("--procedure_type", type=str, default=None, help="Procedure type (ercp, col, egd, eus)")
-    parser.add_argument("--save_filename", type=str, default=None, help="Filename to save transcription result (optional)")
+    parser.add_argument("--save_filename", type=str, default='azure_trs.csv', help="Filename to save transcription result (default: azure_trs.csv)")
     args = parser.parse_args()
 
     phrases = [
@@ -352,12 +349,11 @@ if __name__ == "__main__":
     try:
         result = transcribe_azure(
             audio_file=args.audio_file,
-            language="en-US",
             enable_diarization=args.enable_diarization,
             max_speakers=args.max_speakers,
             phrase_list=phrases,
             procedure_type=args.procedure_type,
-            save_filename=args.save_filename if hasattr(args, 'save_filename') else None,
+            save_filename=args.save_filename,
         )
         print("\n" + "="*80)
         print("TRANSCRIPTION RESULT")

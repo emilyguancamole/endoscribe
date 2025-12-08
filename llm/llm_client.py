@@ -122,11 +122,11 @@ class LLMClient:
             return AzureOpenAI(
                 azure_endpoint=azure_endpoint or "https://gpt4-endoscribe.openai.azure.com/",
                 api_version=api_version or "2025-03-01-preview",
-                api_key=os.getenv("OPENAI_API_KEY")
+                api_key=os.getenv("AZURE_OPENAI_API_KEY")
             )
         else:
             return OpenAI(
-                api_key=os.getenv("OPENAI_API_KEY"),
+                api_key=os.getenv("AZURE_OPENAI_API_KEY"),
                 base_url=base_url
             )
 

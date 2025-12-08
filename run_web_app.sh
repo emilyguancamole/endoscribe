@@ -11,7 +11,7 @@ if [ ! -f .env ]; then
     echo "Warning: .env file not found!"
     echo "Please create a .env file with your API keys:"
     echo "  ANTHROPIC_API_KEY=your_key_here"
-    echo "  OPENAI_API_KEY=your_key_here"
+    echo "  AZURE_OPENAI_API_KEY=your_key_here"
     echo "  HF_TOKEN=your_token_here"
     echo ""
 fi

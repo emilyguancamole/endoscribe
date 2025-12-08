@@ -106,7 +106,9 @@ def generate_prompt_text(config: dict) -> str:
 
 def generate_base_yaml(config: dict, procedure_meta: dict) -> str:
     """Generate the base.yaml template from field definitions (e.g. from fields_base.yaml + subtypes)
-    - This new base.yaml merges $extends and field groups into a single template yaml file.
+    This new base.yaml is for Drafter.
+
+    procedure_meta: dict with keys: procedure_group, procedure_type
     """
     if procedure_meta is None:
         print(f"Error: procedure_meta is required to generate base.yaml")
@@ -299,18 +301,14 @@ def generate_single(fields_yaml_path: str, proc_type: str = None):
         f.write(prompt_text)
     print(f"✓ Generated prompt: {prompt_output}")
     
-    # Generate base.yaml
+    # Generate yaml for Drafter
     procedure_meta = config.get('meta', {
-        'procedure_group': 'ercp',
-        'title': 'Endoscopic Procedure'
+        'procedure_group': proc_type,
+        # 'title': 'Endoscopic Procedure'
     })
     base_yaml = generate_base_yaml(config, procedure_meta)
-    
-    # Determine output path based on procedure group
     proc_group = procedure_meta.get('procedure_group', 'ercp')
-    print("PROC GROUP:", proc_group)
-    
-    base_output = os.path.join('prompts', proc_group, f'generated_{proc_type}.yaml')
+    base_output = os.path.join('drafters', 'procedures', proc_group, f'generated_{proc_type}.yaml')
     os.makedirs(os.path.dirname(base_output), exist_ok=True)
     with open(base_output, 'w') as f:
         f.write(base_yaml)

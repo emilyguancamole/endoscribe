@@ -39,7 +39,7 @@ class BaseProcessor:
 
         return examples
 
-    def build_messages(self, transcript, prompt_field_definitions_fp: str, fewshot_examples_dir: Optional[str], prefix: Optional[str]) -> List[Dict[str, str]]:
+    def build_messages(self, transcript, prompt_field_definitions_fp: str, fewshot_examples_dir: Optional[str]=None, prefix: Optional[str]=None) -> List[Dict[str, str]]:
 
         system_prompt = open(self.system_prompt_fp).read().replace(
             '{{prompt_field_definitions}}',

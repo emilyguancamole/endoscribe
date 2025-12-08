@@ -48,7 +48,7 @@ minor_papilla_free_text: Any additional free-text findings related to the minor 
 ampulla_overall_appearance: Describe ampulla: 'normal', 'prominent', 'patulous', 'tumor infiltration', 'prior sphincterotomy evident', 'edematous', 'bleeding', 'pus draining', 'bile draining', 'periampullary diverticulum', 'intradiverticular location', 'evidence of prior ampullectomy/papillectomy', or combinations thereof
 ampulla_pus_present: true if pus is seen draining; false otherwise
 ampulla_active_bleeding: true if active bleeding is described at ampulla; false otherwise
-ampulla_free_text: Any additional ampullary or periampullary details as complete sentence(s); else 'none'
+ampulla_free_text: Any additional ampullary or periampullary details or features as complete sentence(s)
 ampullectomy_performed: true if ampullectomy/papillectomy was performed; false otherwise
 snare_size_mm: Size of snare in mm if reported; -1 if not mentioned or NA
 resection_style: Whether resection was performed 'en bloc' or 'piecemeal'

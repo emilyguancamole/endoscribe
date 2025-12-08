@@ -105,7 +105,7 @@ sections = render_sections(env, config, data_dict)
 ```
 
 **Custom Filters:**
-- `skip_unknown` - Return "" for unknown/none/n/a values
+- `sku` - Skip unknown; return "" 
 - `sentence` - Add trailing period if missing
 - `capfirst` - Uppercase first letter only
 - `default_if_unknown` - Provide fallback for unknown values
@@ -195,8 +195,8 @@ field_groups:
   my_custom_section:
     report_section: "custom_findings"
     template: |
-      {% if custom_field | skip_unknown %}
-      Custom finding: {{ custom_field | sentence }}
+      {% if custom_field | sku %}
+      Custom finding: {{ custom_field | sent }}
       {% endif %}
     fields:
       - name: custom_field
@@ -260,7 +260,7 @@ $extends: ./parent.yaml
 
 ### Conditional Rendering
 ```jinja
-{% if field | skip_unknown %}
+{% if field | sku %}
 This only appears if field is NOT unknown/none/n/a
 {% endif %}
 

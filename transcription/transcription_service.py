@@ -40,7 +40,6 @@ def transcribe_unified(
     service: Optional[str] = None,
     whisper_model: str = "large-v3",
     device: Optional[str] = None,
-    language: str = "en-US",
     enable_diarization: bool = False,
     procedure_type: Optional[str] = None,
     phrase_list: Optional[list] = None,
@@ -68,7 +67,6 @@ def transcribe_unified(
             "text": str,              # Full transcript
             "segments": List[dict],   # Segments with timestamps
             "service": str,           # Service used ("azure" or "whisperx")
-            "language": str,          # Language detected/used
             "duration": float         # Audio duration (if available)
         }
     
@@ -103,7 +101,6 @@ def transcribe_unified(
         from transcription.azure_transcribe import transcribe_azure
         result = transcribe_azure(
             audio_file=audio_file,
-            language=language,
             enable_diarization=enable_diarization,
             procedure_type=procedure_type,
             phrase_list=phrase_list,
@@ -115,9 +112,6 @@ def transcribe_unified(
         print(f"Transcribing with WhisperX (model: {whisper_model})...")
         from transcription.whisperx_transcribe import transcribe_whisperx
         
-        # Convert language code (Azure format "en-US" -> WhisperX format "en")
-        whisperx_language = language.split("-")[0] if "-" in language else language
-        
         result = transcribe_whisperx(
             audio_file=audio_file,
             whisper_model=whisper_model,
@@ -127,7 +121,6 @@ def transcribe_unified(
             **kwargs
         )
         result["service"] = "whisperx"
-        result["language"] = whisperx_language
         
         # Add duration if not present
         if "duration" not in result and result.get("segments"):

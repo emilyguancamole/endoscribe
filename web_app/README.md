@@ -101,8 +101,8 @@ Ensure your `.env` file contains necessary API keys:
 # For Anthropic Claude
 ANTHROPIC_API_KEY=your_api_key_here
 
-# For OpenAI (if using)
-OPENAI_API_KEY=your_api_key_here
+# For Azure OpenAI
+AZURE_OPENAI_API_KEY=your_api_key_here
 
 # For HuggingFace (for WhisperX)
 HF_TOKEN=your_hf_token_here
@@ -381,8 +381,8 @@ cold snare. Polyps retrieved. Withdrawing the scope. No complications. Procedure
 ### Required Setup
 
 1. **Environment Variables**
-   - Must have `ANTHROPIC_API_KEY` in `.env` file (server uses `anthropic_claude` config)
-   - Optional: `OPENAI_API_KEY` if switching to OpenAI models
+   - `ANTHROPIC_API_KEY` (server uses `anthropic_claude` config)
+   - Optional: `AZURE_OPENAI_API_KEY`
    - Optional: `HF_TOKEN` for HuggingFace models
 
 2. **Model Downloads**

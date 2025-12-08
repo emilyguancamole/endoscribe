@@ -45,12 +45,13 @@ class ERCPProcessor(BaseProcessor):
         }
     
     def process_transcripts(self, filenames_to_process, transcripts_df):
-        print("Processing ERCP transcripts...")
+        print(f"Processing ERCP transcripts...")
         outputs = []
         prompt_field_definitions_fp = './prompts/ercp/generated_ercp_base_prompt.txt'
-
         for _, row in transcripts_df.iterrows():
-            if filenames_to_process[0] != "all" and row["participant_id"] not in filenames_to_process:
+            print(row)
+            if filenames_to_process[0] != "all" and (row["participant_id"] not in filenames_to_process):
+                print(f"Skipping file")
                 continue
 
             cur_transcript = row["pred_transcript"]

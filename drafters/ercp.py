@@ -114,17 +114,7 @@ class ERCPDrafter(EndoscopyDrafter):
                 except Exception:
                     self.rendered_sections = None
 
-                # Static/non-LLM sections: Medications and Monitoring
-                medications_text = sections.get("medications", "").strip()
-                if medications_text:
-                    doc.add_heading('Medications', level=3)
-                    doc.add_paragraph(medications_text)
-
-                monitoring_text = sections.get("monitoring", "").strip()
-                if monitoring_text:
-                    doc.add_heading('Monitoring', level=3)
-                    doc.add_paragraph(monitoring_text)
-
+                # Static/non-LLM sections:
                 post_procedure_static = sections.get("post_procedure_static", "").strip()
 
                 if hist:
@@ -147,7 +137,6 @@ class ERCPDrafter(EndoscopyDrafter):
             import traceback
             traceback.print_exc()
             self.handle_fallbacks(self, doc)
-
 
         doc.add_heading('Impressions', level=2)
         impressions_raw = self.sample_df.get('impressions', '')

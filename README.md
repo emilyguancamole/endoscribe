@@ -3,15 +3,17 @@
 
 EndoScribe is an AI-powered scribe for automating endoscopy documentation.
 
-Currently, endoscopists' note-writing workflow looks something like this: perform the procedure and remember procedure details -> write a note by heavily editing a template, filling it in with procedure details.
+Currently, endoscopists' note-writing workflow looks like this: 
+> Perform the procedure and remember procedure details -> Write a note by heavily editing a template (EndoPro, Provation), filling it in with procedure details from memory.
 
 This workflow requires physicians to spend signficant time on documentation.
 
-EndoScribe automates note-writing. The workflow now looks like this: perform and dictate the procedure -> review an AI-generated note draft of the procedure.
+EndoScribe automates note-writing. With EndoScribe's help, the workflow now looks like this: 
+> Perform and dictate the procedure -> Review + edit an AI-generated procedure.
 
-EndoScribe's goal is to give time back to the physician, reducing burnout and allowing them to spend more time with patients.
+EndoScribe gives time back to the physician, reducing burnout and allowing them to spend more time with patients.
 
-This README outlines how the code is organized, rationale/details of implementation, and how to run the three main stages of the scribe (transcription -> extraction/processors -> drafting).
+This README outlines how the code is organized, rationale/details of implementation, and how to run the main stages of the scribe.
 
 ## High-level architecture
 
@@ -37,10 +39,10 @@ This README documents the current (Dec 2025) state of the project and how to run
 - LLM Extraction (transcripts -> structured data)
 - Drafting/Templating (structured data -> `.docx` draft)
 
----
 
-## High-level architecture (current)
+## High-level architecture
 
+0.5. Template generation
 1. Transcription
    - Converts raw audio into textual transcripts.
    - Backends supported:
@@ -54,15 +56,16 @@ This README documents the current (Dec 2025) state of the project and how to run
    - Default local LLM: Llama via `vllm`; adapters allow other providers.
 
 3. Drafters / Templating
-   - Drafters (in `drafters/` and `templating/`) format extracted data into a clinical note draft (`.docx`).
+   - Drafters (in `drafters/`) format extracted data into a clinical note draft (`.docx`).
    - Output saved in `drafters/results/{procedure}/`.
 
----
+3.5 Reviewer (planned)
+   - A future module to review and edit drafted notes.
 
 ## Transcription
 
 Supported entry points
-- `transcription/transcription_service.py` — unified API, auto-selects Azure or WhisperX
+- `transcription/transcription_service.py` — unified API, auto-selects Azure or WhisperX --> NOT YET VALIDATED 12/7/25
 - `transcription/azure_transcribe.py` — Azure Speech Service implementation
 - `transcription/whisperx_transcribe.py` — WhisperX implementation
 
@@ -92,11 +95,6 @@ res = transcribe_unified(
 )
 ```
 
-Notes and recommendations
-- Phrase lists improve recognition but are not equivalent to a full custom language model. For heavy medical vocabulary consider Azure Custom Speech or fine-tuning WhisperX.
-- For long recordings consider VAD-based chunking.
-
----
 
 ## LLM Extraction (processors)
 
@@ -120,12 +118,11 @@ python main.py --procedure_type=col --transcripts_fp=transcription/results/col/r
 Notes
 - Prompts and fewshot examples control extraction behavior; adjust them to influence the LLM's output format.
 
----
 
 ## Drafting / Templating
 
 Files
-- `drafters/` and `templating/` contain templates and the rendering code.
+- `drafter.py`
 
 What it does
 - Converts structured LLM-extracted data into a formatted clinical note (`.docx`).
@@ -135,7 +132,6 @@ Example
 python drafter.py --procedure=col --pred_csv=results/col/run-2025-12-07_colonoscopies.csv --polyp_csv=results/col/run-2025-12-07_polyps.csv --output_dir=drafters/results/col --samples_to_process all
 ```
 
----
 
 ## Environment & dependencies
 
@@ -147,37 +143,19 @@ pip install -r requirements.txt
 # Using vllm/WhisperX needs GPU drivers and suitable torch/vllm installs.
 ```
 
-Environment variables (in `.env`)
-- `AZURE_SPEECH_KEY` — Azure Speech API key (for Azure)
-- `AZURE_SPEECH_REGION` — Azure region (e.g., `eastus`)
-- `TRANSCRIPTION_SERVICE` — `azure` or `whisperx` (default service for unified API)
-- `HF_TOKEN` — Hugging Face token (if needed for WhisperX)
+Have an `.env` file; `.env.example` included as a template.
 
-`.env.example` is included as a template.
+## Migration notes
 
----
+- The repo is currently undergoing a migration from WhisperX (on-prem) to Azure (managed).
 
-## Migration notes & tips
-
-- The repo supports a gradual migration from WhisperX (on-prem) to Azure (managed) via `transcription/transcription_service.py`.
-- Keep tests that compare Azure vs WhisperX on a representative set of audio before switching fully.
-
----
-
-## Troubleshooting
-
-- If transcriptions hang: ensure Azure callbacks signatures accept the event parameter (`evt`) — recent fixes addressed this.
-- If phrase lists are not applied: confirm the phrase file path and that you passed `procedure_type` or `phrase_list` explicitly.
-- If extraction fails validation: update prompt format and fewshot examples to match expected JSON shapes.
-
----
 
 ## Future steps
 
 - Add automated Azure vs WhisperX comparison scripts.
 - Replace aggregated CSVs with a database and background workers for production.
 
----
+
 
 ## Contact
 

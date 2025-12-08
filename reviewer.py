@@ -10,30 +10,28 @@ REVIEWER_SCHEMA_TOP_KEYS = {'updated_fields', 'updated_sections', 'accept_render
 
 
 def _extract_json(text: str) -> Optional[str]:
-    """Try to find a JSON object in the text output from the model.
-    Returns the JSON substring or None.
+    """Find the first valid JSON object/array in `text` and return it as a
+    substring. This uses json.JSONDecoder.raw_decode to robustly locate a
+    decodable JSON value. Returns None if no valid JSON is found.
     """
     if not text:
         return None
-    # Try to find the first {...} or [ ... ] block that parses as JSON
-    # Search for the first balanced braces block
-    brace_match = re.search(r"\{.*\}", text, flags=re.DOTALL)
-    if brace_match:
-        candidate = brace_match.group(0)
+
+    decoder = json.JSONDecoder()
+
+    # Try scanning forward from the first brace or bracket characters
+    start_chars = ['{', '[']
+    for idx, ch in enumerate(text):
+        if ch not in start_chars:
+            continue
         try:
-            json.loads(candidate)
-            return candidate
-        except Exception:
-            pass
-    # fallback: try to locate a JSON-looking substring between first '[' and last ']'
-    sq = text.find('[')
-    if sq != -1:
-        try:
-            candidate = text[text.find('['):text.rfind(']')+1]
-            json.loads(candidate)
-            return candidate
-        except Exception:
-            pass
+            obj, end = decoder.raw_decode(text[idx:])
+            # raw_decode returns the python object and the index where parsing ended
+            return text[idx: idx + end]
+        except json.JSONDecodeError:
+            # not a valid JSON starting here; continue scanning
+            continue
+    print("WARNING: no valid JSON found in reviewer response")
     return None
 
 
@@ -51,7 +49,77 @@ def _basic_validate_schema(parsed: Dict[str, Any]) -> bool:
     return True
 
 
-def run_reviewer_on_package(package_fp: str, llm_handler: Optional[LLMClient] = None, dry_run: bool = False) -> Dict[str, Any]:
+def _normalize_llm_response(resp: Any) -> str:
+    """Coerce various llm_handler.chat return types into a single text string.
+    Handles common dict/list shapes from OpenAI/Anthropic wrappers.
+    """
+    # simple string
+    if isinstance(resp, str):
+        return resp.strip()
+
+    # openai-like dict with 'choices'
+    if isinstance(resp, dict):
+        print("ISINSTANCE DICT")
+        if 'choices' in resp and isinstance(resp['choices'], list) and resp['choices']:
+            c0 = resp['choices'][0]
+            if isinstance(c0, dict):
+                # chat completion style
+                if 'message' in c0 and isinstance(c0['message'], dict):
+                    content = c0['message'].get('content') or c0['message'].get('text')
+                    if isinstance(content, str):
+                        return content.strip()
+                # text-style
+                if 'text' in c0 and isinstance(c0['text'], str):
+                    return c0['text'].strip()
+        # other common keys
+        for key in ('output', 'outputs', 'text', 'content', 'response'):
+            if key in resp:
+                val = resp[key]
+                if isinstance(val, str):
+                    return val.strip()
+                if isinstance(val, list) and val:
+                    first = val[0]
+                    if isinstance(first, str):
+                        return first.strip()
+                    if isinstance(first, dict):
+                        for k in ('text', 'content'):
+                            if k in first and isinstance(first[k], str):
+                                return first[k].strip()
+        # fallback: serialize the dict
+        try:
+            return json.dumps(resp, ensure_ascii=False)
+        except Exception:
+            return str(resp)
+
+    # list-like
+    if isinstance(resp, list):
+        print("ISINSTANCE LIST")
+        if not resp:
+            return ''
+        first = resp[0]
+        if isinstance(first, str):
+            return first.strip()
+        if isinstance(first, dict):
+            for key in ('text', 'content', 'output'):
+                if key in first and isinstance(first[key], str):
+                    return first[key].strip()
+            if 'outputs' in first and isinstance(first['outputs'], list) and first['outputs']:
+                out0 = first['outputs'][0]
+                if isinstance(out0, dict) and 'text' in out0 and isinstance(out0['text'], str):
+                    return out0['text'].strip()
+        # fallback join
+        pieces = []
+        for item in resp:
+            if isinstance(item, str):
+                pieces.append(item)
+            else:
+                try:
+                    pieces.append(json.dumps(item, ensure_ascii=False))
+                except Exception:
+                    pieces.append(str(item))
+        return '\n'.join(pieces)
+
+def run_reviewer_on_package(package_fp: str, llm_handler: Optional[LLMClient] = None, dry_run: bool = False, debug: bool = False) -> Dict[str, Any]:
     """Read package JSON, call reviewer LLM (or mock), parse reviewer JSON, write output file.
 
     Returns dict with parsed reviewer output and path to reviewer JSON file.
@@ -65,20 +133,7 @@ def run_reviewer_on_package(package_fp: str, llm_handler: Optional[LLMClient] = 
     sample_id = package.get('sample_id') or os.path.splitext(os.path.basename(package_fp))[0]
 
     # Build system + user messages
-    system_msg = (
-        "You are a concise medical report reviewer. You will receive the original transcript, the extracted fields, "
-        "and the rendered report sections. Your job is to (1) check for consistency between the transcript and the report, "
-        "(2) correct grammar and readability issues in the rendered sections, and (3) propose structured field updates when the transcript supports them. "
-        "Return ONLY a single JSON object (no surrounding text) matching the schema: {\n"
-        "  \"updated_fields\": { ... },\n"
-        "  \"updated_sections\": { ... },\n"
-        "  \"accept_rendered_note\": true|false,\n"
-        "  \"final_note\": \"...\",\n"
-        "  \"deltas\": [ {\"type\": \"field|section\", \"name\": \"...\", \"old\": \"...\", \"new\": \"...\", \"justification\": \"quote from transcript\", \"transcript_evidence\": [ {\"text\": \"...\"} ] } ],\n"
-        "  \"confidence\": 0.0-1.0,\n"
-        "  \"warnings\": [ ... ]\n"
-        "}\n"
-    )
+    system_msg = open(os.path.join(os.path.dirname(__file__), '..', 'prompts', 'ercp', 'reviewer_prompt.txt')).read()
 
     user_msg_parts = [
         "Package JSON:\n",
@@ -100,6 +155,9 @@ def run_reviewer_on_package(package_fp: str, llm_handler: Optional[LLMClient] = 
     ]
 
     response_text = None
+    if llm_handler is not None and getattr(llm_handler, 'model_type', None) not in ['openai', 'anthropic']:
+        raise ValueError("Reviewer only supports 'openai', 'anthropic'")
+
     if dry_run or llm_handler is None:
         # Produce a conservative mock reviewer that accepts the rendered note and returns no field updates
         mock = {
@@ -114,25 +172,22 @@ def run_reviewer_on_package(package_fp: str, llm_handler: Optional[LLMClient] = 
         response_text = json.dumps(mock)
     else:
         print("Reviewer messages:\n", messages)
-        # Send to LLM
         try:
-            if llm_handler.model_type == "local":
-                response_text = llm_handler.chat(messages)[0].outputs[0].text.strip()
-            elif llm_handler.model_type in ["openai", "anthropic"]:
-                response_text = llm_handler.chat(messages)
-      # response_text = llm_handler.chat(messages)
+            raw_resp = llm_handler.chat(messages)
+            response_text = _normalize_llm_response(raw_resp)
 
         except Exception as e:
             raise RuntimeError(f"LLM call failed: {e}")
 
     extracted = _extract_json(response_text)
-    if not extracted:
-        # write raw response for inspection
+    if not extracted: # something went wrong, write raw response for inspection
         out_fp = package_fp.replace('.json', '_reviewer_raw.txt')
         with open(out_fp, 'w') as rf:
-            rf.write(response_text)
-        raise ValueError(f"Could not extract JSON from reviewer output; raw output saved to {out_fp}")
-
+            rf.write("--- MESSAGES SENT ---\n")
+            rf.write(json.dumps(messages, indent=2, ensure_ascii=False))
+            rf.write("\n--- RAW RESPONSE ---\n")
+            rf.write(str(response_text))
+        raise ValueError(f"Could not extract JSON; raw output saved to {out_fp}")
     parsed = json.loads(extracted)
 
     # Basic validation
@@ -153,14 +208,15 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('package_fp')
-    parser.add_argument('--model_config', choices=['local_llama', 'openai_gpt4o', 'anthropic_claude'],
-                       default='local_llama', help="Predefined model configuration to use")
+    parser.add_argument('--model_config', choices=['openai_gpt4o', 'anthropic_claude'],
+                       default='openai_gpt4o', help="Predefined model configuration to use")
     parser.add_argument('--dry_run', action='store_true')
+    parser.add_argument('--debug', action='store_true', help='Save debug request/response on failures')
     args = parser.parse_args()
 
     # Initialize LLM
     llm_handler = None
     if not args.dry_run:
         llm_handler = LLMClient.from_config(args.model_config)
-    res = run_reviewer_on_package(args.package_fp, llm_handler=llm_handler, dry_run=args.dry_run)
+    res = run_reviewer_on_package(args.package_fp, llm_handler=llm_handler, dry_run=args.dry_run, debug=args.debug)
     print('Reviewer output written to', res['reviewer_fp'])

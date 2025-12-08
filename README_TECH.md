@@ -109,3 +109,12 @@ Drafter formats extracted data into clinical note drafts (`.docx`), using drafte
 # LLM Extraction
 
 # Reviewer
+For each drafted report the drafter saves a package JSON at {sample}_package.json with keys: 'sample_id', 'meta', 'original_transcript', 'extracted_fields', 'rendered_sections', 'rendered_note', 'docx_path', 'provenance'.
+In `reviewer.py`:
+- run_reviewer_on_package(package_fp, llm_handler=None, dry_run=False) reads the package JSON.
+- Builds a system_msg instructing the LLM to "Return ONLY a single JSON object" following a schema (top-level fields: updated_fields, updated_sections, accept_rendered_note, final_note, deltas, confidence, warnings).
+- Builds user_msg containing a JSON dump with sample_id, meta, original_transcript, extracted_fields_normalized, extracted_fields_raw, rendered_sections.
+- calls `llm_handler.chat(...)` with `messages`.
+- Uses `_extract_json(response_text)` to try to find a JSON substring in the LLM output. Loads JSON and runs _basic_validate_schema(parsed) to ensure minimal fields. If failure, writes raw response to `<package>_reviewer_raw.txt` and raises an error. Otherwise writes `<package>_reviewer.json`.
+
+TODO re-draft the note?? how to integrate with drafter?

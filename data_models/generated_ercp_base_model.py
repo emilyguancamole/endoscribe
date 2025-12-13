@@ -34,11 +34,11 @@ class ErcpBaseData(BaseModel):
     prior_biliary_sphincterotomy_orifice_patency: Optional[str] = None
     papilla_stent_present: Optional[bool] = None
     periampullary_diverticulum_present: Optional[bool] = None
-    papilla_diverticulum_relationship: Optional[str] = None
+    papilla_diverticulum_loc: Optional[str] = None
     major_papilla_free_text: Optional[str] = None
     minor_papilla_status: Optional[str] = None
     minor_papilla_morphology: Optional[str] = None
-    minor_papilla_prior_sphincterotomy_evidence: Optional[bool] = None
+    minor_papilla_prior_sphincterotomy: Optional[bool] = None
     minor_papilla_orifice_patency: Optional[str] = None
     minor_papilla_free_text: Optional[str] = None
     ampulla_overall_appearance: Optional[str] = None
@@ -91,7 +91,7 @@ class ErcpBaseData(BaseModel):
     pancreatic_stent_placed: Optional[bool] = None
     pancreatic_stent_purpose: Optional[str] = None
     pancreatic_stent_details: Optional[str] = None
-    stent_optimal_description: Optional[str] = None
+    stent_placement_narrative: Optional[str] = None
     bile_and_contrast_drainage: Optional[str] = None
     final_fluoroscopic_image_obtained: Optional[bool] = None
     estimated_blood_loss: Optional[float] = None
@@ -99,7 +99,7 @@ class ErcpBaseData(BaseModel):
     complications: Optional[str] = None
     impressions: Optional[List[str]] = None
 
-    @field_validator('cannulation_success', 'lactated_ringers', 'rectal_indomethacin', 'successful_completion', 'failed_ercp', 'prior_biliary_sphincterotomy_evidence', 'papilla_stent_present', 'periampullary_diverticulum_present', 'minor_papilla_prior_sphincterotomy_evidence', 'ampulla_pus_present', 'ampulla_active_bleeding', 'ampullectomy_performed', 'bile_duct_cannulation_successful', 'rendezvous_attempted', 'pancreatic_duct_cannulation_success', 'contrast_injection_performed', 'pancreatogram_obtained', 'pd_pseudocyst_communication', 'biliary_stent_placed', 'pancreatic_stent_placed', 'final_fluoroscopic_image_obtained', mode='before')
+    @field_validator('cannulation_success', 'lactated_ringers', 'rectal_indomethacin', 'successful_completion', 'failed_ercp', 'prior_biliary_sphincterotomy_evidence', 'papilla_stent_present', 'periampullary_diverticulum_present', 'minor_papilla_prior_sphincterotomy', 'ampulla_pus_present', 'ampulla_active_bleeding', 'ampullectomy_performed', 'bile_duct_cannulation_successful', 'rendezvous_attempted', 'pancreatic_duct_cannulation_success', 'contrast_injection_performed', 'pancreatogram_obtained', 'pd_pseudocyst_communication', 'biliary_stent_placed', 'pancreatic_stent_placed', 'final_fluoroscopic_image_obtained', mode='before')
     @classmethod
     def coerce_boolean_with_unknown(cls, v):
         """Handle 'unknown' sentinel for boolean fields and coerce truthy/falsey strings."""

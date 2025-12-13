@@ -1,4 +1,6 @@
 ###################### https://huggingface.co/docs/transformers/en/model_doc/whisper#transformers.WhisperForConditionalGeneration.generate
+#** note this is just for longform, 10/2025
+
 import argparse
 import os
 import pandas as pd
@@ -59,35 +61,20 @@ def transcribe(audio_file, whisper_model="large-v3", device=None):
     model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
     result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
 
-    #todo add Speaker diarization; uses pyannote/pyannote-audio
-    # print("Running diarization...")
-    # diarize_model = whisperx.diarize.DiarizationPipeline(use_auth_token=hf_token, device=device)
-    # diarize_segments = diarize_model(audio)
-    # result = whisperx.assign_word_speakers(diarize_segments, result) # combine transcipt with diarization
-    # print("Result segments:\n", print(result['segments']))
-
-    # Main speaker
-    # first_seconds = [seg for seg in result['segments'] if seg['start'] < 60.0] # first n secs
-    # speaker_counts = Counter([seg['speaker'] for seg in first_seconds]) # count speakers in first seconds
-    # main_speaker = speaker_counts.most_common(1)[0][0] if speaker_counts else 0
-    # print(f"Identified main speaker as: {main_speaker}")
-    # for seg in result['segments']:
-    #     if 'speaker' not in seg:
-    #         print("Missing speaker in seg:", seg)
-    # speaker_segments = [seg for seg in result['segments'] if seg.get('speaker') == main_speaker] 
-    # speaker_transcript = " ".join([seg['text'] for seg in speaker_segments])
-    # bkg_segments = [seg for seg in result['segments'] if seg.get('speaker') != main_speaker]
-    # bkg_transcript = " ".join([seg['text'] for seg in bkg_segments])
-    # print("SPEAKER TRANSCRIPT:\n", speaker_transcript)
-    # print("BKG :\n", bkg_segments)
-    result_text = [seg['text'] for seg in result['segments']] 
-    #? join into one string used to be single quote
+    # Build normalized result dict (keep compatibility with older callers)
+    result_text = [seg['text'] for seg in result['segments']]
+    # Join segments with a single space to match Azure output style
     result_text = " ".join(result_text).replace("  ", " ").strip()
+    duration = result['segments'][-1].get('end', 0.0) if result.get('segments') else 0.0
     print("Final transcript:\n", result_text)
-    return result_text
+    return {
+        "text": result_text,
+        "segments": result.get('segments', []),
+        "duration": duration,
+    }
 
 
-def transcribe_whisperx(audio_file, whisper_model="large-v3", device=None, phrase_list: Optional[List[str]] = None, procedure_type: Optional[str] = None, save_filename: Optional[str] = None):
+def transcribe_whisperx(audio_file, whisper_model="large-v3", device=None, phrase_list: Optional[List[str]] = None, procedure_type: Optional[str] = None, save_filename: Optional[str] = None, enable_diarization: bool = False, max_speakers: int = 2):
     """
     Transcribe an audio file using WhisperX with alignment. based on above old transcribe() function
     Returns the full text and segment details.
@@ -125,11 +112,14 @@ def transcribe_whisperx(audio_file, whisper_model="large-v3", device=None, phras
         return_char_alignments=False
     )
 
-    # Join all segments into one text string, separated by single quote
-    result_text = " '".join(seg["text"] for seg in aligned_result["segments"]).replace("  ", " ").strip()
+    # Join all segments into one text string separated by space (consistent with Azure)
+    segments = aligned_result.get("segments", [])
+    result_text = " ".join(seg.get("text", "") for seg in segments).replace("  ", " ").strip()
+    duration = segments[-1].get("end", 0.0) if segments else 0.0
     result_obj = {
         "text": result_text,
-        "segments": aligned_result["segments"]
+        "segments": segments,
+        "duration": duration,
     }
     if procedure_type or save_filename:
         try:
@@ -186,7 +176,6 @@ if __name__ == "__main__":
     Run from endoscribe!! in IA1
     
     python -m transcription.whisperx_transcribe \
-    --convert_to_mono \
     --save_filename=long-10-2025 \
     --model=large-v3 \
     --audio_dir=transcription/recordings/long \

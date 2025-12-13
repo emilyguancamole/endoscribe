@@ -1,8 +1,6 @@
 # Procedure Subtypes with Inheritance
 
-## 🎯 Problem Solved
-
-You have **multiple procedure subtypes** (e.g., ERCP cholangioscopy, ERCP normal follow-up, ERCP gastrogastrostomy) that:
+**Multiple procedure subtypes** (e.g., ERCP cholangioscopy, ERCP normal follow-up, ERCP gastrogastrostomy) that:
 - Share common fields (patient demographics, history, scope type)
 - Have subtype-specific fields (cholangioscopy findings, stent management, altered anatomy)
 - Need separate LLM prompts and report templates
@@ -14,14 +12,14 @@ You have **multiple procedure subtypes** (e.g., ERCP cholangioscopy, ERCP normal
 ```
 prompts/
 ├── procedure_registry.yaml          # Central registry of all procedure types
-└── ercp/
+└── ercp/yaml/
     ├── fields_base.yaml             # Common ERCP fields (23 fields)
     ├── fields_cholangioscopy.yaml   # + 6 cholangioscopy fields = 29 total
     ├── fields_nfu.yaml              # + 11 follow-up fields = 34 total
     └── fields_gastrogastrostomy.yaml # + 6 anatomy fields = 29 total
 ```
 
-## 🔗 How Inheritance Works
+## How Inheritance Works
 
 ### Base File (fields_base.yaml)
 ```yaml
@@ -61,7 +59,7 @@ field_groups:
       # ... cholangioscopy-specific fields
 ```
 
-## ⚙️ Generator Behavior
+## Generator Behavior
 
 1. **Loads base** (`fields_base.yaml`) first
 2. **Merges subtype** on top:
@@ -73,14 +71,13 @@ field_groups:
    - Report template with ALL sections
    - Pydantic model with ALL fields
 
-## 🚀 Usage
+## Usage
 
 ### Generate All Subtypes
 ```bash
+# This reads `prompts/procedure_registry.yaml` and generates artifacts for every registered procedure.
 python templating/generate_from_fields.py --all
 ```
-
-This reads `prompts/procedure_registry.yaml` and generates artifacts for every registered procedure.
 
 ### Generate Single Subtype
 ```bash

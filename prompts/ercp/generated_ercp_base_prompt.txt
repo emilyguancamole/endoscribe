@@ -38,11 +38,11 @@ prior_biliary_sphincterotomy_evidence: true if evidence of prior biliary sphinct
 prior_biliary_sphincterotomy_orifice_patency: If prior sphincterotomy present, describe orifice patency, e.g. patent, particially patent, narrowed stenosed, etc
 papilla_stent_present: true if a plastic or metal stent is seen emerging from the major papilla; false otherwise
 periampullary_diverticulum_present: true if periampullary diverticulum is present; false otherwise
-papilla_diverticulum_relationship: Relationship of papilla to diverticulum if present; else 'not_applicable'
-major_papilla_free_text: Any additional free-text findings related to the major papilla as complete sentence(s); else 'none'
-minor_papilla_status: 'normal', 'abnormal', 'not_visualized', or 'not_inspected'
+papilla_diverticulum_loc: If present, describe location of papilla to diverticulum, eg. 'on the rim of the diverticulum'
+major_papilla_free_text: Any additional free-text findings related to the major papilla as complete sentence(s)
+minor_papilla_status: 'normal', 'abnormal', 'not_visualized' if couldn't be located,  'not_inspected' if not inspected
 minor_papilla_morphology: If described, summarize position, morphology, and mucosal changes e.g. 'normal', 'edematous', 'erythematous', 'scarred'
-minor_papilla_prior_sphincterotomy_evidence: true if evidence of prior minor papillotomy/sphincterotomy; false otherwise
+minor_papilla_prior_sphincterotomy: true if evidence of prior minor papillotomy/sphincterotomy; false otherwise
 minor_papilla_orifice_patency: If prior minor sphincterotomy present, describe orifice patency as 'patent', 'partially_patent', 'narrowed', or 'stenosed'
 minor_papilla_free_text: Any additional free-text findings related to the minor papilla as complete sentence(s); else 'none'
 ampulla_overall_appearance: Describe ampulla: 'normal', 'prominent', 'patulous', 'tumor infiltration', 'prior sphincterotomy evident', 'edematous', 'bleeding', 'pus draining', 'bile draining', 'periampullary diverticulum', 'intradiverticular location', 'evidence of prior ampullectomy/papillectomy', or combinations thereof
@@ -93,9 +93,9 @@ biliary_stent_placed: true if any biliary stent was placed; false otherwise
 plastic_stent_details: If plastic stent, describe the stent including configuration, flaps, French size, length in cm, e.g. '10 Fr x 12 cm plastic biliary stent'
 metal_stent_details: If metal stent, describe stent including coverage (FCSEMS/PCSEMS/UCSEMS), diameter in mm, length in mm, features (flared ends, anti-migration fins, retrieval lasso, tapered tip), deployment position (suprapapillary/transpapillary/intraductal), and target lesion
 pancreatic_stent_placed: true if pancreatic duct stent was placed; false otherwise
-pancreatic_stent_purpose: Purpose of pancreatic stent: 'pep_prophylaxis', 'therapeutic', 'none'
-pancreatic_stent_details: If prophylactic: '3F straight no internal flap' or '5F straight no internal flap'. If therapeutic: size (5F/7F), configuration (straight/single-pigtail/double-pigtail), flaps (single/double), length (3/5/7/9/12 cm), and tip position (head/body/tail, distance from orifice).
-stent_optimal_description: Describe final stent in sentence(s). Include adjustment techniques if stent position was suboptimal
+pancreatic_stent_purpose: Purpose of pancreatic stent: 'pep_prophylaxis', 'therapeutic'
+pancreatic_stent_details: If prophylactic: size (3F/5F). If therapeutic: size (5F/7F), configuration (straight/single-pigtail/double-pigtail), flaps (single/double), length (3/5/7/9/12 cm), and tip position (head/body/tail, distance from orifice).
+stent_placement_narrative: Describe final stent placement in sentence(s): 'Final position was...'. Include adjustment techniques if suboptimal position
 bile_and_contrast_drainage: Describe quality of drainage as sentence: 'Bile and contrast drained well', 'There was poor drainage', etc.
 final_fluoroscopic_image_obtained: true if a final fluoroscopic image was obtained for confirmation; false if not mentioned
 estimated_blood_loss: Estimated blood loss in ml, as a integer. -1 if not mentioned

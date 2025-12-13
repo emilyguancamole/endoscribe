@@ -28,18 +28,23 @@ def demo():
     print("=" * 80)
     print("YAML-DRIVEN FIELD-TO-REPORT PIPELINE DEMO")
     print("=" * 80)
+
     
-    # Step 1: Load field definitions
+
+    # Load field definitions
     print("\n📄 Step 1: Loading field definitions from fields.yaml...")
     # Use the ERCP base fields currently in repo
     fields_path = _root / "prompts/ercp/yaml/fields_base.yaml"
+    drafter_path = _root / f"drafters/procedures"
     config = load_fields_config(str(fields_path))
+    procedure_meta = config.get('meta', {'procedure_group': 'ercp'})
+    proc_group = procedure_meta.get('procedure_group', 'ercp')
     
     field_count = sum(len(group.get('fields', [])) for group in config.get('field_groups', {}).values())
     group_count = len(config.get('field_groups', {}))
     print(f"   ✓ Loaded {group_count} field groups with {field_count} total fields")
     
-    # Step 2: Generate prompt and base template using the single-generator helper
+    # Generate prompt and base template using the single-generator helper
     print("\nStep 2: Generating LLM extraction prompt...")
     proc_type = config.get('meta', {}).get('procedure_type', 'ercp_base')
 
@@ -49,11 +54,10 @@ def demo():
     # Recompute the output paths the generator uses so we can reference them.
     base_name = os.path.basename(str(fields_path)).replace('.yaml', '')
     prompt_output = Path(str(fields_path)).parent.joinpath(f'generated_{proc_type}_prompt.txt')
-    procedure_meta = config.get('meta', {'procedure_group': 'ercp'})
-    proc_group = procedure_meta.get('procedure_group', 'ercp')
-    base_output = Path('prompts') / proc_group / f'generated_{proc_type}.yaml'
+    
+    drafter_output = Path(drafter_path) / proc_group / f'generated_{proc_type}.yaml'
     print(f"   ✓ Generated prompt: {prompt_output}")
-    print(f"   ✓ Generated base template: {base_output}")
+    print(f"   ✓ Generated base template: {drafter_output}")
     
     test_data = {
         "age": 58,
@@ -83,12 +87,22 @@ def demo():
         "scope_advancement_difficulty": "without_difficulty",
         "scope_advancement_difficulty_reason": "none",
         "scope_advance_difficulty": "without_difficulty",
-        "upper_gi_examination": "limited",
         "upper_gi_examination_extent": "limited",
         "upper_gi_findings": "normal",
+        "major_papilla_status": "abnormal",               # major_papilla
+        "major_papilla_abnormal_morphology": "edematous", 
+        "prior_biliary_sphincterotomy_evidence": True,
+        "papilla_stent_present": False,
+        "periampullary_diverticulum_present": True,
+        "papilla_diverticulum_loc": "inside the diverticulum",
+        "minor_papilla_status": "normal", # minor_papilla
+        "minor_papilla_morphology": "normal",
         "biliary_stent_placed": True,
         "plastic_stent_details": "10 Fr x 5 cm plastic biliary stent",
-        "pancreatic_stent_placed": False,
+        "pancreatic_stent_placed": True,
+        "pancreatic_stent_purpose": "pep_prophylaxis",
+        "pancreatic_stent_details": "3F",
+        "stent_optimal_description": "Final position was satisfactory in the bile duct.",
         "estimated_blood_loss": -1,
         "impressions": ["ERCP performed; stones removed."],
     }
@@ -108,7 +122,7 @@ def demo():
                     test_data[fname] = None
     
     # Render using the generated base template and write to txt
-    temp_yaml_path = base_output
+    temp_yaml_path = drafter_output
     rendered = build_report_sections(str(temp_yaml_path), test_data)
     output_path = _here/"demo_ercp_report.txt"
     parts = []

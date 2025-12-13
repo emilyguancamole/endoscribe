@@ -43,6 +43,7 @@ def transcribe_unified(
     enable_diarization: bool = False,
     procedure_type: Optional[str] = None,
     phrase_list: Optional[list] = None,
+    save_filename: Optional[str] = None,
     **kwargs
 ) -> Dict:
     """
@@ -58,7 +59,6 @@ def transcribe_unified(
         service (str, optional): Force specific service: "azure" or "whisperx"
         whisper_model (str): WhisperX model to use (only for WhisperX)
         device (str, optional): Device for WhisperX ("cuda", "cpu", "mps")
-        language (str): Language code (Azure: "en-US", WhisperX: "en")
         enable_diarization (bool): Enable speaker diarization
         **kwargs: Additional service-specific arguments
     
@@ -99,11 +99,13 @@ def transcribe_unified(
     if use_azure:
         print(f"Transcribing with Azure Speech Service...")
         from transcription.azure_transcribe import transcribe_azure
+        save_fn = save_filename if save_filename else "azure_trs.csv"
         result = transcribe_azure(
             audio_file=audio_file,
             enable_diarization=enable_diarization,
             procedure_type=procedure_type,
             phrase_list=phrase_list,
+            save_filename=save_fn,
             **kwargs
         )
         result["service"] = "azure"
@@ -111,21 +113,24 @@ def transcribe_unified(
     else:
         print(f"Transcribing with WhisperX (model: {whisper_model})...")
         from transcription.whisperx_transcribe import transcribe_whisperx
-        
-        result = transcribe_whisperx(
-            audio_file=audio_file,
-            whisper_model=whisper_model,
-            device=device,
-            phrase_list=phrase_list,
-            procedure_type=procedure_type,
-            **kwargs
+        save_fn = save_filename if save_filename else "whisperx_trs.csv"
+        result = transcribe_whisperx(audio_file=audio_file, whisper_model=whisper_model, device=device,
+            phrase_list=phrase_list, procedure_type=procedure_type, save_filename=save_fn, **kwargs
         )
+        # transcribe_whisperx should return a dict; if not, normalize it
+        if isinstance(result, str):
+            result = {"text": result, "segments": [], "duration": 0.0}
+        elif isinstance(result, dict):
+            # ensure required keys exist
+            if "segments" not in result:
+                result["segments"] = result.get("segments", [])
+            if "duration" not in result:
+                result["duration"] = (result.get("segments")[-1].get("end", 0.0)) if result.get("segments") else 0.0
+        else:
+            # unexpected return type
+            result = {"text": str(result), "segments": [], "duration": 0.0}
+
         result["service"] = "whisperx"
-        
-        # Add duration if not present
-        if "duration" not in result and result.get("segments"):
-            result["duration"] = result["segments"][-1].get("end", 0.0)
-    
     return result
 
 
@@ -143,49 +148,18 @@ if __name__ == "__main__":
     Test unified transcription with both services.
     
     Usage:
-        python -m transcription.transcription_service --audio_file path/to/audio.wav
-        python -m transcription.transcription_service --audio_file path/to/audio.wav --service azure
-        python -m transcription.transcription_service --audio_file path/to/audio.wav --service whisperx
+        python -m transcription.transcription_service --procedure_type=ercp --audio_file transcription/recordings/ercp/bdstone/bdstone07.m4a
+            --service azure
+            --service whisperx
     """
     import argparse
-    
     parser = argparse.ArgumentParser(description="Test unified transcription service")
-    parser.add_argument(
-        "--audio_file",
-        type=str,
-        required=True,
-        help="Path to audio file to transcribe"
-    )
-    parser.add_argument(
-        "--service",
-        type=str,
-        choices=["azure", "whisperx"],
-        help="Force specific service (default: auto-detect from config)"
-    )
-    parser.add_argument(
-        "--whisper_model",
-        type=str,
-        default="large-v3",
-        help="WhisperX model (only used with whisperx service)"
-    )
-    parser.add_argument(
-        "--language",
-        type=str,
-        default="en-US",
-        help="Language code (default: en-US for Azure, will be converted for WhisperX)"
-    )
-    parser.add_argument(
-        "--enable_diarization",
-        action="store_true",
-        help="Enable speaker diarization (only supported by Azure)"
-    )
-    parser.add_argument(
-        "--procedure_type",
-        type=str,
-        default=None,
-        help="Procedure type (e.g., ercp, col, egd, eus)"
-    )
-    
+    parser.add_argument("--audio_file", type=str, required=True, help="Path to audio file to transcribe")
+    parser.add_argument("--service", type=str, choices=["azure", "whisperx"], help="Force specific service (default: auto-detect from config)")
+    parser.add_argument("--whisper_model", type=str, default="large-v3", help="WhisperX model (only used with whisperx service)")
+    parser.add_argument("--enable_diarization", action="store_true", help="Enable speaker diarization (only supported by Azure)")
+    parser.add_argument("--procedure_type", type=str, default=None, help="Procedure type (e.g., ercp, col, egd, eus)")
+    parser.add_argument("--save_filename", type=str, default=None, help="Filename to save transcription results (no path). Defaults to azure_trs.csv or whisperx_trs.csv.")
     args = parser.parse_args()
     
     try:
@@ -193,20 +167,18 @@ if __name__ == "__main__":
             audio_file=args.audio_file,
             service=args.service,
             whisper_model=args.whisper_model,
-            language=args.language,
             enable_diarization=args.enable_diarization,
-            procedure_type=args.procedure_type
+            procedure_type=args.procedure_type,
+            save_filename=args.save_filename
         )
         
-        print("\n" + "="*80)
+        print(f"\n" + "="*80)
         print("TRANSCRIPTION RESULT")
         print("="*80)
-        print(f"\nService: {result['service']}")
-        print(f"Language: {result['language']}")
+        print(f"\nService: {result.get('service')}")
         if 'duration' in result:
             print(f"Duration: {result['duration']:.2f} seconds")
         print(f"Segments: {len(result.get('segments', []))}")
-        print(f"\nFull Transcript:\n{result['text']}")
         
         if args.enable_diarization and result.get('segments'):
             if any('speaker' in seg for seg in result['segments']):

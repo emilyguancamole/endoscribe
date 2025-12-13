@@ -1,14 +1,20 @@
 # EndoScribe Technical Reference
+last updated: 12/13/25
 
-# Quick Reference: FULL EndoScribe Pipeline
+# Reference: FULL EndoScribe Pipeline
 ```bash
-# Generate all artifacts from fields.yaml
+# Generate artifacts  from fields.yaml
 python templating/generate_from_fields.py prompts/ercp/yaml/fields_base.yaml
+  # This outputs: LLM prompt (generated_{proc}_prompt.txt), drafter model (generated_{proc}.yaml), data model (generated_{proc}_model.py))
+
   # Test the generated template with dummy data
   python templating/demo_ercp_yaml_pipeline.py
 
-# Transcribe single file with Azure
-python -m transcription.azure_transcribe --audio_file transcription/recordings/ercp/bdstone/bdstone03.m4a --procedure_type=ercp
+# Transcribe single file 
+  python -m transcription.transcription_service --procedure_type=ercp --audio_file transcription/recordings/ercp/bdstone/bdstone07.m4a
+    --service=[azure,whisperx]
+    # defaults: --service=azure --save_filename=transcription/results/ercp/{service}_trs.csv
+    
 
 # LLM Extraction
 python main.py --procedure_type=ercp --transcripts_fp=azure_trs.csv --output_filename=azure_ext --files_to_process bdstone01
@@ -19,7 +25,6 @@ python drafter.py --procedure=ercp --pred_csv=azure_ext.csv --output_dir=drafter
 # Reviewer
 # TODO
 ```
--------------------------------------------------
 
 # TECH DETAILS
 # YAML Field-to-Report Pipeline
@@ -28,7 +33,7 @@ python drafter.py --procedure=ercp --pred_csv=azure_ext.csv --output_dir=drafter
 > fields.yaml  →  [generator]  →  prompt.txt (for llm) + base.yaml (for drafter) + model.py (pydantic model)
 
 
-## Field Groups + Definitions
+### Field Groups + Definitions
 ```yaml
 field_groups:
   my_section:
@@ -59,14 +64,21 @@ field_groups:
 
 # Set variable
 {% set var = field | default('') | sku %}
+
+# Make a paragraph without newlines (note: run replace('  ', ' ') repeatedly to catch double spaces)
+{% set _section_name %}
+text
+more text
+{% endset %}
+{{ _section_name | replace('\n', ' ') | replace('  ', ' ')  | replace('  ', ' ') | trim}}
 ```
 
 ### Jinja Filters
 
-| Filter | Use |
-|--------|-----|
+| Filter | Use | Example |
+|--------|-----|---------|
 | `sku` | Skip "unknown"/"none" |
-| `sent` | Add period (sentence) |
+| `sent` | Add period (sentence) | {{ field | sent }} → "Field text."
 | `capfirst` | Capitalize first letter |
 | `default_if_unknown` | Fallback value |
 | `default_if_unknown_sentence` | Fallback as sentence, fallback presented as a properly capitalized sentence with punctuation. |

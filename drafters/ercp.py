@@ -47,11 +47,36 @@ class ERCPDrafter(EndoscopyDrafter):
 
         rec.append("Follow up with referring provider.")
         return rec
-
-
+    
     def construct_recall(self):
         pass
 
+    def construct_impressions(self, impressions_raw):
+        # If the loader already parsed impressions as a list, use it
+        if isinstance(impressions_raw, (list, tuple)):
+            impressions = [str(x).strip() for x in impressions_raw if str(x).strip()]
+        else:
+            try:
+                import json
+                parsed = json.loads(impressions_raw)
+                if isinstance(parsed, list):
+                    impressions = [str(x).strip() for x in parsed if str(x).strip()]
+            except Exception: # Fall back to regex for quoted items and line splitting
+                impressions_text = str(impressions_raw or '').strip()
+                if impressions_text: # Try to extract quoted strings: "..." or '...'
+                    matches = re.findall(r'''(['"])(.*?)(\1)''', impressions_text)
+                    if matches:
+                        impressions = [m[1].strip() for m in matches if m[1].strip()]
+                    else:
+                        # Split by newline and strip leading bullets or numbering
+                        lines = [ln.strip() for ln in re.split(r"\r?\n", impressions_text) if ln.strip()]
+                        cleaned = []
+                        for ln in lines: # remove common bullets or leading numbering
+                            ln2 = re.sub(r'^\s*[-*\u2022]\s*', '', ln)
+                            ln2 = re.sub(r'^\s*\d+\.|^\s*\d+\)', '', ln2).strip()
+                            if ln2: cleaned.append(ln2)
+                        impressions = cleaned
+        return impressions
 
     def draft_doc(self):
         # Find sample, if multiple, use the first one
@@ -140,36 +165,8 @@ class ERCPDrafter(EndoscopyDrafter):
 
         doc.add_heading('Impressions', level=2)
         impressions_raw = self.sample_df.get('impressions', '')
-        impressions = []
-        # If the loader already parsed impressions as a list, use it
-        if isinstance(impressions_raw, (list, tuple)):
-            impressions = [str(x).strip() for x in impressions_raw if str(x).strip()]
-        else:
-            # Try JSON array
-            try:
-                import json
-                parsed = json.loads(impressions_raw)
-                if isinstance(parsed, list):
-                    impressions = [str(x).strip() for x in parsed if str(x).strip()]
-            except Exception:
-                # Fall back to regex for quoted items and line splitting
-                impressions_text = str(impressions_raw or '').strip()
-                if impressions_text:
-                    # Try to extract quoted strings: "..." or '...'
-                    matches = re.findall(r'''(['"])(.*?)(\1)''', impressions_text)
-                    if matches:
-                        impressions = [m[1].strip() for m in matches if m[1].strip()]
-                    else:
-                        # Split by newline and strip leading bullets or numbering
-                        lines = [ln.strip() for ln in re.split(r"\r?\n", impressions_text) if ln.strip()]
-                        cleaned = []
-                        for ln in lines:
-                            # remove common bullets or leading numbering
-                            ln2 = re.sub(r'^\s*[-*\u2022]\s*', '', ln)
-                            ln2 = re.sub(r'^\s*\d+\.|^\s*\d+\)', '', ln2).strip()
-                            if ln2:
-                                cleaned.append(ln2)
-                        impressions = cleaned
+        impressions = self.construct_impressions(impressions_raw)
+        
         # Write numbered list
         for i, item in enumerate(impressions, start=1):
             p = doc.add_paragraph(f"{i}. {item}")

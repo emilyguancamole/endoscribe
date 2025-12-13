@@ -43,23 +43,20 @@ def transcribe_azure(
         subscription=speech_key,
         region=speech_region
     )
-    
-    print("filename:", save_filename)
+
     # Enable detailed results with word-level timestamps
     # speech_config.request_word_level_timestamps()
     # speech_config.output_format = speechsdk.OutputFormat.Detailed
     
-    # Configure audio input    
     if os.path.splitext(audio_file)[1].lower() != ".wav":
         wav_file = os.path.splitext(audio_file)[0] + ".wav"
         convert_to_wav(audio_file, wav_file)
         audio_file = wav_file
-
     audio_config = speechsdk.audio.AudioConfig(filename=audio_file)
 
     print(f"Starting Azure Speech transcription.")
     if save_filename or procedure_type:
-        print(f"  Will save to transcription/results/{procedure_type}/{save_filename}.csv")
+        print(f"  Will save to transcription/results/{procedure_type}/{save_filename}")
 
     # If no phrase_list explicitly provided, try to load one based on procedure_type
     if phrase_list is None and procedure_type:
@@ -96,8 +93,7 @@ def _transcribe_continuous(speech_recognizer: speechsdk.SpeechRecognizer, phrase
         try:
             grammar = speechsdk.PhraseListGrammar.from_recognizer(speech_recognizer)
             for p in phrase_list:
-                if p:
-                    grammar.addPhrase(str(p))
+                grammar.addPhrase(str(p.trim()))
             print(f"Applied {len(phrase_list)} phrases to recognizer phrase list grammar")
         except Exception as e:
             print(f"Warning: could not apply phrase list to recognizer: {e}")

@@ -19,10 +19,6 @@ else:
 import noisereduce as nr
 import soundfile as sf
 import pandas as pd
-# try: #? not needed bc whisperx should auto handle mono conversion
-#     from transcription.convert_to_mono import batch_convert
-# except ModuleNotFoundError:
-#     from convert_to_mono import batch_convert
 from dotenv import load_dotenv
 load_dotenv()
 hf_token = os.getenv("HF_TOKEN")
@@ -74,7 +70,7 @@ def transcribe(audio_file, whisper_model="large-v3", device=None):
     }
 
 
-def transcribe_whisperx(audio_file, whisper_model="large-v3", device=None, phrase_list: Optional[List[str]] = None, procedure_type: Optional[str] = None, save_filename: Optional[str] = None, enable_diarization: bool = False, max_speakers: int = 2):
+def transcribe_whisperx(audio_file, whisper_model="large-v3", device=None, phrase_list: Optional[List[str]] = None, procedure_type: Optional[str] = None, save_filename: Optional[str] = None):
     """
     Transcribe an audio file using WhisperX with alignment. based on above old transcribe() function
     Returns the full text and segment details.
@@ -186,16 +182,11 @@ if __name__ == "__main__":
     '''
     parser = argparse.ArgumentParser()
     parser.add_argument('--audio_dir', type=str, required=True, help='Path to audio folder (general, not specialized vocals folder)')
-    parser.add_argument('--convert_to_mono', action='store_true', help='Flag to convert all audio files in the audio_dir to mono')
     parser.add_argument('--save_filename', type=str, required=True, help='Name of file, without .csv, to save transcriptions to')
     parser.add_argument('--procedures_data', default="data/procedures.csv", help="Path to procedures data csv")
     parser.add_argument('--model', type=str, required=True) #'distil-whisper/distil-large-v3' #openai/whisper-medium.en 
     parser.add_argument('--use_prompt', default=False, help='Whether to use the provided prompt for each audio file')
     args = parser.parse_args()
-
-    # if args.convert_to_mono:
-    #     print(f"Converting all audio files in {args.audio_dir} to mono...")
-    #     batch_convert(args.audio_dir, inp_audio_format="wav")
 
     output_fp = f"transcription/results/longform/{args.save_filename}.csv" # longform directory for mixed procedure types
 

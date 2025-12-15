@@ -39,13 +39,36 @@ class BaseProcessor:
 
         return examples
 
+    def save_dataframe(self, df: 'pd.DataFrame', output_fp: str, index: bool = False) -> None:
+        """
+        Generic CSV append helper: ensures output directory exists and appends the dataframe
+        to `output_fp`. If the file doesn't exist, writes header.
+        """
+        out_dir = os.path.dirname(output_fp)
+        os.makedirs(out_dir, exist_ok=True)
+        write_header = not os.path.exists(output_fp)
+        df.to_csv(output_fp, index=index, mode='a', header=write_header)
+
+    def upsert_dataframe(self, df: 'pd.DataFrame', table_name: str) -> None:
+        """
+        Upsert dataframe to Postgres if `to_postgres` is enabled for this processor.
+        Processors should perform any necessary type conversions before calling this.
+        """
+        if not self.to_postgres:
+            return
+        if df.empty:
+            return
+        from db.postgres_writer import create_tables_if_not_exist, upsert_extracted_outputs
+        create_tables_if_not_exist()
+        upsert_extracted_outputs(df, table_name)
+
     def build_messages(self, transcript, prompt_field_definitions_fp: str, fewshot_examples_dir: Optional[str]=None, prefix: Optional[str]=None) -> List[Dict[str, str]]:
 
         system_prompt = open(self.system_prompt_fp).read().replace(
             '{{prompt_field_definitions}}',
             open(prompt_field_definitions_fp).read()
         )
-        print("Loaded system prompt:\n", system_prompt)
+        print(f"Loaded system prompt from: {self.system_prompt_fp}")
         messages = [{"role": "system", "content": system_prompt}]
 
         # Load and add few-shot examples
@@ -59,7 +82,7 @@ class BaseProcessor:
             "role": "user", 
             "content": f"""Extract procedure entities from the following transcript:\n\n{transcript}"""
         })
-        print("Built messages for LLM:\n", messages)
+        print("Built messages for LLM")
         return messages
 
 

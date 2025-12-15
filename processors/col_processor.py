@@ -43,7 +43,6 @@ class ColProcessor(BaseProcessor):
             for attempt in range(max_attempts):
                 col_messages = self.build_messages(
                     cur_transcript,
-                    system_prompt_fp=self.system_prompt_fp,
                     prompt_field_definitions_fp='./prompts/col/colonoscopies.txt',
                     fewshot_examples_dir="./prompts/col/fewshot",
                     prefix="col"
@@ -150,19 +149,15 @@ class ColProcessor(BaseProcessor):
     def save_outputs(self, col_outputs, polyp_outputs):
         col_df = pd.DataFrame(col_outputs)
         polyp_df = pd.DataFrame(polyp_outputs)
-        # Save to csv
-        col_df.to_csv(self.output_fp.replace(".csv", "_colonoscopies.csv"), index=False)
-        polyp_df.to_csv(self.output_fp.replace(".csv", "_polyps.csv"), index=False)
+        # Save to csv (append)
+        col_fp = self.output_fp.replace(".csv", "_colonoscopies.csv")
+        poly_fp = self.output_fp.replace(".csv", "_polyps.csv")
+        self.save_dataframe(col_df, col_fp, index=False)
+        self.save_dataframe(polyp_df, poly_fp, index=False)
 
-        # Save to postgres if needed
         if self.to_postgres:
-            from db.postgres_writer import create_tables_if_not_exist, upsert_extracted_outputs
-            create_tables_if_not_exist()
-            
-            # Convert data types before inserting
-            col_df, polyp_df = self.convert_data_types(col_df, polyp_df)
-            
-            if not col_df.empty:
-                upsert_extracted_outputs(col_df, "colonoscopy_procedures")
-            if not polyp_df.empty:
-                upsert_extracted_outputs(polyp_df, "polyps")
+            col_conv, polyp_conv = self.convert_data_types(col_df, polyp_df)
+            if not col_conv.empty:
+                self.upsert_dataframe(col_conv, "colonoscopy_procedures")
+            if not polyp_conv.empty:
+                self.upsert_dataframe(polyp_conv, "polyps")

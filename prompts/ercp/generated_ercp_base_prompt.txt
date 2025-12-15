@@ -100,7 +100,7 @@ bile_and_contrast_drainage: Describe quality of drainage as sentence: 'Bile and 
 final_fluoroscopic_image_obtained: true if a final fluoroscopic image was obtained for confirmation; false if not mentioned
 estimated_blood_loss: Estimated blood loss in ml, as a integer. -1 if not mentioned
 specimens_removed: If speciments were obtained, describe their details/findings
-complications: If complications, describe details/findings
+complications: If there were complications from procedure, describe details/findings as sentence(s)
 impressions: Summarize the most important findings, procedures, and biopsies as a comma-separated list of strings.
 If there are multiple normal findings, combine them into a single list item for EGD and another for ERCP (for example: "Normal ERCP examination of x, y, z" where x, y, z are different areas with normal ERCP findings). Normal findings do not need to be in the order of examination.
 Do not include scout film results.

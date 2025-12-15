@@ -81,3 +81,5 @@ class HealthResponse(BaseModel):
     whisper_loaded: bool
     llm_initialized: bool
     supported_procedures: List[str]
+    transcription_service: Optional[str] = None
+    transcription_ready: Optional[bool] = None

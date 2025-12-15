@@ -12,7 +12,6 @@ class ERCPProcessor(BaseProcessor):
         Run PEP risk extraction on a single transcript and return a validated dict.
         This is a lightweight wrapper for server-side, one-off processing.
         # todo perhaps place this within pep_risk folder for modularity
-
         Returns a dict with keys: id, model, and the ERCPData fields.
         """
         # Use absolute paths to avoid working directory issues
@@ -22,7 +21,6 @@ class ERCPProcessor(BaseProcessor):
 
         messages = self.build_messages(
             transcript,
-            system_prompt_fp=self.system_prompt_fp,
             prompt_field_definitions_fp=prompt_field_definitions_fp,
             fewshot_examples_dir=fewshot_examples_dir,
             prefix="pep",
@@ -34,10 +32,9 @@ class ERCPProcessor(BaseProcessor):
             response = self.llm_handler.chat(messages)
 
         json_response = json.loads(response[response.find("{"): response.rfind("}") + 1])
-        print("PEP extraction raw json result:\n", json_response)
+        # print("PEP extraction raw json result:\n", json_response)
         validated = PEPRiskData(**json_response)
         print("PEP extraction validated result:\n", validated)
-
         return {
             "id": filename,
             "model": self.llm_handler.model_type,
@@ -49,15 +46,13 @@ class ERCPProcessor(BaseProcessor):
         outputs = []
         prompt_field_definitions_fp = './prompts/ercp/generated_ercp_base_prompt.txt'
         for _, row in transcripts_df.iterrows():
-            print(row)
             if filenames_to_process[0] != "all" and (row["participant_id"] not in filenames_to_process):
-                print(f"Skipping file")
                 continue
 
             cur_transcript = row["pred_transcript"]
             filename = row["participant_id"]
 
-            print(f"File: {filename} - Transcript: {cur_transcript[:200]}") #!!!
+            print(f"File: {filename} - Transcript: {cur_transcript[:200]}")
             messages = self.build_messages(
                 cur_transcript,
                 prompt_field_definitions_fp=prompt_field_definitions_fp,  
@@ -86,12 +81,7 @@ class ERCPProcessor(BaseProcessor):
 
     def save_outputs(self, outputs):
         ercp_df = pd.DataFrame(outputs)
-        ercp_df.to_csv(self.output_fp, index=False)
-        
-        if self.to_postgres:
-            from db.postgres_writer import create_tables_if_not_exist, upsert_extracted_outputs
-            create_tables_if_not_exist()
-            
-            # ercp_df = self.convert_data_types(ercp_df) # Currently, ERCP has only text data; add if number/typed data is added later
-            if not ercp_df.empty:
-                upsert_extracted_outputs(ercp_df, "ercp_procedures")
+        # Save CSV (append) 
+        self.save_dataframe(ercp_df, self.output_fp, index=False)
+        # Upsert to Postgres if requested
+        self.upsert_dataframe(ercp_df, "ercp_procedures")

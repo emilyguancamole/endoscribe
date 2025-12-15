@@ -7,27 +7,22 @@ import time
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
 import azure.cognitiveservices.speech as speechsdk
-import subprocess
 
 load_dotenv()
 
-def convert_to_wav(src, dest):
-    subprocess.run(["ffmpeg", "-y", "-i", src, "-ac", "1", "-ar", "16000", dest])
-
 def transcribe_azure(
     audio_file: str,
-    enable_word_level_timestamps: bool = True,
     enable_diarization: bool = False,
     max_speakers: int = 2,
     phrase_list: Optional[List[str]] = None,
     procedure_type: Optional[str] = None,
+    save: Optional[bool] = True,
     save_filename: Optional[str] = None,
 ) -> Dict[str, any]:
     """
     Transcribe an audio file using Azure Speech Service. Similar interface to transcribe_whisperx() for migration.
     Args:
         audio_file (str): Path to audio file (supports wav, mp3, ogg, flac, etc.)
-        enable_word_level_timestamps (bool): Include word-level timestamps in segments
         enable_diarization (bool): Enable speaker diarization (identifies different speakers)
         max_speakers (int): Maximum number of speakers for diarization (if enabled)
     Returns:
@@ -43,19 +38,10 @@ def transcribe_azure(
         subscription=speech_key,
         region=speech_region
     )
-
-    # Enable detailed results with word-level timestamps
-    # speech_config.request_word_level_timestamps()
-    # speech_config.output_format = speechsdk.OutputFormat.Detailed
-    
-    if os.path.splitext(audio_file)[1].lower() != ".wav":
-        wav_file = os.path.splitext(audio_file)[0] + ".wav"
-        convert_to_wav(audio_file, wav_file)
-        audio_file = wav_file
     audio_config = speechsdk.audio.AudioConfig(filename=audio_file)
 
     print(f"Starting Azure Speech transcription.")
-    if save_filename or procedure_type:
+    if save:
         print(f"  Will save to transcription/results/{procedure_type}/{save_filename}")
 
     # If no phrase_list explicitly provided, try to load one based on procedure_type
@@ -70,7 +56,7 @@ def transcribe_azure(
         speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_config)
         result = _transcribe_continuous(speech_recognizer, phrase_list=phrase_list)
 
-    if procedure_type or save_filename:
+    if save:
         try:
             _save_transcription_result(result, audio_file, save_filename, procedure_type)
         except Exception as e:
@@ -93,14 +79,19 @@ def _transcribe_continuous(speech_recognizer: speechsdk.SpeechRecognizer, phrase
         try:
             grammar = speechsdk.PhraseListGrammar.from_recognizer(speech_recognizer)
             for p in phrase_list:
-                grammar.addPhrase(str(p.trim()))
+                grammar.addPhrase(p)
             print(f"Applied {len(phrase_list)} phrases to recognizer phrase list grammar")
         except Exception as e:
             print(f"Warning: could not apply phrase list to recognizer: {e}")
 
     def recognized_cb(evt):
         """Callback for recognized speech."""
-        if evt.result.reason == speechsdk.ResultReason.RecognizedSpeech:
+        try:
+            reason = evt.result.reason
+        except Exception:
+            reason = None
+
+        if reason == speechsdk.ResultReason.RecognizedSpeech:
             result = evt.result
             segment = {
                 "text": result.text,
@@ -109,7 +100,10 @@ def _transcribe_continuous(speech_recognizer: speechsdk.SpeechRecognizer, phrase
             }
             segments.append(segment)
             all_text.append(result.text)
-            print(f"{result.text}")
+            print(f"Recognized: {result.text}")
+        else:
+            # Log other reasons for debugging
+            print(f"Recognized callback: reason={reason}, text='{getattr(evt.result, 'text', '')}'")
     
     def canceled_cb(evt):
         """Callback when canceled."""
@@ -231,7 +225,6 @@ def _transcribe_with_diarization(
     
     duration = segments[-1]["end"] if segments else 0.0
     
-    #! Join text with single quote separator (matching WhisperX format)
     full_text = " '".join(all_text).replace("  ", " ").strip()
     
     print(f"Transcription complete. Duration: {duration:.2f}s, Segments: {len(segments)}")
@@ -352,7 +345,7 @@ if __name__ == "__main__":
             save_filename=args.save_filename,
         )
         print("\n" + "="*80)
-        print("TRANSCRIPTION RESULT")
+        print("TRANSCRIPTION DONE")
         print(f"Duration: {result['duration']:.2f} seconds")
         print(f"Segments: {len(result['segments'])}")
         print(f"\nPreview:\n{result['text'][:200]}...")

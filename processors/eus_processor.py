@@ -1,5 +1,4 @@
 import json
-
 from pydantic import ValidationError
 from .base_processor import BaseProcessor
 import pandas as pd
@@ -21,7 +20,6 @@ class EUSProcessor(BaseProcessor):
 
             messages = self.build_messages(
                 cur_transcript,
-                system_prompt_fp=self.system_prompt_fp,
                 prompt_field_definitions_fp=prompt_field_definitions_fp,
                 fewshot_examples_dir=fewshot_examples_dir,
                 prefix="eus"
@@ -50,12 +48,7 @@ class EUSProcessor(BaseProcessor):
     
     def save_outputs(self, outputs):
         eus_df = pd.DataFrame(outputs)
-        eus_df.to_csv(self.output_fp, index=False)
-        
-        if self.to_postgres:
-            from db.postgres_writer import create_tables_if_not_exist, upsert_extracted_outputs
-            create_tables_if_not_exist()
-            
-            # eus_df = self.convert_data_types(eus_df) # Currently, eus has only text data; add if number/typed data is added later
-            if not eus_df.empty:
-                upsert_extracted_outputs(eus_df, "eus_procedures")
+        # Save CSV (append)
+        self.save_dataframe(eus_df, self.output_fp, index=False)
+        # Upsert to Postgres if requested
+        self.upsert_dataframe(eus_df, "eus_procedures")

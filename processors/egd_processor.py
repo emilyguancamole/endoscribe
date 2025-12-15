@@ -20,7 +20,6 @@ class EGDProcessor(BaseProcessor):
 
             messages = self.build_messages(
                 cur_transcript,
-                system_prompt_fp=self.system_prompt_fp,
                 prompt_field_definitions_fp=prompt_field_definitions_fp,
                 fewshot_examples_dir=fewshot_examples_dir,
                 prefix="egd"
@@ -49,12 +48,7 @@ class EGDProcessor(BaseProcessor):
 
     def save_outputs(self, outputs):
         egd_df = pd.DataFrame(outputs)
-        egd_df.to_csv(self.output_fp, index=False)
-        
-        if self.to_postgres:
-            from db.postgres_writer import create_tables_if_not_exist, upsert_extracted_outputs
-            create_tables_if_not_exist()
-            
-            # ercp_df = self.convert_data_types(ercp_df) # Currently, EGD has only text data; add if number/typed data is added later
-            if not egd_df.empty:
-                upsert_extracted_outputs(egd_df, "egd_procedures")
+        # Save CSV
+        self.save_dataframe(egd_df, self.output_fp, index=False)
+        # Upsert to Postgres if requested
+        self.upsert_dataframe(egd_df, "egd_procedures")

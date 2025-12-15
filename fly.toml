@@ -1,7 +1,7 @@
 # Fly.io configuration for EndoScribe with GPU support
 # Documentation: https://fly.io/docs/reference/configuration/
 
-app = "endo-local"
+app = "endoscribe-local"
 primary_region = "ord"  # Chicago - only region with A10 GPUs
 
 # Kill signal and grace period
@@ -17,11 +17,13 @@ kill_timeout = "60s"
 # NVIDIA A10 GPU (24GB VRAM)
 # Sufficient for WhisperX large-v3 model
 [vm]
-  size = "a10"
+  size = "a10" # gpu for local models
+  #size = "shared-cpu-1x"
 
 # Persistent volumes for model caching and data storage
 # Note: Volumes must be created with GPU constraints before deployment:
 #   fly volumes create data --size 30 --vm-gpu-kind a10 --region ord
+# NON GPU: fly volumes create datanongpu --size 30 --region ord --app endoscribe-local
 [[mounts]]
   source = "data"
   destination = "/data"

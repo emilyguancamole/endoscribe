@@ -66,11 +66,23 @@ function App() {
       setShowPEPRiskResults(false);
       websocket.connect();
       await audioRecorder.startRecording();
-      setRecordingStatus('Recording');
+      if (websocket.isConnected && audioRecorder.recording) {
+        setRecordingStatus('Recording');
+      } else if (audioRecorder.recording) {
+        setRecordingStatus('Loading');
+      }
     } catch (err) {
       showError(err.message);
     }
   };
+
+  useEffect(() => {
+    if (audioRecorder.recording && websocket.isConnected) {
+      setRecordingStatus('Recording');
+    } else if (audioRecorder.recording && !websocket.isConnected) {
+      setRecordingStatus('Loading');
+    }
+  }, [audioRecorder.recording, websocket.isConnected]);
 
   const handlePauseRecording = () => {
     audioRecorder.pauseRecording();

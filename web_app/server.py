@@ -13,6 +13,7 @@ from datetime import datetime
 from contextlib import asynccontextmanager
 
 import torch
+import torch.serialization
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -20,7 +21,6 @@ from fastapi.templating import Jinja2Templates
 from fastapi import Request
 from typing import Any, Dict, List, Tuple, Optional
 import collections
-import torch.serialization
 import omegaconf
 from omegaconf.listconfig import ListConfig
 from omegaconf.dictconfig import DictConfig
@@ -46,8 +46,7 @@ from web_app.models import (
 )
 from llm.llm_client import LLMClient
 from processors import ColProcessor, ERCPProcessor, EUSProcessor, EGDProcessor
-from transcription.whisperx_transcribe import transcribe_whisperx
-import whisperx
+from transcription.transcription_service import TranscriptionConfig, transcribe_unified
 from data_models.data_models import (
     ColonoscopyData,
     PolypData,
@@ -57,6 +56,7 @@ from data_models.data_models import (
     PEPRiskData
 )
 from pydantic import ValidationError
+from web_app.config import CONFIG
 
 # Setup directories
 BASE_DIR = Path(__file__).parent
@@ -78,6 +78,16 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Transcription configuration (choose between 'azure' and 'whisperx')
+TRANSCRIPTION_CONFIG = TranscriptionConfig()
+# Allow explicit override via TRANSCRIPTION_SERVICE env var; otherwise rely on TranscriptionConfig auto-detection
+if os.getenv("TRANSCRIPTION_SERVICE"):
+    TRANSCRIPTION_CONFIG.service = os.getenv("TRANSCRIPTION_SERVICE")
+if TRANSCRIPTION_CONFIG.use_azure():
+    print("Configured transcription service: azure (AZURE_SPEECH_KEY detected)")
+else:
+    print(f"Configured transcription service: {TRANSCRIPTION_CONFIG.service}")
+
 # Global state
 WHISPER_MODEL = None
 WHISPER_ALIGN_MODEL = None
@@ -87,15 +97,10 @@ LLM_HANDLER = None
 PROCESSOR_MAP = {}
 SESSIONS: Dict[str, Dict] = {}
 
-# Scale-to-zero: Idle timeout configuration
-# Enable on Fly.io to reduce GPU costs; disable locally for development
-IDLE_TIMEOUT_SECONDS = int(os.getenv("IDLE_TIMEOUT_SECONDS", "60"))  # Default: 60 seconds
-ENABLE_IDLE_SHUTDOWN = os.getenv("FLY_APP_NAME") is not None  # Only on Fly.io
 last_activity_time = time.time()
 idle_check_task = None
 
 # Device configuration with detailed diagnostics
-# Priority: CUDA (Fly.io/Linux) > MPS (Apple Silicon) > CPU
 if torch.cuda.is_available():
     DEVICE = "cuda"
 elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
@@ -105,30 +110,30 @@ else:
 
 print(f"\n{'='*60}")
 print(f"GPU DIAGNOSTICS")
-print(f"{'='*60}")
 print(f"PyTorch version: {torch.__version__}")
 print(f"CUDA available: {torch.cuda.is_available()}")
-if hasattr(torch.backends, "mps"):
-    print(f"MPS available: {torch.backends.mps.is_available()}")
 print(f"Using device: {DEVICE}")
 
-# Buffering config: WhisperX performs better with longer audio segments >30 sec
-TRANSCRIPTION_BUFFER_DURATION_MS = 30000
-TRANSCRIPTION_BUFFER_OVERLAP_MS = 3000 # overlap between segments
+async def check_idle_and_shutdown():
+    """Monitor idle time and trigger shutdown if no activity detected."""
+    global last_activity_time
+    try:
+        while True:
+            await asyncio.sleep(5)  # Check every 5 seconds
+            # If there are active WebSocket sessions, app active and skip shutdown. 
+            if SESSIONS: # refresh last_activity_time so that the idle timer doesn't fire
+                last_activity_time = time.time()
+                continue
 
-#! claude tried fix
-# async def check_idle_and_shutdown():
-#     """Monitor idle time and trigger shutdown if no activity detected."""
-#     global last_activity_time
-#     while True:
-#         await asyncio.sleep(10)  # Check every 10 seconds
-#         idle_duration = time.time() - last_activity_time
-        
-#         if idle_duration > IDLE_TIMEOUT_SECONDS:
-#             print(f"\nNo activity for {idle_duration:.0f}s (timeout: {IDLE_TIMEOUT_SECONDS}s)")
-#             print("Triggering graceful shutdown to scale to zero...")
-#             os.kill(os.getpid(), signal.SIGTERM)
-#             break
+            idle_duration = time.time() - last_activity_time
+            if idle_duration > CONFIG.IDLE_TIMEOUT_SECONDS:
+                print(f"\nNo activity for {idle_duration:.0f}s (timeout: {CONFIG.IDLE_TIMEOUT_SECONDS}s)")
+                print("Triggering graceful shutdown to scale to zero...")
+                # Try graceful shutdown via SIGTERM so FastAPI/uvicorn can cleanup
+                os.kill(os.getpid(), signal.SIGTERM)
+                break
+    except asyncio.CancelledError: # Task cancelled during shutdown - ignore
+        pass
 
 
 def concatenate_audio_chunks(chunk_paths, output_path):
@@ -168,45 +173,32 @@ def concatenate_audio_chunks(chunk_paths, output_path):
         return chunk_paths[0] if chunk_paths else None # Fallback: return first chunk
 
 
-def transcribe_with_whisperx(audio_path, model, align_model, align_metadata, device):
+def transcribe_audio(audio_path: str, service: Optional[str] = None, **kwargs):
     """
-    Transcribe audio using WhisperX with alignment. From pep risk.
-    Args:
-        audio_path: Path to audio file
-        model: Pre-loaded WhisperX model
-        align_model: Pre-loaded alignment model
-        align_metadata: Alignment metadata
-        device: Device to use (cuda/cpu)
-    Returns:
-        dict with "text" and "segments" keys
+    Unified transcription helper for the web app.
+
+    Calls `transcription.transcription_service.transcribe_unified` under the hood and
+    returns a single transcription dict (same shape as previous WhisperX helper):
+    {"text": str, "segments": list, ...}
+
+    Parameters:
+    - audio_path: Path to the audio file to transcribe
+    - service: Optional override for transcription service ('azure' or 'whisperx')
+    - kwargs: forwarded to `transcribe_unified` (e.g., device, whisper_model)
     """
-    # from whisperx_transcribe.py
-    audio = whisperx.load_audio(str(audio_path))
-    
-    print("Transcribing...")
-    result = model.transcribe(audio, batch_size=8, language="en")
-    if align_model is not None and align_metadata is not None:
-        aligned_result = whisperx.align(
-            result["segments"],
-            align_model,
-            align_metadata,
-            audio,
-            device,
-            return_char_alignments=False
-        )
-        segments = aligned_result["segments"]
-    else:
-        print("Warning: Using unaligned transcription (alignment model not loaded)")
-        segments = result["segments"]
-    
-    # from whisperx_transcribe.py: Join segments with single quote separator, which is what I used in pep risk
-    result_text = " '".join(seg["text"] for seg in segments).replace("  ", " ").strip()
-    
-    print(f"Final transcript length: {len(result_text)} chars")
-    return {
-        "text": result_text,
-        "segments": segments
-    }
+    svc = service or TRANSCRIPTION_CONFIG.service
+    # transcribe_unified expects a list of files
+    results = transcribe_unified(
+        audio_files=[audio_path],
+        service=svc,
+        save=False,
+        **kwargs
+    )
+
+    if isinstance(results, list) and len(results) > 0:
+        return results[0]
+    # Fallback: return empty structure
+    return {"text": "", "segments": []}
 
 
 @asynccontextmanager
@@ -215,47 +207,49 @@ async def lifespan(app: FastAPI):
     global WHISPER_MODEL, WHISPER_ALIGN_MODEL, WHISPER_ALIGN_METADATA, WHISPER_DEVICE, LLM_HANDLER, PROCESSOR_MAP, idle_check_task
 
     # Startup
-    print("Initializing WhisperX model...")
-    try:
-        # Use appropriate compute type based on device
-        # WhisperX doesn't support MPS directly, so fall back to CPU for MPS
-        WHISPER_DEVICE = DEVICE if DEVICE == "cuda" else "cpu"
+    # Initialize WhisperX only if configured to use WhisperX; otherwise skip
+    if TRANSCRIPTION_CONFIG.use_whisperx():
+        print("Initializing WhisperX model...")
+        try:
+            import whisperx
+            # WhisperX doesn't support MPS directly, so fall back to CPU for MPS
+            WHISPER_DEVICE = DEVICE if DEVICE == "cuda" else "cpu"
 
-        if DEVICE == "cuda":
-            compute_type = "float16"
-        elif DEVICE == "mps":
-            compute_type = "int8"
-            print("Note: WhisperX doesn't support MPS directly, using CPU with int8")
-            print("For best performance on Mac, consider using faster-whisper directly")
-        else:
-            compute_type = "int8"
+            if DEVICE == "cuda":
+                compute_type = "float16"
+            elif DEVICE == "mps":
+                compute_type = "int8"
+                print("Note: WhisperX doesn't support MPS directly, using CPU with int8")
+                print("For best performance on Mac, consider using faster-whisper directly")
+            else:
+                compute_type = "int8"
 
-        #! Fix for PyTorch 2.6+ weights_only=True default
-        from pyannote.audio.core.model import Introspection
-        from pyannote.audio.core.task import Specifications, Problem, Resolution
-        torch.serialization.add_safe_globals([
-            Introspection, Specifications, Problem, Resolution, torch.torch_version.TorchVersion, 
-        ])
+            #! Fix for PyTorch 2.6+ weights_only=True default
+            from pyannote.audio.core.model import Introspection
+            from pyannote.audio.core.task import Specifications, Problem, Resolution
+            torch.serialization.add_safe_globals([
+                Introspection, Specifications, Problem, Resolution, torch.torch_version.TorchVersion, 
+            ])
 
-        print(f"Loading WhisperX with device={WHISPER_DEVICE}, compute_type={compute_type}")
-        print("Note: First-time download of large-v3 model (~5GB) may take several minutes...")
-        WHISPER_MODEL = whisperx.load_model("large-v3", WHISPER_DEVICE, compute_type=compute_type)
-        print("WhisperX model loaded successfully!")
+            print(f"Loading WhisperX with device={WHISPER_DEVICE}, compute_type={compute_type}")
+            print("Note: First-time download of large-v3 model (~5GB) may take several minutes...")
+            WHISPER_MODEL = whisperx.load_model("large-v3", WHISPER_DEVICE, compute_type=compute_type)
+            print("WhisperX model loaded successfully!")
 
-        # Load alignment model once during startup
-        print("Loading WhisperX alignment model...")
-        WHISPER_ALIGN_MODEL, WHISPER_ALIGN_METADATA = whisperx.load_align_model(
-            language_code="en",
-            device=WHISPER_DEVICE
-        )
-        print("WhisperX alignment model loaded successfully!")
-    except Exception as e:
-        print(f"Failed to load WhisperX model: {e}")
-        import traceback
-        traceback.print_exc()
-        WHISPER_MODEL = None
-        WHISPER_ALIGN_MODEL = None
-        WHISPER_ALIGN_METADATA = None
+            # Load alignment model once during startup
+            print("Loading WhisperX alignment model...")
+            WHISPER_ALIGN_MODEL, WHISPER_ALIGN_METADATA = whisperx.load_align_model(
+                language_code="en",
+                device=WHISPER_DEVICE
+            )
+            print("WhisperX alignment model loaded successfully!")
+        except Exception as e:
+            print(f"Failed to load WhisperX model: {e}")
+            import traceback
+            traceback.print_exc()
+            WHISPER_MODEL = None
+            WHISPER_ALIGN_MODEL = None
+            WHISPER_ALIGN_METADATA = None
 
     print("Initializing LLM handler...")
     try:
@@ -315,16 +309,14 @@ async def lifespan(app: FastAPI):
             print(f"Failed to initialize processors: {e}")
             traceback.print_exc()
 
-    #! Start idle shutdown checker (only on Fly.io)
-    # if ENABLE_IDLE_SHUTDOWN:
-    #     print(f"\nStarting idle shutdown monitor ({IDLE_TIMEOUT_SECONDS}s timeout)...")
-    #     idle_check_task = asyncio.create_task(check_idle_and_shutdown())
+    # Start idle shutdown checker (only on Fly.io)
+    if CONFIG.ENABLE_IDLE_SHUTDOWN:
+        print(f"\nStarting idle shutdown monitor ({CONFIG.IDLE_TIMEOUT_SECONDS}s timeout)")
+        idle_check_task = asyncio.create_task(check_idle_and_shutdown())
 
     yield  # Application runs here
 
-    # Shutdown (cleanup if needed)
     print("Shutting down...")
-
     # Cancel idle check task if running
     if idle_check_task and not idle_check_task.done():
         idle_check_task.cancel()
@@ -336,6 +328,22 @@ async def lifespan(app: FastAPI):
 
 # Initialize FastAPI app with lifespan handler
 app = FastAPI(title="EndoScribe Web API", version="1.0.0", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def update_last_activity_http(request: Request, call_next):
+    """Update `last_activity_time` on every incoming HTTP request to indicate activity.
+
+    This helps the idle shutdown watcher know when the app is receiving traffic.
+    """
+    global last_activity_time
+    last_activity_time = time.time()
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        # Also update after handling the request in case processing took time
+        last_activity_time = time.time()
 
 # Setup static files - serve React build
 REACT_BUILD_DIR = BASE_DIR / "static" / "dist"
@@ -375,13 +383,21 @@ async def health_check():
             Path("/data/results").exists()
         )
 
-    status = "healthy" if (WHISPER_MODEL and LLM_HANDLER and volumes_ok) else "degraded"
+    # Consider the configured transcription service and readiness
+    transcription_ready = True
+    if TRANSCRIPTION_CONFIG.use_whisperx():
+        transcription_ready = WHISPER_MODEL is not None
+
+    status = "healthy" if (transcription_ready and LLM_HANDLER and volumes_ok) else "degraded"
 
     res = HealthResponse(
         status=status,
-        whisper_loaded=WHISPER_MODEL is not None,
+        # whisper_loaded strictly reflects local WhisperX model presence
+        whisper_loaded=(WHISPER_MODEL is not None),
         llm_initialized=LLM_HANDLER is not None,
-        supported_procedures=["col", "eus", "ercp", "egd"]
+        supported_procedures=["col", "eus", "ercp", "egd"],
+        transcription_service=TRANSCRIPTION_CONFIG.service,
+        transcription_ready=transcription_ready
     )
     print("Health check:", res.json())
     return res
@@ -428,27 +444,48 @@ async def websocket_transcribe(websocket: WebSocket):
     3. Server transcribes and sends back: {"type": "transcript", "data": {"text": "...", "session_id": "..."}}
     4. Client sends JSON: {"type": "end"} to finalize
     """
-    await websocket.accept()
+    client = getattr(websocket, 'client', None)
+    try:
+        await websocket.accept()
+        print(f"WebSocket connection accepted from: {client}")
+    except Exception as e:
+        print(f"Failed to accept WebSocket from {client}: {e}")
+        raise
     session_id = None
-    audio_chunks = []
 
     try:
         while True:
-            # Receive data (can be text or bytes)
             try:
                 data = await websocket.receive()
             except WebSocketDisconnect:
                 print(f"WebSocket disconnected for session {session_id}")
                 break
+            except Exception as e:
+                print(f"Error receiving WebSocket data from {client}: {e}")
+                traceback.print_exc()
+                break
 
             # Handle text messages (control messages)
             if "text" in data:
+                try:
+                    print(f"WebSocket text message from {client}: {str(data['text'])[:200]}")
+                except Exception:
+                    pass
+                try:
+                    last_activity_time = time.time()
+                except Exception:
+                    pass
                 try:
                     message = json.loads(data["text"])
                     msg_type = message.get("type")
 
                     if msg_type == "start":
                         session_id = message.get("session_id") or str(uuid.uuid4())
+                        # Accept opt client-reported chunk int so server calculate overlap in chunk counts correctly.
+                        client_chunk_interval = message.get("chunk_interval_ms")
+                        if client_chunk_interval is None:
+                            client_chunk_interval = CONFIG.DEFAULT_CHUNK_INTERVAL_MS
+
                         SESSIONS[session_id] = {
                             "chunks": [],                    # all chunks
                             "transcripts": [],               # all transcript texts
@@ -456,6 +493,7 @@ async def websocket_transcribe(websocket: WebSocket):
                             "buffer_chunks": [],             # chunks waiting to be transcribed
                             "buffer_start_time": None,
                             "last_transcribed_idx": 0,
+                            "chunk_interval_ms": int(client_chunk_interval),
                         }
                         await websocket.send_json({
                             "type": "status",
@@ -481,6 +519,16 @@ async def websocket_transcribe(websocket: WebSocket):
 
             # Handle binary audio data
             elif "bytes" in data:
+                try:
+                    size = len(data.get("bytes") or b"")
+                except Exception:
+                    size = None
+                print(f"WebSocket binary message from {client}: {size} bytes")
+                # Update last-activity timestamp on websocket binary or text activity
+                try:
+                    last_activity_time = time.time()
+                except Exception:
+                    pass
                 if not session_id:
                     await websocket.send_json({
                         "type": "error",
@@ -488,7 +536,7 @@ async def websocket_transcribe(websocket: WebSocket):
                     })
                     continue
 
-                if WHISPER_MODEL is None:
+                if TRANSCRIPTION_CONFIG.use_whisperx() and WHISPER_MODEL is None:
                     await websocket.send_json({
                         "type": "error",
                         "message": "Whisper model not initialized"
@@ -516,12 +564,23 @@ async def websocket_transcribe(websocket: WebSocket):
                 # NEW BUFFERING LOGIC (similar to pep_risk's approach of transcribing complete files)
                 # Check if we should transcribe the buffered chunks
                 buffer_duration = (time.time() - session["buffer_start_time"]) * 1000
-                should_transcribe = buffer_duration >= TRANSCRIPTION_BUFFER_DURATION_MS
+                should_transcribe = buffer_duration >= CONFIG.TRANSCRIPTION_BUFFER_DURATION_MS
                 
-                print(f"Buffer: {len(session['buffer_chunks'])} chunks, {buffer_duration:.0f}ms (threshold: {TRANSCRIPTION_BUFFER_DURATION_MS}ms)")
+                print(f"Buffer: {len(session['buffer_chunks'])} chunks, {buffer_duration:.0f}ms (threshold: {CONFIG.TRANSCRIPTION_BUFFER_DURATION_MS}ms)")
                 
                 if should_transcribe and len(session["buffer_chunks"]) > 0:
                     try:
+                        # Start a short-lived keepalive to prevent idle-shutdown during long-running transcription.
+                        keepalive_task = None
+                        async def _transcription_keepalive():
+                            global last_activity_time
+                            try:
+                                while True:
+                                    last_activity_time = time.time()
+                                    await asyncio.sleep(min(5, max(1, CONFIG.IDLE_TIMEOUT_SECONDS // 2)))
+                            except asyncio.CancelledError:
+                                return
+
                         print(f"Transcribing {len(session['buffer_chunks'])} buffered chunks...")
 
                         # Send processing status to client
@@ -531,12 +590,11 @@ async def websocket_transcribe(websocket: WebSocket):
                             "session_id": session_id
                         })
 
-                        # Use the pre-loaded global model instead of loading a new one
-                        if WHISPER_MODEL is None:
+                        # If configured to use WhisperX, require the pre-loaded global model
+                        if TRANSCRIPTION_CONFIG.use_whisperx() and WHISPER_MODEL is None:
                             raise Exception("WhisperX model not initialized")
 
-                        # NEW: Concatenate buffered chunks for better transcription
-                        # This is KEY to improving accuracy - same as pep_risk approach
+                        # Concatenate buffered chunks for better transcription
                         concat_path = UPLOAD_DIR / f"{session_id}_buffer_{int(time.time())}.wav"
                         
                         # Define transcription function to run in thread
@@ -546,22 +604,26 @@ async def websocket_transcribe(websocket: WebSocket):
                                 session["buffer_chunks"], 
                                 str(concat_path)
                             )
-                            
+
                             if audio_file is None:
                                 raise Exception("Failed to concatenate audio chunks")
-                            
-                            # Reuse transcription logic
-                            return transcribe_with_whisperx(
+                            return transcribe_audio(
                                 audio_file,
-                                WHISPER_MODEL,
-                                WHISPER_ALIGN_MODEL,
-                                WHISPER_ALIGN_METADATA,
-                                DEVICE
+                                service=TRANSCRIPTION_CONFIG.service,
+                                device=DEVICE,
+                                whisper_model="large-v3"
                             )
 
                         # Run transcription in thread pool to avoid blocking event loop
                         loop = asyncio.get_event_loop()
-                        result = await loop.run_in_executor(None, transcribe_buffered_audio)
+                        # If idle-shutdown is enabled, start keepalive to refresh last_activity_time
+                        if CONFIG.ENABLE_IDLE_SHUTDOWN:
+                            keepalive_task = asyncio.create_task(_transcription_keepalive())
+                        try:
+                            result = await loop.run_in_executor(None, transcribe_buffered_audio)
+                        finally:
+                            if keepalive_task and not keepalive_task.done():
+                                keepalive_task.cancel()
                         
                         transcript_text = result["text"]
                         session["transcripts"].append(transcript_text)
@@ -580,7 +642,13 @@ async def websocket_transcribe(websocket: WebSocket):
 
                         # Reset buffer for next transcription with overlap
                         # Keep last few chunks for context continuity (overlap)
-                        overlap_chunks = int(TRANSCRIPTION_BUFFER_OVERLAP_MS / 2000)  # Assuming 2s chunks
+                        chunk_interval_ms = session.get("chunk_interval_ms", CONFIG.DEFAULT_CHUNK_INTERVAL_MS)
+                        # Compute how many chunks correspond to the configured overlap window
+                        try:
+                            overlap_chunks = int(CONFIG.TRANSCRIPTION_BUFFER_OVERLAP_MS / max(1, int(chunk_interval_ms)))
+                        except Exception:
+                            overlap_chunks = 0
+
                         if overlap_chunks > 0 and len(session["buffer_chunks"]) > overlap_chunks:
                             session["buffer_chunks"] = session["buffer_chunks"][-overlap_chunks:]
                         else:
@@ -623,7 +691,6 @@ async def websocket_transcribe(websocket: WebSocket):
             pass
 
     finally:
-        # Cleanup
         if session_id and session_id in SESSIONS:
             print(f"Cleaning up session {session_id}")
             # delete temporary audio files
@@ -679,7 +746,6 @@ async def process_transcript(request: ProcessRequest):
                 # Colonoscopy-level processing
                 col_messages = processor.build_messages(
                     row["pred_transcript"],
-                    system_prompt_fp=processor.system_prompt_fp,
                     prompt_field_definitions_fp='./prompts/col/colonoscopies.txt',
                     fewshot_examples_dir="./prompts/col/fewshot",
                     prefix="col"
@@ -816,7 +882,6 @@ async def process_transcript(request: ProcessRequest):
 
                 messages = processor.build_messages(
                     row["pred_transcript"],
-                    system_prompt_fp=processor.system_prompt_fp,
                     prompt_field_definitions_fp=prompt_files.get(request.procedure_type.value, ""),
                     fewshot_examples_dir=f"./prompts/{request.procedure_type.value}/fewshot",
                     prefix=request.procedure_type.value
@@ -896,4 +961,6 @@ async def process_transcript(request: ProcessRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    #! Respect the `PORT` environment variable (set by Fly via `fly.toml`) so app listens on the expected internal port (default 8000).
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

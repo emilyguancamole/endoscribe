@@ -10,17 +10,21 @@ python templating/generate_from_fields.py prompts/ercp/yaml/fields_base.yaml
   # Test the generated template with dummy data
   python templating/demo_ercp_yaml_pipeline.py
 
-# Transcribe single file 
-  python -m transcription.transcription_service --procedure_type=ercp --audio_file transcription/recordings/ercp/bdstone/bdstone07.m4a
+# Transcribe audio file(s)
+  python -m transcription.transcription_service --procedure_type=ercp --audio_files transcription/recordings/ercp/pdstone/pdstone01.wav transcription/recordings/ercp/pdstone/pdstone02.wav
     --service=[azure,whisperx]
     # defaults: --service=azure --save_filename=transcription/results/ercp/{service}_trs.csv
     
 
 # LLM Extraction
-python main.py --procedure_type=ercp --transcripts_fp=azure_trs.csv --output_filename=azure_ext --files_to_process bdstone01
+python main.py --procedure_type=ercp --transcripts_fp=azure_trs.csv --output_filename=azure_ext --files_to_process bdstone01 bdstone02
+  # This outputs: transcription/results/ercp/azure_ext.csv 
 
 # Drafter
 python drafter.py --procedure=ercp --pred_csv=azure_ext.csv --output_dir=drafters/results/ercp/templated --samples_to_process bdstone01 
+  # This outputs: 
+    # drafted .docx files: drafters/results/ercp/templated/{sample}.docx
+    # package JSON files for reviewer: drafters/results/ercp/templated/{sample}_package.json
 
 # Reviewer
 # TODO
@@ -78,7 +82,7 @@ more text
 | Filter | Use | Example |
 |--------|-----|---------|
 | `sku` | Skip "unknown"/"none" |
-| `sent` | Add period (sentence) | {{ field | sent }} → "Field text."
+| `sent` | Normalize spacing, capitalize first word (unless begins with a number), and ensure a trailing period | {{ field | sent }}
 | `capfirst` | Capitalize first letter |
 | `default_if_unknown` | Fallback value |
 | `default_if_unknown_sentence` | Fallback as sentence, fallback presented as a properly capitalized sentence with punctuation. |

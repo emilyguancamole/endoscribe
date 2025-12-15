@@ -1,10 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { WEBSOCKET_FINALIZING_TIMEOUT_MS, PROCESSING_TRANSCRIPTION_TIMEOUT_MS } from '../constants';
+import { WEBSOCKET_FINALIZING_TIMEOUT_MS, PROCESSING_TRANSCRIPTION_TIMEOUT_MS, AUDIO_CHUNK_INTERVAL_MS } from '../constants';
 
 export function useWebSocketTranscription(sessionId, setSessionId) {
   const [transcript, setTranscript] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const websocketRef = useRef(null);
   const closingTimerRef = useRef(null);
   const processingTimerRef = useRef(null);
@@ -17,17 +18,19 @@ export function useWebSocketTranscription(sessionId, setSessionId) {
     websocketRef.current = ws;
 
     ws.onopen = () => {
-      console.log('WebSocket connected');
+      console.log('WebSocket connected') // debug
+      setIsConnected(true);
       ws.send(JSON.stringify({
         type: 'start',
-        session_id: sessionId
+        session_id: sessionId,
+        chunk_interval_ms: AUDIO_CHUNK_INTERVAL_MS
       }));
     };
 
     ws.onmessage = (event) => {
       const message = JSON.parse(event.data);
-      console.log("WS: Message received")
-      
+      // console.log("WS: Message received") // debug
+
       switch (message.type) {
         case 'status':
           if (message.session_id) {
@@ -48,7 +51,7 @@ export function useWebSocketTranscription(sessionId, setSessionId) {
           const text = message.data?.text || '';
           if (text) {
             setTranscript(prev => prev + ' ' + text);
-            
+
             if (isFinalizing && closingTimerRef.current) {
               clearTimeout(closingTimerRef.current);
               closingTimerRef.current = setTimeout(() => {
@@ -78,6 +81,7 @@ export function useWebSocketTranscription(sessionId, setSessionId) {
 
     ws.onclose = (event) => {
       console.log('WebSocket closed', event.code);
+      setIsConnected(false);
     };
   }, [sessionId, setSessionId, isFinalizing]);
 
@@ -94,12 +98,13 @@ export function useWebSocketTranscription(sessionId, setSessionId) {
         websocketRef.current = null;
       }
       setIsFinalizing(false);
+      setIsConnected(false);
     }
   }, []);
 
   const sendAudioChunk = useCallback((blob) => {
     if (websocketRef.current?.readyState === WebSocket.OPEN) {
-      console.log('Sending audio chunk:', blob.size, 'bytes');
+      console.log('Sending audio chunk:', blob.size, 'bytes'); // debug
       websocketRef.current.send(blob);
     } else {
       console.warn('WebSocket not ready, state:', websocketRef.current?.readyState);
@@ -131,6 +136,7 @@ export function useWebSocketTranscription(sessionId, setSessionId) {
   return {
     transcript,
     isProcessing,
+    isConnected,
     isFinalizing,
     connect,
     disconnect,

@@ -1,6 +1,15 @@
 # Multi-stage build for EndoScribe on Fly.io with GPU support
 # Base: NVIDIA CUDA 12.2 on Ubuntu 22.04 for WhisperX compatibility
 
+### Frontend build: produce `web_app/static/dist`
+FROM node:20 AS frontend-builder
+WORKDIR /build/frontend
+COPY web_app/frontend/package.json web_app/frontend/package-lock.json* ./
+COPY web_app/frontend ./
+RUN npm ci --silent
+RUN npm run build
+
+### Base image with CUDA for WhisperX
 FROM nvidia/cuda:12.2.0-devel-ubuntu22.04 AS base
 
 # Prevent interactive prompts during package installation
@@ -21,7 +30,7 @@ RUN apt-get update && apt-get install -y \
 RUN ln -sf /usr/bin/python3.10 /usr/bin/python && \
     ln -sf /usr/bin/python3.10 /usr/bin/python3
 
-# Install uv for fast, reproducible dependency management
+# Install uv for fast dependency management
 RUN pip install --no-cache-dir uv
 
 # Set working directory
@@ -59,6 +68,10 @@ ENV WHISPERX_MODELS=/data/models/whisperx
 # Copy application code
 COPY . .
 
+# Copy built frontend assets from the frontend-builder stage into the final image
+# Vite's config outputs to `web_app/static/dist` (relative to frontend dir), so copy that folder.
+COPY --from=frontend-builder /build/frontend/../static/dist web_app/static/dist
+
 # Set Python path
 ENV PYTHONPATH=/app
 
@@ -71,3 +84,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 # Run the web server
 CMD ["python", "web_app/server.py"]
+

@@ -80,10 +80,10 @@ templates:
     \ of the abdomen was performed. {% if status == 'normal' %}It appeared normal.{%\
     \ endif %}\n{% if scout_film_optional_findings | sku and scout_film_optional_findings\
     \ != 'none' %} {{ scout_film_optional_findings }}.{% endif %}\n{% if scout_film_free_text\
-    \ | sku and scout_film_free_text != 'none' %} {{ scout_film_free_text | capfirst\
-    \ }}.{% endif %}\n{% endif %}\n\n{% set difficulty = scope_advancement_difficulty\
-    \ | default('') | sku %}\n{% set gi_findings = upper_gi_findings | default('')\
-    \ | sku %}\n{% set exam_type = upper_gi_examination | default('limited') %}\n\n\
+    \ | sku and scout_film_free_text != 'none' %} {{ scout_film_free_text | sent }}{%\
+    \ endif %}\n{% endif %}\n\n{% set difficulty = scope_advancement_difficulty |\
+    \ default('') | sku %}\n{% set gi_findings = upper_gi_findings | default('') |\
+    \ sku %}\n{% set exam_type = upper_gi_examination | default('limited') %}\n\n\
     {% set _sa %}\nThe duodenoscope {% if duodenoscope_type | sku %}{{ duodenoscope_type\
     \ }} {% endif %}was advanced to the second portion of the duodenum {% if difficulty\
     \ == 'difficult' %}with difficulty{% else %}without difficulty{% endif %} and\
@@ -110,9 +110,9 @@ templates:
     \ %}Periampullary diverticulum present.\n  {% if papilla_diverticulum_loc | sku\
     \ %}Papilla located {{papilla_diverticulum_loc }}.{% endif %}\n{% endif %}\n{%\
     \ if major_papilla_free_text | sku and major_papilla_free_text != 'none' %} {{\
-    \ major_papilla_free_text | capfirst }}.{% endif %}\n{% endif %}\n{% endset %}\n\
-    {{ _major_pap | replace('\\n', ' ') | replace('  ', ' ') | replace('  ', ' ')\
-    \ | trim }}\n\n{% set _minor_pap %}\n{% set status = minor_papilla_status | default('')\
+    \ major_papilla_free_text | sent }}{% endif %}\n{% endif %}\n{% endset %}\n{{\
+    \ _major_pap | replace('\\n', ' ') | replace('  ', ' ') | replace('  ', ' ') |\
+    \ trim }}\n\n{% set _minor_pap %}\n{% set status = minor_papilla_status | default('')\
     \ | sku %}\n{% if status == 'not_inspected' %}\nThe minor papilla was not inspected.\n\
     {% elif status == 'not_visualized' %}\nThe minor papilla could not be located.\n\
     \n{% elif status in ['normal', 'abnormal'] %}\nThe minor papilla was identified\
@@ -147,67 +147,65 @@ templates:
     \ cannulation was attempted using a sphincterotome{% if sphincterotome_type |\
     \ sku %} ({{ sphincterotome_type }}){% endif %} preloaded with a guidewire{% if\
     \ guidewire_type | sku %} ({{ guidewire_type }}){% endif %}.{% endif %}\n{% if\
-    \ bile_duct_cannulation_successful %}\nBile duct cannulation was successful. Biliary\
-    \ cannulation was achieved{% if bile_duct_cannulation_difficulty | sku %}. {{\
-    \ bile_duct_cannulation_difficulty | capfirst }}{% else %} without pancreatic\
-    \ duct entry{% endif %}.{% if advanced_cannulation_techniques | sku and advanced_cannulation_techniques\
+    \ bile_duct_cannulation_successful %}\nBile duct cannulation was successful. {%\
+    \ if bile_duct_cannulation_difficulty | sku %}{{ bile_duct_cannulation_difficulty\
+    \ | sent }}{% endif %}{% if advanced_cannulation_techniques | sku and advanced_cannulation_techniques\
     \ != 'none' %} Cannulation achieved via {{ advanced_cannulation_techniques }}.{%\
-    \ endif %}\n{% else %}Bile duct cannulation was unsuccessful.{% if bile_duct_cannulation_difficulty\
-    \ | sku %} {{ bile_duct_cannulation_difficulty | capfirst }}.{% endif %}{% if\
-    \ advanced_cannulation_techniques | sku and advanced_cannulation_techniques !=\
-    \ 'none' %} {{ advanced_cannulation_techniques | capfirst }} was performed.{%\
-    \ endif %}{% if rendezvous_attempted %}{% if rendezvous_result | sku %} EUS-guided\
-    \ rendezvous was performed and was {{ rendezvous_result }}.{% else %} Rendezvous\
-    \ was planned.{% endif %}{% else %} The procedure was terminated.{% endif %}{%\
-    \ endif %}\n{% endset %}\n{{ _bile | replace('\\n', ' ') | replace(' ', ' ') |\
-    \ trim }}\n\n{% set attempt = pancreatic_duct_cannulation_attempted | default('')\
-    \ | sku %}\n{% if attempt == 'intentional' %}\nPancreatic duct cannulation was\
-    \ attempted.{% if pancreatic_duct_cannulation_success %} Pancreatic duct was selectively\
-    \ cannulated{% if pancreatic_duct_cannulation_technique | sku %} with {{ pancreatic_duct_cannulation_technique\
-    \ }}{% endif %}.{% else %} Cannulation was unsuccessful.{% endif %}\n{% elif attempt\
-    \ == 'not_attempted_inadvertent' %}\nPancreatic duct cannulation was not attempted\
-    \ but was inadvertently cannulated.\n{% endif %}\n{% if biliary_rendezvous_route\
-    \ | sku and biliary_rendezvous_route != 'not applicable' %} {{ biliary_rendezvous_route\
-    \ | capfirst }} puncture was performed.{% endif %}\n\n{% if contrast_injection_performed\
-    \ %}\nContrast was injected under fluoroscopic guidance and cholangiogram was\
-    \ performed.\n{% if cbd_diameter_mm > 0 %}The common bile duct (CBD) measured\
-    \ {{ cbd_diameter_mm }} mm{% if cbd_diameter_mm >= 6 and cbd_diameter_mm <= 10\
-    \ %} and was normal{% endif %}.{% endif %}\n{% if ihd_status | sku and ihd_status\
-    \ not in ['unknown', 'none'] %} Intrahepatic ducts were {{ ihd_status | replace('_',\
-    \ ' ') }}{% if ihd_status == 'normal' %} in caliber, and contrast drained freely\
-    \ into the duodenum{% endif %}.{% endif %}\n{% if stone_description | sku and\
-    \ stone_description != 'none' %} {{ stone_description | capfirst }}.{% endif %}\n\
-    {% if stricture_description | sku and stricture_description != 'none' %} {{ stricture_description\
-    \ | capfirst }}.{% endif %}\n{% if non_stone_filling_defects | sku and non_stone_filling_defects\
-    \ != 'none' %} {{ non_stone_filling_defects | capfirst }}.{% endif %}\n{% if bile_leak_location\
-    \ | sku and bile_leak_location != 'none' %} Contrast extravasation from the {{\
-    \ bile_leak_location }} consistent with a bile leak.{% endif %}\n{% if prior_stent_status\
-    \ | sku and prior_stent_status != 'none' %} {{ prior_stent_status | capfirst }}.{%\
-    \ endif %}\n{% if cholangiogram_free_text | sku and cholangiogram_free_text !=\
-    \ 'none' %} {{ cholangiogram_free_text | capfirst }}.{% endif %}\n{% endif %}\n\
-    \n{% if pancreatogram_obtained %}\nPancreatogram was obtained{% if pancreatogram_overall\
-    \ | sku %} and {{ pancreatogram_overall }} identified{% endif %}.\n{% if main_pd_diameter_head_mm\
-    \ > 0 or main_pd_diameter_body_mm > 0 or main_pd_diameter_tail_mm > 0 %} Main\
-    \ PD diameter was{% if main_pd_diameter_head_mm > 0 %} {{ main_pd_diameter_head_mm\
-    \ }} mm at head{% endif %}{% if main_pd_diameter_body_mm > 0 %}{% if main_pd_diameter_head_mm\
-    \ > 0 %},{% endif %} {{ main_pd_diameter_body_mm }} mm at body{% endif %}{% if\
-    \ main_pd_diameter_tail_mm > 0 %}{% if main_pd_diameter_head_mm > 0 or main_pd_diameter_body_mm\
-    \ > 0 %},{% endif %} {{ main_pd_diameter_tail_mm }} mm at tail{% endif %}.{% endif\
-    \ %}\n{% if side_branch_status | sku and side_branch_status not in ['unknown',\
-    \ 'none'] %} Side branches were {{ side_branch_status }}.{% endif %}\n{% if pd_stricture_location\
-    \ | sku and pd_stricture_location != 'none' %} Stricture was located at {{ pd_stricture_location\
-    \ }}.{% endif %}\n{% if pd_pseudocyst_communication is defined %} There was {%\
-    \ if not pd_pseudocyst_communication %}no {% endif %}communication with pseudocyst.{%\
-    \ endif %}\n{% endif %}\n\n{% if sphincterotomy_type | sku and sphincterotomy_type\
-    \ != 'none' %}\n{% set ns = namespace(parts=[]) %}\n{# base sentence: mention\
-    \ sphincterotomy and optional instrument #}\n{% set base = 'Sphincterotomy was\
-    \ performed' %}\n{% if sphincterotome_used | sku %}\n  {% set base = base ~ '\
-    \ using a ' ~ (sphincterotome_used) %}\n{% endif %}\n{% set base = base ~ '.'\
-    \ %}\n{% set ns.parts = ns.parts + [base] %}\n\n{# optional incision details:\
-    \ direction, extent, and goal #}\n{% if incision_direction | sku %}\n  {% set\
-    \ clause = 'The incision was directed toward the ' ~ incision_direction ~ ' position'\
-    \ %}\n  {% if sphincterotomy_extent | sku and sphincterotomy_extent != 'none'\
-    \ %}\n    {% set clause = clause ~ ' and extended to a ' ~ sphincterotomy_extent\
+    \ endif %}\n{% else %}Bile duct cannulation was unsuccessful.\n  {% if bile_duct_cannulation_difficulty\
+    \ | sku %} {{ bile_duct_cannulation_difficulty | sent }}{% endif %}\n  {% if advanced_cannulation_techniques\
+    \ | sku and advanced_cannulation_techniques != 'none' %} {{ advanced_cannulation_techniques\
+    \ | capfirst }} was performed {% endif %}\n  {% if rendezvous_attempted %}{% if\
+    \ rendezvous_result | sku %} EUS-guided rendezvous was performed and was {{ rendezvous_result\
+    \ }}.{% else %} Rendezvous was planned.{% endif %}\n  {% else %} The procedure\
+    \ was terminated.{% endif %}{% endif %}\n{% endset %}\n{{ _bile | replace('\\\
+    n', ' ') | replace(' ', ' ') | trim }}\n\n{% set attempt = pancreatic_duct_cannulation_attempted\
+    \ | default('') | sku %}\n{% if attempt == 'intentional' %}\nPancreatic duct cannulation\
+    \ was attempted.{% if pancreatic_duct_cannulation_success %} Pancreatic duct was\
+    \ selectively cannulated{% if pancreatic_duct_cannulation_technique | sku %} with\
+    \ {{ pancreatic_duct_cannulation_technique }}{% endif %}.{% else %} Cannulation\
+    \ was unsuccessful.{% endif %}\n{% elif attempt == 'not_attempted_inadvertent'\
+    \ %}\nPancreatic duct cannulation was not attempted but was inadvertently cannulated.\n\
+    {% endif %}\n{% if biliary_rendezvous_route | sku and biliary_rendezvous_route\
+    \ != 'not applicable' %} {{ biliary_rendezvous_route | capfirst }} puncture was\
+    \ performed.{% endif %}\n\n{% if contrast_injection_performed %}\nContrast was\
+    \ injected under fluoroscopic guidance and cholangiogram was performed.\n{% if\
+    \ cbd_diameter_mm > 0 %}The common bile duct (CBD) measured {{ cbd_diameter_mm\
+    \ }} mm{% if cbd_diameter_mm >= 6 and cbd_diameter_mm <= 10 %} and was normal{%\
+    \ endif %}.{% endif %}\n{% if ihd_status | sku and ihd_status not in ['unknown',\
+    \ 'none'] %} Intrahepatic ducts were {{ ihd_status | replace('_', ' ') }}{% if\
+    \ ihd_status == 'normal' %} in caliber, and contrast drained freely into the duodenum{%\
+    \ endif %}.{% endif %}\n{% if stone_description | sku and stone_description !=\
+    \ 'none' %} {{ stone_description | sent }}{% endif %}\n{% if stricture_description\
+    \ | sku and stricture_description != 'none' %} {{ stricture_description | sent\
+    \ }}{% endif %}\n{% if non_stone_filling_defects | sku %} {{ non_stone_filling_defects\
+    \ | sent }}{% endif %}\n{% if bile_leak_location | sku and bile_leak_location\
+    \ != 'none' %} Contrast extravasation from the {{ bile_leak_location }} consistent\
+    \ with a bile leak.{% endif %}\n{% if prior_stent_status | sku and prior_stent_status\
+    \ != 'none' %} {{ prior_stent_status | sent }}{% endif %}\n{% if cholangiogram_free_text\
+    \ | sku and cholangiogram_free_text != 'none' %} {{ cholangiogram_free_text |\
+    \ sent }}{% endif %}\n{% endif %}\n\n{% if pancreatogram_obtained %}\nPancreatogram\
+    \ was obtained{% if pancreatogram_overall | sku %} and {{ pancreatogram_overall\
+    \ }} identified{% endif %}.\n{% if main_pd_diameter_head_mm > 0 or main_pd_diameter_body_mm\
+    \ > 0 or main_pd_diameter_tail_mm > 0 %} Main PD diameter was{% if main_pd_diameter_head_mm\
+    \ > 0 %} {{ main_pd_diameter_head_mm }} mm at head{% endif %}{% if main_pd_diameter_body_mm\
+    \ > 0 %}{% if main_pd_diameter_head_mm > 0 %},{% endif %} {{ main_pd_diameter_body_mm\
+    \ }} mm at body{% endif %}{% if main_pd_diameter_tail_mm > 0 %}{% if main_pd_diameter_head_mm\
+    \ > 0 or main_pd_diameter_body_mm > 0 %},{% endif %} {{ main_pd_diameter_tail_mm\
+    \ }} mm at tail{% endif %}.{% endif %}\n{% if side_branch_status | sku and side_branch_status\
+    \ not in ['unknown', 'none'] %} Side branches were {{ side_branch_status }}.{%\
+    \ endif %}\n{% if pd_stricture_location | sku and pd_stricture_location != 'none'\
+    \ %} Stricture was located at {{ pd_stricture_location }}.{% endif %}\n{% if pd_pseudocyst_communication\
+    \ is defined %} There was {% if not pd_pseudocyst_communication %}no {% endif\
+    \ %}communication with pseudocyst.{% endif %}\n{% endif %}\n\n{% if sphincterotomy_type\
+    \ | sku and sphincterotomy_type != 'none' %}\n{% set ns = namespace(parts=[])\
+    \ %}\n{# base sentence: mention sphincterotomy and optional instrument #}\n{%\
+    \ set base = 'Sphincterotomy was performed' %}\n{% if sphincterotome_used | sku\
+    \ %}\n  {% set base = base ~ ' using a ' ~ (sphincterotome_used) %}\n{% endif\
+    \ %}\n{% set base = base ~ '.' %}\n{% set ns.parts = ns.parts + [base] %}\n\n\
+    {# optional incision details: direction, extent, and goal #}\n{% if incision_direction\
+    \ | sku %}\n  {% set clause = 'The incision was directed toward the ' ~ incision_direction\
+    \ ~ ' position' %}\n  {% if sphincterotomy_extent | sku and sphincterotomy_extent\
+    \ != 'none' %}\n    {% set clause = clause ~ ' and extended to a ' ~ sphincterotomy_extent\
     \ ~ ' papillotomy' %}\n    {% if sphincterotomy_goal_achieved | sku %}\n     \
     \ {% set clause = clause ~ ' until ' ~ sphincterotomy_goal_achieved ~ ' was achieved'\
     \ %}\n    {% endif %}\n  {% endif %}\n  {% set clause = clause ~ '.' %}\n  {%\
@@ -221,15 +219,15 @@ templates:
     {% elif pancreatic_stent_purpose == 'therapeutic' %}\nA therapeutic pancreatic\
     \ stent was placed:{% if pancreatic_stent_details | sku %} {{ pancreatic_stent_details\
     \ }}.{% endif %}\n{% endif %}\n{% if stent_placement_narrative | sku %} {{ stent_placement_narrative\
-    \ | capfirst }}.{% endif %}\n{% if bile_and_contrast_drainage | sku %} {{ bile_and_contrast_drainage\
-    \ | capfirst }}.{% endif %}\n{% if final_fluoroscopic_image_obtained %} Final\
-    \ fluoroscopic picture was done for confirmation.{% endif %}\n{% endif %}\n\n\
-    The scope was then completely withdrawn from the patient and the procedure completed.\n\
-    \n{% if estimated_blood_loss > 0 %}\nEstimated blood loss: {{ estimated_blood_loss\
+    \ | sent }}{% endif %}\n{% if bile_and_contrast_drainage | sku %} {{ bile_and_contrast_drainage\
+    \ | sent }}{% endif %}\n{% if final_fluoroscopic_image_obtained %} Final fluoroscopic\
+    \ picture was done for confirmation.{% endif %}\n{% endif %}\n\nThe scope was\
+    \ then completely withdrawn from the patient and the procedure completed.\n\n\
+    {% if estimated_blood_loss > 0 %}\nEstimated blood loss: {{ estimated_blood_loss\
     \ }} ml.\n{% elif estimated_blood_loss == 0 %}\nEstimated blood loss: None.\n\
     {% endif %}\n\n{% if specimens_removed | sku and specimens_removed != 'none' %}\n\
-    Specimens removed: Specimens were optained. {{ specimens_removed | capfirst |\
-    \ sent }}.\n{% elif specimens_removed == 'none' %}\nSpecimens removed: None.\n\
-    {% endif %}\n\n{% if complications | sku and complications != 'none' %}\nComplications:\
-    \ {{ complications | capfirst }}.\n{% elif complications == 'none' %}\nComplications:\
+    Specimens removed: Specimens were optained. {{ specimens_removed | sent }}\n{%\
+    \ elif specimens_removed == 'none' %}\nSpecimens removed: None.\n{% endif %}\n\
+    \n{% if complications | sku and complications != 'none' %}\nComplications: {{\
+    \ complications | sent }}\n{% elif complications == 'none' %}\nComplications:\
     \ There were no immediate complications.\n{% endif %}"

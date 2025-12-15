@@ -4,10 +4,10 @@
 # System-level instructions (shared by all ERCP subtypes)
 system_instructions: |
   I am giving you a transcript from an ERCP procedure. The task is to extract procedure entities. 
-  Make sure you are accurate (no mistakes), complete (do not miss any relevant information), 
-  and organized (record information in a manner that matches clinical standards).
+  Make sure you are accurate (no mistakes) and complete (do not miss any relevant information). The information you extract will be used to fill a structured procedure note template.
+  If examples of the template are given, ensure your extracted field fits with that structure. For instance, field "scope_advancement_difficulty_reason" will be used to fill in the template sentence "Scope advancement was challenging due to {scope_advancement_difficulty_reason}", so your answer should be a phrase that fits in that sentence.
   
-  Not all fields may be mentioned in the transcript. Unless explicitly otherwise specified, if you do not know the answer, record "unknown", and if it wasn't mentioned, record "none".
+  Not all fields may be mentioned in the transcript. Unless explicitly otherwise specified, if you do not know the answer, record "unknown", and if it wasn't mentioned, record "none". Do not make up information.
 
 # Metadata about this procedure type
 meta:
@@ -169,14 +169,17 @@ field_groups:
     report_section: "findings"
     report_subsection: "scout_film"
     template: |
+      {% set _sf %}
       {% set status = scout_film_status | default('') | sku %}
       {% if status == 'not_obtained' %}
       A scout film was not obtained.
       {% else %}
-      A scout film of the abdomen was performed. {% if status == 'normal' %}It appeared normal.{% endif %}
-      {% if scout_film_optional_findings | sku and scout_film_optional_findings != 'none' %} {{ scout_film_optional_findings }}.{% endif %}
-      {% if scout_film_free_text | sku and scout_film_free_text != 'none' %} {{ scout_film_free_text | capfirst }}.{% endif %}
+      A scout film of the abdomen was performed{% if status == 'normal' %} and appeared normal{% endif %}.
+      {% if scout_film_optional_findings | sku %}{{ scout_film_optional_findings | sent }}{% endif %}
+      {% if scout_film_free_text | sku %} {{ scout_film_free_text | sent }}{% endif %}
       {% endif %}
+      {% endset %}
+      {{ _sf | replace('\n', ' ') | replace('  ', ' ') | replace('  ', ' ') | trim }}
     fields:
       - name: scout_film_status
         type: enum
@@ -185,7 +188,7 @@ field_groups:
 
       - name: scout_film_optional_findings
         type: string
-        prompt_instruction: "If scout_film_status was abnormal, list findings such as 'surgical clips RUQ', 'pneumobilia', 'plastic or metal stent in situ', 'radio-opaque stones', 'PC drain', 'residual contrast'; else 'none'"
+        prompt_instruction: "If scout_film_status was abnormal, describe findings in sentence(s) if mentioned"
 
       - name: scout_film_free_text
         type: string
@@ -251,7 +254,7 @@ field_groups:
       {% if periampullary_diverticulum_present %}Periampullary diverticulum present.
         {% if papilla_diverticulum_loc | sku %}Papilla located {{papilla_diverticulum_loc }}.{% endif %}
       {% endif %}
-      {% if major_papilla_free_text | sku and major_papilla_free_text != 'none' %} {{ major_papilla_free_text | capfirst }}.{% endif %}
+      {% if major_papilla_free_text | sku and major_papilla_free_text != 'none' %} {{ major_papilla_free_text | sent }}{% endif %}
       {% endif %}
       {% endset %}
       {{ _major_pap | replace('\n', ' ') | replace('  ', ' ') | replace('  ', ' ') | trim }}
@@ -419,8 +422,12 @@ field_groups:
       {% if sphincterotome_type | sku or guidewire_type | sku %}
       Bile duct cannulation was attempted using a sphincterotome{% if sphincterotome_type | sku %} ({{ sphincterotome_type }}){% endif %} preloaded with a guidewire{% if guidewire_type | sku %} ({{ guidewire_type }}){% endif %}.{% endif %}
       {% if bile_duct_cannulation_successful %}
-      Bile duct cannulation was successful. Biliary cannulation was achieved{% if bile_duct_cannulation_difficulty | sku %}. {{ bile_duct_cannulation_difficulty | capfirst }}{% else %} without pancreatic duct entry{% endif %}.{% if advanced_cannulation_techniques | sku and advanced_cannulation_techniques != 'none' %} Cannulation achieved via {{ advanced_cannulation_techniques }}.{% endif %}
-      {% else %}Bile duct cannulation was unsuccessful.{% if bile_duct_cannulation_difficulty | sku %} {{ bile_duct_cannulation_difficulty | capfirst }}.{% endif %}{% if advanced_cannulation_techniques | sku and advanced_cannulation_techniques != 'none' %} {{ advanced_cannulation_techniques | capfirst }} was performed.{% endif %}{% if rendezvous_attempted %}{% if rendezvous_result | sku %} EUS-guided rendezvous was performed and was {{ rendezvous_result }}.{% else %} Rendezvous was planned.{% endif %}{% else %} The procedure was terminated.{% endif %}{% endif %}
+      Bile duct cannulation was successful. {% if bile_duct_cannulation_difficulty | sku %}{{ bile_duct_cannulation_difficulty | sent }}{% endif %}{% if advanced_cannulation_techniques | sku and advanced_cannulation_techniques != 'none' %} Cannulation achieved via {{ advanced_cannulation_techniques }}.{% endif %}
+      {% else %}Bile duct cannulation was unsuccessful.
+        {% if bile_duct_cannulation_difficulty | sku %} {{ bile_duct_cannulation_difficulty | sent }}{% endif %}
+        {% if advanced_cannulation_techniques | sku and advanced_cannulation_techniques != 'none' %} {{ advanced_cannulation_techniques | capfirst }} was performed {% endif %}
+        {% if rendezvous_attempted %}{% if rendezvous_result | sku %} EUS-guided rendezvous was performed and was {{ rendezvous_result }}.{% else %} Rendezvous was planned.{% endif %}
+        {% else %} The procedure was terminated.{% endif %}{% endif %}
       {% endset %}
       {{ _bile | replace('\n', ' ') | replace(' ', ' ') | trim }}
       
@@ -502,12 +509,12 @@ field_groups:
       Contrast was injected under fluoroscopic guidance and cholangiogram was performed.
       {% if cbd_diameter_mm > 0 %}The common bile duct (CBD) measured {{ cbd_diameter_mm }} mm{% if cbd_diameter_mm >= 6 and cbd_diameter_mm <= 10 %} and was normal{% endif %}.{% endif %}
       {% if ihd_status | sku and ihd_status not in ['unknown', 'none'] %} Intrahepatic ducts were {{ ihd_status | replace('_', ' ') }}{% if ihd_status == 'normal' %} in caliber, and contrast drained freely into the duodenum{% endif %}.{% endif %}
-      {% if stone_description | sku and stone_description != 'none' %} {{ stone_description | capfirst }}.{% endif %}
-      {% if stricture_description | sku and stricture_description != 'none' %} {{ stricture_description | capfirst }}.{% endif %}
-      {% if non_stone_filling_defects | sku and non_stone_filling_defects != 'none' %} {{ non_stone_filling_defects | capfirst }}.{% endif %}
+      {% if stone_description | sku and stone_description != 'none' %} {{ stone_description | sent }}{% endif %}
+      {% if stricture_description | sku and stricture_description != 'none' %} {{ stricture_description | sent }}{% endif %}
+      {% if non_stone_filling_defects | sku %} {{ non_stone_filling_defects | sent }}{% endif %}
       {% if bile_leak_location | sku and bile_leak_location != 'none' %} Contrast extravasation from the {{ bile_leak_location }} consistent with a bile leak.{% endif %}
-      {% if prior_stent_status | sku and prior_stent_status != 'none' %} {{ prior_stent_status | capfirst }}.{% endif %}
-      {% if cholangiogram_free_text | sku and cholangiogram_free_text != 'none' %} {{ cholangiogram_free_text | capfirst }}.{% endif %}
+      {% if prior_stent_status | sku and prior_stent_status != 'none' %} {{ prior_stent_status | sent }}{% endif %}
+      {% if cholangiogram_free_text | sku and cholangiogram_free_text != 'none' %} {{ cholangiogram_free_text | sent }}{% endif %}
       {% endif %}
     fields:
       - name: contrast_injection_performed
@@ -666,7 +673,7 @@ field_groups:
       {% endif %}
 
 
-      
+
     fields:
       - name: biliary_stent_placed
         type: boolean
@@ -697,8 +704,8 @@ field_groups:
       {% elif pancreatic_stent_purpose == 'therapeutic' %}
       A therapeutic pancreatic stent was placed:{% if pancreatic_stent_details | sku %} {{ pancreatic_stent_details }}.{% endif %}
       {% endif %}
-      {% if stent_placement_narrative | sku %} {{ stent_placement_narrative | capfirst }}.{% endif %}
-      {% if bile_and_contrast_drainage | sku %} {{ bile_and_contrast_drainage | capfirst }}.{% endif %}
+      {% if stent_placement_narrative | sku %} {{ stent_placement_narrative | sent }}{% endif %}
+      {% if bile_and_contrast_drainage | sku %} {{ bile_and_contrast_drainage | sent }}{% endif %}
       {% if final_fluoroscopic_image_obtained %} Final fluoroscopic picture was done for confirmation.{% endif %}
       {% endif %}
     fields:
@@ -757,7 +764,7 @@ field_groups:
     report_subsection: "specimens"
     template: |
       {% if specimens_removed | sku and specimens_removed != 'none' %}
-      Specimens removed: Specimens were optained. {{ specimens_removed | capfirst | sent }}.
+      Specimens removed: Specimens were optained. {{ specimens_removed | sent }}
       {% elif specimens_removed == 'none' %}
       Specimens removed: None.
       {% endif %}
@@ -772,14 +779,14 @@ field_groups:
     report_subsection: "complications"
     template: |
       {% if complications | sku and complications != 'none' %}
-      Complications: {{ complications | capfirst }}.
+      Complications: {{ complications | sent }}
       {% elif complications == 'none' %}
       Complications: There were no immediate complications.
       {% endif %}
     fields:
       - name: complications
         type: string
-        prompt_instruction: "If complications, describe details/findings"
+        prompt_instruction: "If there were complications from procedure, describe details/findings as sentence(s)"
   
 ## IMPRESSIONS
   impressions:

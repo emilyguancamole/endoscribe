@@ -636,22 +636,6 @@ async def process_transcript(request: ProcessRequest):
 uvicorn web_app.server:app --ssl-keyfile=key.pem --ssl-certfile=cert.pem
 ```
 
-**Option B: Nginx Reverse Proxy**
-```nginx
-server {
-    listen 443 ssl;
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-
-    location / {
-        proxy_pass http://localhost:8000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-}
-```
-
 ### 7. Add Logging
 
 **File:** `web_app/server.py` (add at top)
@@ -673,23 +657,7 @@ logger = logging.getLogger(__name__)
 logger.info(f"Processing transcript for session {session_id}")
 ```
 
-### 8. Auto-Delete Temporary Audio Files
-
-**File:** `web_app/server.py` (in WebSocket handler finally block)
-
-```python
-finally:
-    # Cleanup
-    if session_id and session_id in SESSIONS:
-        print(f"Cleaning up session {session_id}")
-        # Delete temporary audio files
-        for chunk_path in SESSIONS[session_id]["chunks"]:
-            try:
-                os.remove(chunk_path)
-                print(f"Deleted {chunk_path}")
-            except Exception as e:
-                print(f"Failed to delete {chunk_path}: {e}")
-```
+8. Auto-Delete Temporary Audio Files
 
 ## Production Deployment
 

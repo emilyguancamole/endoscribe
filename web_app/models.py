@@ -58,7 +58,20 @@ class ProcessResponse(BaseModel):
     error: Optional[str] = None
     processing_time_seconds: Optional[float] = None
     pep_risk_score: Optional[float] = Field(None, description="PEP risk prediction score (0-100)")
-    pep_risk_category: Optional[str] = Field(None, description="PEP risk category (low/moderate/high)") #?
+    pep_risk_category: Optional[str] = Field(None, description="PEP risk category (low/moderate/high)")
+    
+    #?? additional fields for frontend compatibility
+    colonoscopy_data: Optional[Dict[str, Any]] = Field(None, description="Colonoscopy-specific data")
+    polyps_data: Optional[List[Dict[str, Any]]] = Field(None, description="Polyp data for colonoscopy")
+    procedure_data: Optional[Dict[str, Any]] = Field(None, description="General procedure data (EUS, ERCP, EGD)")
+    pep_risk_data: Optional[Dict[str, Any]] = Field(None, description="PEP risk assessment data")
+    raw_output: Optional[str] = Field(None, description="Raw LLM output")
+    formatted_note: Optional[str] = Field(None, description="Formatted clinical note")
+    
+    @property
+    def status(self) -> str:
+        """Legacy compatibility property"""
+        return "success" if self.success else "error"
 
 
 class ColonoscopyResult(BaseModel):

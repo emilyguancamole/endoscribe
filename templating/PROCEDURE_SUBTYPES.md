@@ -7,7 +7,7 @@
 
 **Solution**: Hierarchical field definitions with `$extends` inheritance.
 
-## 📁 File Structure
+## File Structure
 
 ```
 prompts/
@@ -19,7 +19,7 @@ prompts/
     └── fields_gastrogastrostomy.yaml # + 6 anatomy fields = 29 total
 ```
 
-## How Inheritance Works
+## Inheritance
 
 ### Base File (fields_base.yaml)
 ```yaml
@@ -75,7 +75,7 @@ field_groups:
 
 ### Generate All Subtypes
 ```bash
-# This reads `prompts/procedure_registry.yaml` and generates artifacts for every registered procedure.
+# Reads `prompts/procedure_registry.yaml` and generates artifacts for every registered procedure.
 python templating/generate_from_fields.py --all
 ```
 
@@ -169,7 +169,7 @@ field_groups:
       - name: custom_field
 ```
 
-## 🌐 Extending to Other Procedure Types
+## Extending to Other Procedure Types
 
 ### EUS Example
 
@@ -208,7 +208,7 @@ procedures:
     description: "EUS with fine needle aspiration"
 ```
 
-## 📊 Field Count Summary
+## Field Count Summary
 
 | Procedure Type | Base Fields | Added Fields | Total |
 |---------------|-------------|--------------|-------|
@@ -219,11 +219,10 @@ procedures:
 
 ## 🔍 How Drafter Selects Subtype
 
-### Option 1: From Data (Recommended)
+### Option 1: From Data
 ```python
 # In procedures.csv, add a column: procedure_subtype
 # e.g., "ercp_cholangioscopy", "ercp_normal_follow_up"
-
 drafter = ERCPDrafter(sample, pred_df, patients_df, procedures_df)
 drafter.procedure_variant = procedures_df.loc[sample].get('procedure_subtype', 'ercp_cholangioscopy')
 doc = drafter.draft_doc()
@@ -249,7 +248,7 @@ def select_variant(self):
     return 'ercp_cholangioscopy'  # default
 ```
 
-## 💡 Best Practices
+## Good Practices
 
 1. **Keep base minimal** - Only truly universal fields
 2. **Specific subtypes** - Create subtypes for distinct clinical scenarios
@@ -257,34 +256,12 @@ def select_variant(self):
 4. **Document differences** - Add description to procedure_registry.yaml
 5. **Version control** - Track both base and subtype files in git
 
-## 🐛 Troubleshooting
-
 **Fields not inherited?**
 - Check `$extends` path is correct (relative to subtype file)
 - Ensure base file exists and is valid YAML
-
 **Template not overriding?**
 - Match field_group name exactly (case-sensitive)
 - Provide complete template (not partial)
-
 **Too many/few fields?**
 - Use `grep "^[a-z_]*:" generated_prompt.txt | wc -l` to count
 - Check field_groups merge logic
-
-## 📚 Related Docs
-
-- `YAML_DRIVEN_PIPELINE.md` - Core concepts
-- `QUICK_REFERENCE.md` - Command cheat sheet
-- `procedure_registry.yaml` - All registered procedures
-
-## ✨ Summary
-
-**Before**: Maintain separate files for each subtype (error-prone, tedious)
-
-**Now**: 
-- Define base once (`fields_base.yaml`)
-- Extend with `$extends` for each subtype
-- Generate all artifacts with one command
-- Always in sync, easy to maintain
-
-🎉 **Subtypes supported with full inheritance!**

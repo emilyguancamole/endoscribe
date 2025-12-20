@@ -1,6 +1,14 @@
 # EndoScribe Web Application
+**** NOTE 12/20/25 *** This README is pretty outdated and has been for a couple weeks. TODO update
 
 A web-based interface for real-time medical transcription and structured data extraction from endoscopic procedures.
+
+## Note Saving - 12/20
+Where notes are saved:
+- Local: saved to web_app/results/sessions/<session_id>.json (i.e, RESULTS_DIR set to BASE_DIR / "results").
+- Fly: saved to /data/results/sessions/<session_id>.json (i.e, RESULTS_DIR set to /data/results). This persists across app restarts if Fly volume attached mounted at data.
+A browser refresh will not remove the saved JSON — the saved note is persistent on disk
+
 
 ## System Requirements
 
@@ -63,7 +71,7 @@ python web_app/server.py
 
 ### 5. Open Browser
 
-Navigate to: **http://localhost:8000**
+**http://localhost:8000**
 
 ## Features
 
@@ -578,34 +586,13 @@ state.mediaRecorder.start(1000);
 state.mediaRecorder.start(5000);
 ```
 
-### 3. Change WhisperX Model Size
+### 3. Change WhisperX
 
 **File:** `web_app/server.py` (line 49)
 
 ```python
-# Current: large-v3 (~5GB)
+# large-v3 (~5GB)
 WHISPER_MODEL = whisperx.load_model("large-v3", DEVICE, compute_type="float16")
-
-# Smaller models for faster/less memory:
-WHISPER_MODEL = whisperx.load_model("base", DEVICE)      # ~140MB
-WHISPER_MODEL = whisperx.load_model("small", DEVICE)     # ~480MB
-WHISPER_MODEL = whisperx.load_model("medium", DEVICE)    # ~1.5GB
-```
-
-### 4. Modify UI Theme
-
-**File:** `web_app/templates/index.html` (line 2)
-
-```html
-<!-- Current: Light theme -->
-<html lang="en" data-theme="light">
-
-<!-- Dark theme -->
-<html lang="en" data-theme="dark">
-
-<!-- Other DaisyUI themes: corporate, retro, cyberpunk, etc. -->
-<html lang="en" data-theme="corporate">
-```
 
 ### 5. Add User Authentication
 
@@ -704,5 +691,4 @@ else:
 ```
 
 ## License
-
 Part of the EndoScribe project.

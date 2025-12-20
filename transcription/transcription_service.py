@@ -14,16 +14,12 @@ class TranscriptionConfig:
     WHISPERX = "whisperx"
     AZURE = "azure"
     def __init__(self):
-        # Default to Azure if credentials are available, otherwise WhisperX
         self.service = os.getenv("TRANSCRIPTION_SERVICE", "azure")
         self.azure_key = os.getenv("AZURE_SPEECH_KEY")
-        
-        # Auto-detect if Azure available
         if self.service == "azure" and not self.azure_key:
             print("Warning: AZURE_SPEECH_KEY not found. Falling back to WhisperX.")
             self.service = self.WHISPERX
     def use_azure(self) -> bool:
-        # Require a truthy/ non-empty AZURE key to consider Azure usable
         return self.service == self.AZURE and bool(self.azure_key)
     def use_whisperx(self) -> bool:
         return self.service == self.WHISPERX
@@ -44,20 +40,8 @@ def transcribe_unified(
     **kwargs
 ) -> List[Dict]:
     """
-    Unified transcription function that works with both WhisperX and Azure.
-    Automatically selects the transcription service based on:
-    1. The 'service' parameter (if provided)
-    2. The TRANSCRIPTION_SERVICE environment variable
-    3. Availability of Azure credentials (falls back to WhisperX if not available)
-    
-    Args:
-        audio_file (str): Path to audio file
-        service (str, optional): Force specific service: "azure" or "whisperx"
-        whisper_model (str): WhisperX model to use (only for WhisperX)
-        device (str, optional): Device for WhisperX ("cuda", "cpu", "mps")
-        enable_diarization (bool): Enable speaker diarization
-        save (bool): Whether to save transcription to CSV, default True. set False for live
-        **kwargs: Additional service-specific arguments
+    Unified transcription function that works with both whisperx and Azure.
+    Selects transcription service based on config or forced parameter.
     Returns:
         dict: {
             "text": str,              # Full transcript
@@ -101,7 +85,6 @@ def transcribe_unified(
             from transcription.azure_transcribe import transcribe_azure
             result = transcribe_azure(
                 audio_file=audio_fp,
-                enable_diarization=enable_diarization,
                 procedure_type=procedure_type,
                 phrase_list=phrase_list,
                 save=save,
@@ -138,15 +121,6 @@ def transcribe_unified(
         results.append(result)
 
     return results
-
-# # Convenience function that maintains backward compatibility
-# def transcribe(audio_file: str, **kwargs) -> Dict:
-#     """
-#     Simple transcribe function with automatic service selection.
-#     Drop-in replacement for existing transcribe functions.
-#     """
-#     res = transcribe_unified(audio_files=[audio_file], **kwargs)
-#     return res[0] if res else {"text": "", "segments": [], "duration": 0.0}
 
 if __name__ == "__main__":
     """

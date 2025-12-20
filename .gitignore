@@ -15,7 +15,9 @@ transcription/recordings
 transcription/fine_tune_whisper.ipynb
 transcription/results
 
+# Web app
 web_app/uploads
+web_app/results
 
 # PEP Risk
 pep_risk/recordings

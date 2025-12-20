@@ -30,11 +30,32 @@ torch.serialization.add_safe_globals([
     Any, Dict, List, Tuple, Optional, list, dict, collections.defaultdict, int, float, omegaconf.nodes.AnyNode, omegaconf.base.Metadata, set, tuple, torch.torch_version.TorchVersion, 
 ])
 
-# Filter external library warnings that we can't control
+
+def _convert_bytes_to_pcm16le_16k(input_bytes: bytes) -> bytes:
+    """
+    Convert an audio blob (webm/ogg/mp3/etc) in bytes to raw PCM16LE 16k mono using ffmpeg.
+    This is a blocking call and intended to be run in a thread executor via asyncio to avoid blocking the event loop.
+    Returns raw PCM bytes to write to Azure PushAudioInputStream.
+    """
+    try:
+        import subprocess
+        cmd = [
+            "ffmpeg", "-y", "-i", "-", "-f", "s16le", "-acodec", "pcm_s16le",
+            "-ac", "1", "-ar", "16000", "-"
+        ]
+        proc = subprocess.run(cmd, input=input_bytes, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if proc.returncode != 0:
+            raise RuntimeError(f"ffmpeg failed: {proc.stderr.decode('utf-8', errors='ignore')}")
+        return proc.stdout
+    except Exception as e:
+        print(f"Error converting audio bytes to PCM: {e}")
+        raise
+
+# External library warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="pyannote.audio.core.io")
 warnings.filterwarnings("ignore", category=UserWarning, module="speechbrain.utils.torch_audio_backend")
 
-# Add project root to path for imports
+# Project root to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
 
 from web_app.models import (
@@ -42,8 +63,8 @@ from web_app.models import (
     ProcessResponse,
     HealthResponse,
     ProcedureType,
-    WebSocketMessage
 )
+from pydantic import BaseModel
 from llm.llm_client import LLMClient
 from processors import ColProcessor, ERCPProcessor, EUSProcessor, EGDProcessor
 from transcription.transcription_service import TranscriptionConfig, transcribe_unified
@@ -58,10 +79,8 @@ from data_models.data_models import (
 from pydantic import ValidationError
 from web_app.config import CONFIG
 
-# Setup directories
 BASE_DIR = Path(__file__).parent
-
-# Use persistent volumes in production (Fly.io), local dirs in development
+# Use persistent volumes in production (Fly.io), local in dev
 if os.getenv("FLY_APP_NAME"):
     # Production: use persistent volume
     UPLOAD_DIR = Path("/data/uploads")
@@ -78,9 +97,54 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Transcription configuration (choose between 'azure' and 'whisperx')
+# Session storage (json) so saved notes survive process restarts
+SESSIONS_STORE_DIR = RESULTS_DIR / "sessions"
+SESSIONS_STORE_DIR.mkdir(parents=True, exist_ok=True)
+
+def _session_store_path(session_id: str) -> Path:
+    return SESSIONS_STORE_DIR / f"{session_id}.json"
+
+def _persist_session_record(session_id: str, record: Dict[str, Any]) -> None:
+    """Atomically persist a session record to disk."""
+    fp = _session_store_path(session_id)
+    tmp = fp.with_suffix(fp.suffix + ".tmp")
+    record = dict(record)
+    record["session_id"] = session_id
+    record["updated_at"] = datetime.now().isoformat()
+    tmp.parent.mkdir(parents=True, exist_ok=True)
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(record, f, ensure_ascii=False, indent=2, default=str)
+    os.replace(tmp, fp)
+
+def _load_persisted_session_record(session_id: str) -> Optional[Dict[str, Any]]:
+    fp = _session_store_path(session_id)
+    if not fp.exists():
+        return None
+    try:
+        with open(fp, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Failed to load session {session_id} from disk: {e}")
+        return None
+
+def _list_persisted_session_records() -> List[Dict[str, Any]]:
+    records: List[Dict[str, Any]] = []
+    try:
+        for fp in SESSIONS_STORE_DIR.glob("*.json"):
+            try:
+                with open(fp, "r", encoding="utf-8") as f:
+                    rec = json.load(f)
+                    if isinstance(rec, dict) and rec.get("session_id"):
+                        records.append(rec)
+            except Exception:
+                continue
+    except Exception as e:
+        print(f"Failed to list persisted sessions: {e}")
+    return records
+
+# Transcription configuration ('azure', 'whisperx')
 TRANSCRIPTION_CONFIG = TranscriptionConfig()
-# Allow explicit override via TRANSCRIPTION_SERVICE env var; otherwise rely on TranscriptionConfig auto-detection
+# Allow explicit override otherwise rely on TranscriptionConfig auto-det
 if os.getenv("TRANSCRIPTION_SERVICE"):
     TRANSCRIPTION_CONFIG.service = os.getenv("TRANSCRIPTION_SERVICE")
 if TRANSCRIPTION_CONFIG.use_azure():
@@ -99,6 +163,12 @@ SESSIONS: Dict[str, Dict] = {}
 
 last_activity_time = time.time()
 idle_check_task = None
+
+class SaveSessionRequest(BaseModel):
+    note_content: str
+    procedure_type: Optional[str] = None
+    transcript: Optional[str] = None
+    results: Optional[Dict[str, Any]] = None
 
 # Device configuration with detailed diagnostics
 if torch.cuda.is_available():
@@ -129,7 +199,7 @@ async def check_idle_and_shutdown():
             if idle_duration > CONFIG.IDLE_TIMEOUT_SECONDS:
                 print(f"\nNo activity for {idle_duration:.0f}s (timeout: {CONFIG.IDLE_TIMEOUT_SECONDS}s)")
                 print("Triggering graceful shutdown to scale to zero...")
-                # Try graceful shutdown via SIGTERM so FastAPI/uvicorn can cleanup
+                # graceful shutdown via SIGTERM so FastAPI/uvicorn can cleanup
                 os.kill(os.getpid(), signal.SIGTERM)
                 break
     except asyncio.CancelledError: # Task cancelled during shutdown - ignore
@@ -150,21 +220,30 @@ def concatenate_audio_chunks(chunk_paths, output_path):
     """
     try:
         from pydub import AudioSegment
-        
         if not chunk_paths:
             raise ValueError("No audio chunks to concatenate")
         
-        # Load first chunk
+        print(f"Loading first chunk: {chunk_paths[0]}")
         combined = AudioSegment.from_file(chunk_paths[0])
+        print(f"  Duration: {len(combined)}ms, Channels: {combined.channels}")
         
         # Concatenate remaining chunks
         for chunk_path in chunk_paths[1:]:
             audio = AudioSegment.from_file(chunk_path)
             combined += audio
         
-        # Export as WAV for better compatibility with WhisperX
-        combined.export(output_path, format="wav")
+        # proper format for speech recognition
+        combined = combined.set_channels(1)  # Mono
+        combined = combined.set_frame_rate(16000)  # 16kHz
+        combined = combined.set_sample_width(2)  # 16-bit
+        combined.export(output_path, format="wav") # wav
+        duration_sec = len(combined) / 1000.0
         print(f"Concatenated {len(chunk_paths)} chunks into {output_path}")
+        
+        # Quick diagnostic: check if audio is actually silent
+        if combined.dBFS < -60:
+            print(f"  WARNING: Audio appears very quiet (dBFS: {combined.dBFS:.1f}). Microphone may not be working.")
+        
         return output_path
         
     except Exception as e:
@@ -194,7 +273,6 @@ def transcribe_audio(audio_path: str, service: Optional[str] = None, **kwargs):
         save=False,
         **kwargs
     )
-
     if isinstance(results, list) and len(results) > 0:
         return results[0]
     # Fallback: return empty structure
@@ -224,7 +302,7 @@ async def lifespan(app: FastAPI):
             else:
                 compute_type = "int8"
 
-            #! Fix for PyTorch 2.6+ weights_only=True default
+            #! Fix for PyTorch 2.6+ weights_only=True default - for whisperx
             from pyannote.audio.core.model import Introspection
             from pyannote.audio.core.task import Specifications, Problem, Resolution
             torch.serialization.add_safe_globals([
@@ -253,7 +331,6 @@ async def lifespan(app: FastAPI):
 
     print("Initializing LLM handler...")
     try:
-        # Select LLM configuration via environment variable so deployments can choose between configs without editing code.
         llm_config = os.getenv("LLM_CONFIG", "openai_gpt4o")
         print(f"Using LLM config: {llm_config}")
         LLM_HANDLER = LLMClient.from_config(llm_config)
@@ -263,7 +340,6 @@ async def lifespan(app: FastAPI):
         traceback.print_exc()
         LLM_HANDLER = None
 
-    # Initialize processors for all procedure types
     if LLM_HANDLER:
         print("Initializing processors...")
         try:
@@ -342,7 +418,6 @@ async def update_last_activity_http(request: Request, call_next):
         response = await call_next(request)
         return response
     finally:
-        # Also update after handling the request in case processing took time
         last_activity_time = time.time()
 
 # Setup static files - serve React build
@@ -437,8 +512,6 @@ async def gpu_info():
 async def websocket_transcribe(websocket: WebSocket):
     """
     WebSocket endpoint for real-time audio transcription
-
-    Protocol:
     1. Client sends JSON: {"type": "start", "session_id": "optional"}
     2. Client sends binary audio chunks (WebM, WAV, etc.)
     3. Server transcribes and sends back: {"type": "transcript", "data": {"text": "...", "session_id": "..."}}
@@ -457,15 +530,16 @@ async def websocket_transcribe(websocket: WebSocket):
         while True:
             try:
                 data = await websocket.receive()
-            except WebSocketDisconnect:
-                print(f"WebSocket disconnected for session {session_id}")
+            except (WebSocketDisconnect, RuntimeError) as e:
+                # Uvicorn may RuntimeError when receive() called after a disconnect message has been received. Treat this as a normal disconnect
+                print(f"WebSocket disconnected for session {session_id}: {e}")
                 break
             except Exception as e:
                 print(f"Error receiving WebSocket data from {client}: {e}")
                 traceback.print_exc()
                 break
 
-            # Handle text messages (control messages)
+            # Handle text (control messages)
             if "text" in data:
                 try:
                     print(f"WebSocket text message from {client}: {str(data['text'])[:200]}")
@@ -495,6 +569,75 @@ async def websocket_transcribe(websocket: WebSocket):
                             "last_transcribed_idx": 0,
                             "chunk_interval_ms": int(client_chunk_interval),
                         }
+
+                        # If using Azure Speech streaming, initialize per-session PushAudioInputStream
+                        if TRANSCRIPTION_CONFIG.use_azure():
+                            try:
+                                import azure.cognitiveservices.speech as speechsdk
+                                # create push stream and recognizer
+                                push_stream = speechsdk.audio.PushAudioInputStream()
+                                audio_input = speechsdk.audio.AudioConfig(stream=push_stream)
+                                speech_config = speechsdk.SpeechConfig(
+                                    subscription=os.getenv("AZURE_SPEECH_KEY"),
+                                    region=os.getenv("AZURE_SPEECH_REGION", "eastus")
+                                )
+
+                                recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_input)
+
+                                # capture event loop to schedule websocket sends from callback threads
+                                loop = asyncio.get_event_loop()
+
+                                def _recognized_cb(evt):
+                                    try:
+                                        result = evt.result
+                                        text = getattr(result, 'text', '')
+                                        if text:
+                                            # append to session transcripts
+                                            SESSIONS[session_id]["transcripts"].append(text)
+                                            # send partial/final transcripts to client via event loop
+                                            asyncio.run_coroutine_threadsafe(
+                                                websocket.send_json({
+                                                    "type": "transcript",
+                                                    "data": {"text": text, "session_id": session_id}
+                                                }),
+                                                loop
+                                            )
+                                    except Exception as e:
+                                        print(f"Azure recognized callback error: {e}")
+
+                                def _canceled_cb(evt):
+                                    try:
+                                        print(f"Azure recognition canceled: {getattr(evt, 'cancellation_details', None)}")
+                                    except Exception:
+                                        pass
+
+                                def _stopped_cb(evt):
+                                    try:
+                                        print(f"Azure recognition session stopped for {session_id}")
+                                    except Exception:
+                                        pass
+
+                                recognizer.recognized.connect(_recognized_cb)
+                                recognizer.canceled.connect(_canceled_cb)
+                                recognizer.session_stopped.connect(_stopped_cb)
+
+                                # start continuous recognition in background
+                                try:
+                                    recognizer.start_continuous_recognition()
+                                except Exception as e:
+                                    print(f"Failed to start Azure continuous recognition: {e}")
+
+                                # store azure objects on session for later use
+                                SESSIONS[session_id]["azure_push_stream"] = push_stream
+                                SESSIONS[session_id]["azure_recognizer"] = recognizer
+                                print(f"Initialized Azure streaming recognizer for session {session_id}")
+                            except Exception as e:
+                                print(f"Failed to initialize Azure streaming recognizer: {e}")
+                                await websocket.send_json({
+                                    "type": "error",
+                                    "message": f"Azure initialization failed: {e}",
+                                    "session_id": session_id
+                                })
                         await websocket.send_json({
                             "type": "status",
                             "message": "Session started",
@@ -503,12 +646,38 @@ async def websocket_transcribe(websocket: WebSocket):
                         print(f"Started session {session_id}")
 
                     elif msg_type == "end":
-                        await websocket.send_json({
-                            "type": "status",
-                            "message": "Session ended",
-                            "session_id": session_id
-                        })
-                        print(f"Ended session {session_id}")
+                        # Close any streaming recognizer (Azure) and send the final transcript
+                        if session_id and session_id in SESSIONS:
+                            session = SESSIONS[session_id]
+                            # If Azure streaming is active, close push stream and stop recognizer
+                            if session.get("azure_push_stream") and session.get("azure_recognizer"):
+                                try:
+                                    print(f"Closing Azure push stream for {session_id}")
+                                    session["azure_push_stream"].close()
+                                except Exception as e:
+                                    print(f"Error closing azure push stream: {e}")
+                                try:
+                                    loop = asyncio.get_event_loop()
+                                    await loop.run_in_executor(None, session["azure_recognizer"].stop_continuous_recognition)
+                                except Exception as e:
+                                    print(f"Error stopping azure recognizer: {e}")
+
+                            final_transcript = " ".join(session["transcripts"])
+                            await websocket.send_json({
+                                "type": "final",
+                                "data": {
+                                    "text": final_transcript,
+                                    "session_id": session_id
+                                },
+                                "message": "Session ended"
+                            })
+                            print(f"Ended session {session_id}, sent final transcript ({len(final_transcript)} chars)")
+                        else:
+                            await websocket.send_json({
+                                "type": "status",
+                                "message": "Session ended",
+                                "session_id": session_id
+                            })
                         break
 
                 except json.JSONDecodeError:
@@ -546,6 +715,22 @@ async def websocket_transcribe(websocket: WebSocket):
                 audio_data = data["bytes"]
                 print(f"Received {len(audio_data)} bytes of audio for session {session_id}")
 
+                session = SESSIONS[session_id]
+
+                # REAL TIME: If Azure push stream exists for this session, convert the incoming blob to PCM16LE 16k and write directly into the PushAudioInputStream.
+                if session.get("azure_push_stream"):
+                    try:
+                        loop = asyncio.get_event_loop()
+                        pcm_bytes = await loop.run_in_executor(None, _convert_bytes_to_pcm16le_16k, audio_data)
+                        try:
+                            session["azure_push_stream"].write(pcm_bytes)
+                        except Exception as e:
+                            print(f"Failed to write to Azure push stream for {session_id}: {e}")
+                        # Don't perform file-saving/buffering when streaming
+                        continue
+                    except Exception as e:
+                        print(f"Azure streaming conversion/push failed: {e}")
+
                 # Save audio chunk to temporary file
                 chunk_id = str(uuid.uuid4())
                 audio_path = UPLOAD_DIR / f"{session_id}_{chunk_id}.webm"
@@ -553,7 +738,6 @@ async def websocket_transcribe(websocket: WebSocket):
                 with open(audio_path, "wb") as f:
                     f.write(audio_data)
 
-                session = SESSIONS[session_id]
                 session["chunks"].append(str(audio_path))
                 session["buffer_chunks"].append(str(audio_path))
                 
@@ -561,8 +745,6 @@ async def websocket_transcribe(websocket: WebSocket):
                 if session["buffer_start_time"] is None:
                     session["buffer_start_time"] = time.time()
 
-                # NEW BUFFERING LOGIC (similar to pep_risk's approach of transcribing complete files)
-                # Check if we should transcribe the buffered chunks
                 buffer_duration = (time.time() - session["buffer_start_time"]) * 1000
                 should_transcribe = buffer_duration >= CONFIG.TRANSCRIPTION_BUFFER_DURATION_MS
                 
@@ -616,7 +798,6 @@ async def websocket_transcribe(websocket: WebSocket):
 
                         # Run transcription in thread pool to avoid blocking event loop
                         loop = asyncio.get_event_loop()
-                        # If idle-shutdown is enabled, start keepalive to refresh last_activity_time
                         if CONFIG.ENABLE_IDLE_SHUTDOWN:
                             keepalive_task = asyncio.create_task(_transcription_keepalive())
                         try:
@@ -641,9 +822,7 @@ async def websocket_transcribe(websocket: WebSocket):
                         print(f"Sent buffered transcript ({len(transcript_text)} chars): {transcript_text[:100]}...")
 
                         # Reset buffer for next transcription with overlap
-                        # Keep last few chunks for context continuity (overlap)
                         chunk_interval_ms = session.get("chunk_interval_ms", CONFIG.DEFAULT_CHUNK_INTERVAL_MS)
-                        # Compute how many chunks correspond to the configured overlap window
                         try:
                             overlap_chunks = int(CONFIG.TRANSCRIPTION_BUFFER_OVERLAP_MS / max(1, int(chunk_interval_ms)))
                         except Exception:
@@ -655,7 +834,6 @@ async def websocket_transcribe(websocket: WebSocket):
                             session["buffer_chunks"] = []
                         session["buffer_start_time"] = time.time()
                         
-                        # Clean up concatenated file
                         try:
                             os.remove(concat_path)
                         except:
@@ -705,20 +883,15 @@ async def websocket_transcribe(websocket: WebSocket):
 async def process_transcript(request: ProcessRequest):
     """
     Process a transcript and extract structured data
-
     Args:
         request: ProcessRequest with transcript, procedure_type, and optional session_id
-
     Returns:
         ProcessResponse with extracted structured data
     """
     start_time = time.time()
 
-    # Validate LLM is initialized
     if LLM_HANDLER is None:
         raise HTTPException(status_code=503, detail="LLM handler not initialized")
-
-    # Get processor for procedure type
     processor = PROCESSOR_MAP.get(request.procedure_type.value)
     if not processor:
         raise HTTPException(
@@ -727,9 +900,7 @@ async def process_transcript(request: ProcessRequest):
         )
 
     try:
-        # Build messages for LLM
         import pandas as pd
-
         # Create a single-row dataframe with the transcript
         transcript_df = pd.DataFrame([{
             "participant_id": request.session_id or "web_session",
@@ -750,24 +921,18 @@ async def process_transcript(request: ProcessRequest):
                     fewshot_examples_dir="./prompts/col/fewshot",
                     prefix="col"
                 )
-
                 if LLM_HANDLER.model_type in ["openai", "anthropic"]:
                     col_response = LLM_HANDLER.chat(col_messages)
                 else:
                     col_response = LLM_HANDLER.chat(col_messages)[0].outputs[0].text.strip()
-
-                # Parse JSON response
                 print(f"Col response: {col_response[:500]}")  
                 start_idx = col_response.find("{")
                 end_idx = col_response.rfind("}")
-
                 if start_idx == -1 or end_idx == -1 or start_idx > end_idx:
                     raise ValueError(f"No valid JSON found in response. Response: {col_response[:500]}")
-
                 json_str = col_response[start_idx:end_idx + 1]
                 col_json = json.loads(json_str)
-                
-                # validate with Pydantic model
+
                 try:
                     col_data_validated = ColonoscopyData(**col_json)
                     col_data = col_data_validated.model_dump()
@@ -776,9 +941,7 @@ async def process_transcript(request: ProcessRequest):
                     print(f"Colonoscopy validation errors: {e}")
                     # Fall back to basic validation
                     col_data = processor.parse_validate_colonoscopy_response(col_json, row["participant_id"])
-                
                 col_outputs.append(col_data)
-
                 # Polyp-level processing
                 polyp_messages = processor.build_polyp_messages(
                     row["pred_transcript"],
@@ -786,23 +949,17 @@ async def process_transcript(request: ProcessRequest):
                     polyp_count=col_json.get("polyp_count", 0),
                     system_prompt_fp=processor.system_prompt_fp
                 )
-
                 if LLM_HANDLER.model_type in ["openai", "anthropic"]:
                     polyp_response = LLM_HANDLER.chat(polyp_messages)
                 else:
                     polyp_response = LLM_HANDLER.chat(polyp_messages)[0].outputs[0].text.strip()
-
-                # Extract JSON array from response (handle cases where LLM adds explanatory text)
                 start_idx = polyp_response.find("[")
                 end_idx = polyp_response.rfind("]")
-
                 if start_idx == -1 or end_idx == -1 or start_idx > end_idx:
                     raise ValueError(f"No valid JSON array found in polyp response. Response: {polyp_response[:500]}")
-
                 json_str = polyp_response[start_idx:end_idx + 1]
                 polyps_json = json.loads(json_str)
-                
-                # validate with Pydantic model
+            
                 validated_polyps = []
                 for idx, polyp_json in enumerate(polyps_json):
                     try:
@@ -813,7 +970,7 @@ async def process_transcript(request: ProcessRequest):
                         validated_polyps.append(polyp_dict)
                     except ValidationError as e:
                         print(f"Polyp {idx+1} validation errors: {e}")
-                        # Fall back to basic validation if Pydantic validation fails
+                        # Fall back to basic validation 
                         polyp_dict = polyp_json.copy()
                         polyp_dict["participant_id"] = row["participant_id"]
                         polyp_dict["polyp_id"] = idx
@@ -827,17 +984,15 @@ async def process_transcript(request: ProcessRequest):
             }
 
         elif request.procedure_type == ProcedureType.PEP_RISK:
-            # PEP risk extraction and prediction
-            # 1. Extract risk factors from transcript using LLM
+            # PEP risk extraction and prediction #TODO
+            # 1. Extract risk factors
             # 2. Combine with manual inputs
-            # 3. Feed to R PEPRISC prediction model
-            
+            # 3. Feed to R model
             from pep_risk.peprisc_model import predict_pep_risk
             
             outputs = []
 
             for _, row in transcript_df.iterrows():
-                # Use the extract_pep_from_transcript method from ERCPProcessor
                 llm_result = processor.extract_pep_from_transcript(
                     row["pred_transcript"],
                     filename=row["participant_id"]
@@ -846,38 +1001,35 @@ async def process_transcript(request: ProcessRequest):
 
             llm_extracted_data = outputs[0] if outputs else {}
             
-            # Get manual data if provided
+            #?? manual data incorporate
             manual_data = None
             if request.manual_pep_data:
                 manual_data = request.manual_pep_data.model_dump(exclude_none=True)
-            
-            # Run prediction model
+            # prediction model
             prediction_result = predict_pep_risk(
                 manual_data=manual_data,
                 llm_extracted_data=llm_extracted_data
             )
             
-            # Combine everything for the response
             result_data = {
                 "llm_extracted": llm_extracted_data,
                 "manual_input": manual_data,
                 "prediction": prediction_result
             }
-            
-            # Add risk score and category to top level for easy access
+            # Add risk score and category
             pep_risk_score = prediction_result.get("risk_score") if prediction_result.get("success") else None
             pep_risk_category = prediction_result.get("risk_category") if prediction_result.get("success") else None
 
         else:
-            # Other procedure types (EUS, ERCP, EGD)
+            # EUS, ERCP, EGD
             outputs = []
-
             for _, row in transcript_df.iterrows():
                 # Determine the correct prompt field definitions file
                 prompt_files = {
-                    "eus": "./prompts/eus/eus.txt",
-                    "ercp": "./prompts/ercp/ercp.txt",
-                    "egd": "./prompts/egd/egd.txt"
+                    "ercp": "./prompts/ercp/generated_ercp_base_prompt.txt",
+                    "col": "./prompts/col/generated_col_base_prompt.txt",
+                    "egd": "./prompts/egd/generated_egd_base_prompt.txt",
+                    "eus": "./prompts/eus/generated_eus_base_prompt.txt",
                 }
 
                 messages = processor.build_messages(
@@ -892,16 +1044,14 @@ async def process_transcript(request: ProcessRequest):
                 else:
                     response = LLM_HANDLER.chat(messages)[0].outputs[0].text.strip()
 
-                # Parse JSON response
                 response_json = json.loads(response[response.find("{"): response.rfind("}") + 1])
                 
-                # VALIDATE with appropriate Pydantic model
+                # VALIDATE with Pydantic model
                 procedure_models = {
                     "eus": EUSData,
                     "ercp": ERCPData,
                     "egd": EGDData
                 }
-                
                 model_class = procedure_models.get(request.procedure_type.value)
                 if model_class:
                     try:
@@ -924,12 +1074,11 @@ async def process_transcript(request: ProcessRequest):
                         "model": LLM_HANDLER.model_type,
                         **response_json
                     })
-
             result_data = outputs[0] if outputs else {}
 
         processing_time = time.time() - start_time
         
-        # Prepare response with optional PEP risk scores
+        ### Prep + populate procedure-specific fields for frontend
         response_data = ProcessResponse(
             success=True,
             procedure_type=request.procedure_type.value,
@@ -937,11 +1086,66 @@ async def process_transcript(request: ProcessRequest):
             data=result_data,
             processing_time_seconds=round(processing_time, 2)
         )
+        if request.procedure_type == ProcedureType.COL:
+            response_data.colonoscopy_data = result_data.get("colonoscopy")
+            response_data.polyps_data = result_data.get("polyps")
+        elif request.procedure_type == ProcedureType.PEP_RISK:
+            response_data.pep_risk_data = result_data.get("llm_extracted")
+            response_data.pep_risk_score = pep_risk_score if 'pep_risk_score' in locals() else None
+            response_data.pep_risk_category = pep_risk_category if 'pep_risk_category' in locals() else None
+        else:
+            # EUS, ERCP, EGD
+            response_data.procedure_data = result_data
+
+
+        ### DRAFTER PLAIN TEXT with templating/drafter templates
+        try:
+            from templating.drafter_engine import build_report_sections
+            proc = request.procedure_type.value
+            cfg_fp = None
+            candidate_fp = BASE_DIR.parent / 'drafters' / 'procedures' / proc / f'generated_{proc}_base.yaml'
+            if candidate_fp.exists():
+                cfg_fp = str(candidate_fp)
+
+            if cfg_fp:
+                # Prepare data for templates
+                data_for_templates = response_data.procedure_data or response_data.data or result_data or {}
+                try:
+                    sections = build_report_sections(cfg_fp, data_for_templates)
+                    # Join non-empty sections with headings
+                    parts = []
+                    for k in ['indications', 'history', 'description_of_procedure', 'findings', 'ercp_quality_metrics', 'impressions', 'recommendations']:
+                        v = sections.get(k)
+                        if v and v.strip():
+                            parts.append(f"## {k.replace('_', ' ').title()}\n" + v.strip())
+                    rendered_note = "\n\n".join(parts).strip()
+                    if rendered_note:
+                        response_data.formatted_note = rendered_note
+                except Exception as e:
+                    print(f"Note rendering skipped: {e}")
+        except Exception:
+            # templating not available or failed; ignore and continue
+            pass
         
-        # Add PEP risk scores if this was a PEP_RISK prediction
-        if request.procedure_type == ProcedureType.PEP_RISK and 'pep_risk_score' in locals():
-            response_data.pep_risk_score = pep_risk_score
-            response_data.pep_risk_category = pep_risk_category
+        if request.session_id and request.session_id in SESSIONS:
+            SESSIONS[request.session_id]["processed"] = True
+            SESSIONS[request.session_id]["procedure_type"] = request.procedure_type.value
+            SESSIONS[request.session_id]["results"] = response_data.model_dump()
+
+            # Persist final outputs so History loads without re-running the LLM
+            try:
+                _persist_session_record(
+                    request.session_id,
+                    {
+                        "procedure_type": request.procedure_type.value,
+                        "created_at": SESSIONS[request.session_id].get("started_at", datetime.now()).isoformat(),
+                        "processed": True,
+                        "transcript": request.transcript,
+                        "results": SESSIONS[request.session_id]["results"],
+                    },
+                )
+            except Exception as e:
+                print(f"Failed to persist session {request.session_id}: {e}")
         
         return response_data
 
@@ -959,8 +1163,113 @@ async def process_transcript(request: ProcessRequest):
         )
 
 
+@app.get("/api/sessions")
+async def list_sessions():
+    """List all active and completed sessions"""
+    by_id: Dict[str, Dict[str, Any]] = {}
+
+    # Persisted sessions first (survive restarts)
+    for rec in _list_persisted_session_records():
+        sid = rec.get("session_id")
+        if not sid:
+            continue
+        by_id[sid] = {
+            "session_id": sid,
+            "procedure_type": rec.get("procedure_type", "unknown"),
+            "created_at": rec.get("created_at") or rec.get("updated_at") or datetime.now().isoformat(),
+            "processed": bool(rec.get("processed", False)),
+            "transcript": rec.get("transcript", "") or "",
+        }
+
+    # In-memory sessions (live / current)
+    for session_id, session_data in SESSIONS.items():
+        # Do not overwrite persisted with less complete data.
+        if session_id in by_id:
+            continue
+        by_id[session_id] = {
+            "session_id": session_id,
+            "procedure_type": session_data.get("procedure_type", "unknown"),
+            "created_at": session_data.get("started_at", datetime.now()).isoformat(),
+            "processed": session_data.get("processed", False),
+            "transcript": " ".join(session_data.get("transcripts", [])),
+        }
+
+    sessions_list = list(by_id.values())
+    sessions_list.sort(key=lambda x: x.get("created_at") or "", reverse=True)
+    return sessions_list
+
+
+@app.get("/api/sessions/{session_id}")
+async def get_session(session_id: str):
+    """Get specific session data"""
+    rec = _load_persisted_session_record(session_id)
+    if rec:
+        return {
+            "session_id": session_id,
+            "procedure_type": rec.get("procedure_type", "unknown"),
+            "created_at": rec.get("created_at") or rec.get("updated_at") or datetime.now().isoformat(),
+            "processed": bool(rec.get("processed", False)),
+            "transcript": rec.get("transcript", "") or "",
+            "results": rec.get("results"),
+        }
+
+    session_data = SESSIONS.get(session_id)
+    if not session_data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {
+        "session_id": session_id,
+        "procedure_type": session_data.get("procedure_type", "unknown"),
+        "created_at": session_data.get("started_at", datetime.now()).isoformat(),
+        "processed": session_data.get("processed", False),
+        "transcript": " ".join(session_data.get("transcripts", [])),
+        "results": session_data.get("results"),
+    }
+
+
+@app.post("/api/sessions/{session_id}/save")
+async def save_session(session_id: str, request: SaveSessionRequest):
+    """Save/finalize the note content for a session without re-running the LLM."""
+    # Prefer persisted record if it exists.
+    rec = _load_persisted_session_record(session_id) or {}
+
+    # Merge in-memory if present.
+    mem = SESSIONS.get(session_id) or {}
+    created_at = (
+        rec.get("created_at")
+        or rec.get("updated_at")
+        or mem.get("started_at", datetime.now()).isoformat()
+    )
+    procedure_type = rec.get("procedure_type") or mem.get("procedure_type") or request.procedure_type or "unknown"
+    transcript = rec.get("transcript") or (" ".join(mem.get("transcripts", [])) if mem else "") or request.transcript or ""
+
+    # Results: prefer existing persisted, else in-memory, else provided.
+    results = rec.get("results") or mem.get("results") or request.results
+    if not isinstance(results, dict):
+        results = {}
+
+    # Save the final note into formatted_note.
+    results["formatted_note"] = request.note_content
+
+    record = {
+        "procedure_type": procedure_type,
+        "created_at": created_at,
+        "processed": True,
+        "transcript": transcript,
+        "results": results,
+    }
+    _persist_session_record(session_id, record)
+
+    # Keep in-memory session consistent when present.
+    if session_id in SESSIONS:
+        SESSIONS[session_id]["processed"] = True
+        SESSIONS[session_id]["procedure_type"] = procedure_type
+        SESSIONS[session_id]["results"] = results
+
+    return {"ok": True}
+
+
 if __name__ == "__main__":
     import uvicorn
-    #! Respect the `PORT` environment variable (set by Fly via `fly.toml`) so app listens on the expected internal port (default 8000).
+    #! use `PORT` environment variable set by Fly `fly.toml` so app listens on the expected internal port, default 8000
     port = int(os.getenv("PORT", "8000"))
     uvicorn.run(app, host="0.0.0.0", port=port)

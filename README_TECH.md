@@ -7,8 +7,12 @@ last updated: 12/13/25
 python templating/generate_from_fields.py prompts/ercp/yaml/fields_base.yaml
   # This outputs: LLM prompt (generated_{proc}_prompt.txt), drafter model (generated_{proc}.yaml), data model (generated_{proc}_model.py))
 
-  # Test the generated template with dummy data
-  python templating/demo_ercp_yaml_pipeline.py
+  # Test the generated template with dummy data:
+  python templating/demo_ercp_yaml_pipeline.py # default to ercp_base
+  # Select by procedure_type or module_id
+  python templating/demo_ercp_yaml_pipeline.py --proc=stone_extraction --demo_data_json=0.2stone.json5
+  # Give direct path to yaml
+  python templating/demo_ercp_yaml_pipeline.py prompts/ercp/yaml/modules/0.2_stone_extraction.yaml
 
 # Transcribe audio file(s)
   python -m transcription.transcription_service --procedure_type=ercp --audio_files transcription/recordings/ercp/pdstone/pdstone01.wav transcription/recordings/ercp/pdstone/pdstone02.wav
@@ -42,6 +46,7 @@ python drafter.py --procedure=ercp --pred_csv=azure_ext.csv --output_dir=drafter
 field_groups:
   my_section:
     report_section: "section_name"
+    report_subsection: "subsection_name"  # for overrides; these must be unique
     template: "Text with {{ field_name }}."
     fields:
       - name: field_name

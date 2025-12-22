@@ -2,14 +2,15 @@ import Layout from "@/components/Layout";
 import { useEffect, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, Printer, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { processTranscript, ProcessResponse, getSession, saveSessionNote } from "@/lib/api";
 import { procedureLabels } from "@/lib/constants";
+import Header from "@/components/note/Header";
+import PepRiskTab from "@/components/note/PepRiskTab";
 
 export default function ProcedureSummary() {
   const [, params] = useRoute("/procedure-summary/:sessionId");
@@ -17,6 +18,7 @@ export default function ProcedureSummary() {
   const { toast } = useToast();
 
   const [sessionId, setSessionId] = useState<string>("");
+  const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [procedureType, setProcedureType] = useState<string>("");
   const [transcript, setTranscript] = useState<string>("");
   const [noteContent, setNoteContent] = useState("");
@@ -33,6 +35,7 @@ export default function ProcedureSummary() {
       setSessionId(parsed.sessionId);
       setProcedureType(parsed.procedureType);
       setTranscript(parsed.transcript || "");
+      setCreatedAt(parsed.createdAt || parsed.created_at || null);
       setAllowAutoProcess(true);
       setSessionLoadFinished(true);
     } else if (sessionIdFromRoute) {
@@ -43,6 +46,7 @@ export default function ProcedureSummary() {
           if (sess) {
             setProcedureType(sess.procedure_type || "");
             setTranscript(sess.transcript || "");
+            setCreatedAt(sess.created_at || null);
             if (sess.results) {
               setResults(sess.results as ProcessResponse);
               setNoteContent((sess.results.formatted_note as string) || (sess.results.raw_output as string) || "");
@@ -81,8 +85,7 @@ export default function ProcedureSummary() {
     },
   });
 
-  // Only auto-process when coming directly from dictation flow.
-  // When opened from History, never re-run the LLM automatically.
+  // Only auto-process when coming directly from dictation flow
   useEffect(() => {
     if (!allowAutoProcess) return;
     if (!sessionLoadFinished) return;
@@ -145,46 +148,16 @@ export default function ProcedureSummary() {
   return (
     <Layout>
       <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-        {/* header */}
-        <div className="flex flex-col gap-4">
-          <Button
-            variant="ghost"
-            onClick={() => setLocation("/")}
-            className="pl-0 hover:bg-transparent hover:text-primary self-start"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to History
-          </Button>
-
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/50 pb-6">
-            <div>
-              <div className="flex items-center gap-3 mb-1">
-                <h1 className="text-3xl font-bold text-primary">Procedure Summary</h1>
-                <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold uppercase tracking-wide">
-                  Draft
-                </span>
-              </div>
-              <p className="text-muted-foreground">
-                {procedureLabel} • Session {sessionId.slice(0, 8)}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" className="bg-white">
-                <Printer className="w-4 h-4 mr-2" />
-                Print
-              </Button>
-              {!results && sessionLoadFinished && (
-                <Button variant="outline" className="bg-white" onClick={handleRegenerate} disabled={processMutation.isPending}>
-                  Re-generate note
-                </Button>
-              )}
-              <Button className="bg-primary shadow-lg shadow-primary/20" onClick={handleSave}>
-                <Save className="w-4 h-4 mr-2" />
-                Finalize Note
-              </Button>
-            </div>
-          </div>
-        </div>
+        <Header
+          procedureLabel={procedureLabel}
+          sessionId={sessionId}
+          generatedAt={createdAt}
+          results={results}
+          sessionLoadFinished={sessionLoadFinished}
+          handleRegenerate={handleRegenerate}
+          handleSave={handleSave}
+          processMutation={processMutation}
+        />
 
         {/* Processing State */}
         {processMutation.isPending && (
@@ -242,8 +215,7 @@ export default function ProcedureSummary() {
             <Card className="shadow-sm border-none ring-1 ring-border/50">
               <CardHeader className="bg-muted/20 border-b border-border/50">
                 <CardTitle className="text-lg flex justify-between items-center">
-                  <span>Clinical Documentation</span>
-                  <span className="text-xs font-normal text-muted-foreground">Auto-generated</span>
+                  Clinical Documentation
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -259,8 +231,8 @@ export default function ProcedureSummary() {
 
           <TabsContent value="fields">
             <Card className="shadow-sm">
-              <CardHeader className="bg-secondary/5 border-b border-secondary/10">
-                <CardTitle className="text-secondary-foreground">
+              <CardHeader className="bg-muted/20 border-b border-border/50">
+                <CardTitle className="text-lg flex justify-between items-center">
                   LLM-Extracted Fields (Debug View)
                 </CardTitle>
               </CardHeader>
@@ -341,33 +313,7 @@ export default function ProcedureSummary() {
 
           {isERCP && (
             <TabsContent value="risk">
-              <Card className="shadow-sm">
-                <CardHeader className="bg-amber-50 border-b border-amber-100">
-                  <CardTitle className="text-amber-900">Post-ERCP Pancreatitis (PEP) Risk Assessment</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  {typeof results?.pep_risk_score === 'number' ? (
-                    <div className="space-y-4">
-                      <div className="text-center">
-                        <div className="text-5xl font-bold text-amber-600">
-                          {results.pep_risk_score.toFixed(1)}%
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          Risk Level: <span className="font-semibold">{results.pep_risk_category}</span>
-                        </p>
-                      </div>
-                      <div className="bg-amber-50 p-4 rounded-lg">
-                        <p className="text-sm text-amber-900">
-                          This risk assessment is based on patient and procedure characteristics extracted from the transcript.
-                          Always use clinical judgment in conjunction with these automated assessments.
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">Not available.</p>
-                  )}
-                </CardContent>
-              </Card>
+              <PepRiskTab results={results} />
             </TabsContent>
           )}
         </Tabs>

@@ -51,14 +51,17 @@ def load_fields_config(fields_yaml_path: str) -> dict:
     # Handle $extends
     if '$extends' in config:
         base_rel_path = config['$extends']
+        # Resolve base path; first assume same dir
         base_path = os.path.normpath(os.path.join(os.path.dirname(fields_yaml_path), base_rel_path))
-        
+        # If e.g. subtype yaml is in modules/, try one level up
+        if not os.path.exists(base_path):
+            alt = os.path.normpath(os.path.join(os.path.dirname(fields_yaml_path), '..', base_rel_path))
+            if os.path.exists(alt):
+                base_path = alt
+
         if os.path.exists(base_path):
             base_config = load_fields_config(base_path)
-            
-            # Merge configs
-            merged = deepcopy(base_config)
-            
+            merged = deepcopy(base_config) # Merge configs
             # Override top-level keys
             for key, value in config.items():
                 if key == '$extends':
@@ -70,8 +73,9 @@ def load_fields_config(fields_yaml_path: str) -> dict:
                     merged['meta'].update(value)
                 else:
                     merged[key] = value
-            
             return merged
+        else:
+            print(f"Warning: base procedure yaml file not found for $extends='{base_rel_path}' (found {base_path}). Using current file ONLY.")
     
     return config
 
@@ -98,8 +102,9 @@ def generate_prompt_text(config: dict) -> str:
                 lines.append(f"{field_name}: {instruction}")
                 
     lines.append("\n###FURTHER INSTRUCTIONS############################")
-    lines.append("If the transcript contains spelling mistakes, use your domain expertise of endoscopy to correct them in your report. If there are self-corrections for a finding later in the transcript, include only the most recent correct information. For example, if the transcript has: 'There were no masses or polyps found. But I'm checking again and I now see a 6 mm polyp in the transverse colon.' The second statement is a correction, since polyps were later found. The actual polyps size in mm you should record is 6.")
-    lines.append("Return the result as a JSON file. Do not return any additional comments or explanation.")
+    lines.append("If the transcript contains spelling mistakes, use your domain expertise of endoscopy to correct them in your report. If there are self-corrections for a finding later in the transcript, include only the most recent correct information. For example, if the transcript has: 'There were no masses or polyps found. But I'm checking again and I now see a 6 mm polyp in the transverse colon.' The second statement is a correction. The actual polyps size in mm you should record is 6.")
+    #TODO structured output instead
+    lines.append("\nReturn the result as a JSON file. Do not return any additional comments or explanation.")
     
     return "\n".join(lines)
 
@@ -127,42 +132,39 @@ def generate_base_yaml(config: dict, procedure_meta: dict) -> str:
         'templates': {}
     }
     
-    # Group templates by report_section
+    # Group templates by report_section. Allow multiple groups to share the same
+    # report_subsection by collecting templates in lists instead of overwriting.
     section_templates = {}
-    
+
     for group_name, group_data in config.get('field_groups', {}).items():
         section = group_data.get('report_section')
         if section and 'template' in group_data:
             subsection = group_data.get('report_subsection')
-            
+
+            # Ensure section entry is a dict mapping subsection -> list_of_templates
+            if section not in section_templates:
+                section_templates[section] = {}
+
             if subsection:
-                # For subsections like scout_film within findings
-                if section not in section_templates:
-                    section_templates[section] = {}
-                if not isinstance(section_templates[section], dict):
-                    section_templates[section] = {'_main': section_templates[section]}
-                section_templates[section][subsection] = group_data['template'].strip()
+                section_templates[section].setdefault(subsection, []).append(group_data['template'].strip())
             else:
-                # Top-level section
-                if section in section_templates and isinstance(section_templates[section], dict):
-                    # Already has subsections, add as _main
-                    section_templates[section]['_main'] = group_data['template'].strip()
-                else:
-                    section_templates[section] = group_data['template'].strip()
+                # Use special '_main' key for top-level section templates
+                section_templates[section].setdefault('_main', []).append(group_data['template'].strip())
     
     # Flatten into templates
     for section, content in section_templates.items():
-        if isinstance(content, dict):
-            # Has subsections - combine them
-            parts = []
-            if '_main' in content:
-                parts.append(content['_main'])
-            for subsection, template in content.items():
-                if subsection != '_main':
-                    parts.append(template)
-            base['templates'][section] = '\n\n'.join(parts)
-        else:
-            base['templates'][section] = content
+        # content is a dict mapping subsection -> list_of_templates
+        parts = []
+        # add main templates first (preserve order)
+        if '_main' in content:
+            parts.extend(content['_main'])
+        # then add subsections in insertion order
+        for subsection, templates_list in content.items():
+            if subsection == '_main':
+                continue
+            parts.extend(templates_list)
+
+        base['templates'][section] = '\n\n'.join(parts)
     
     # Convert to YAML string
     return yaml.dump(base, sort_keys=False, allow_unicode=True, default_flow_style=False)
@@ -289,17 +291,26 @@ def generate_single(fields_yaml_path: str, proc_type: str = None):
     print(f"Loading field definitions from: {fields_yaml_path}")
     config = load_fields_config(fields_yaml_path)
     
-    # Determine procedure type from config or filename
+    # Determine procedure type and group from config or filename
     if proc_type is None:
         proc_type = config.get('meta', {}).get('procedure_type', 'unknown')
-    
+    proc_group = config.get('meta', {}).get('procedure_group', proc_type)
+    meta = config.get('meta', {}) or {}
+    is_subtype = False
+    if 'module_id' in meta:
+        is_subtype = True
+
     # Generate prompt
     prompt_text = generate_prompt_text(config)
-    base_name = os.path.basename(fields_yaml_path).replace('.yaml', '')
-    prompt_output = fields_yaml_path.replace('yaml/' + base_name + '.yaml', f'generated_{proc_type}_prompt.txt')
+    prompt_dir = os.path.join('prompts', proc_group)
+    if is_subtype:
+        prompt_dir = os.path.join(prompt_dir, 'subtypes')        
+
+    os.makedirs(prompt_dir, exist_ok=True)
+    prompt_output = os.path.join(prompt_dir, f'generated_{proc_type}_prompt.txt')
     with open(prompt_output, 'w') as f:
         f.write(prompt_text)
-    print(f"✓ Generated prompt: {prompt_output}")
+    print(f"  Generated prompt: {prompt_output}")
     
     # Generate yaml for Drafter
     procedure_meta = config.get('meta', {
@@ -312,7 +323,7 @@ def generate_single(fields_yaml_path: str, proc_type: str = None):
     os.makedirs(os.path.dirname(base_output), exist_ok=True)
     with open(base_output, 'w') as f:
         f.write(base_yaml)
-    print(f"✓ Generated base template: {base_output}")
+    print(f"  Generated base template: {base_output}")
     
     # Generate Pydantic model
     model_name = f"{proc_type.replace('_', ' ').title().replace(' ', '')}Data"
@@ -322,14 +333,7 @@ def generate_single(fields_yaml_path: str, proc_type: str = None):
     os.makedirs(os.path.dirname(model_output), exist_ok=True)
     with open(model_output, 'w') as f:
         f.write(model_code)
-    print(f"✓ Generated Pydantic model: {model_output}")
-    
-    print(f"\nGeneration complete for {proc_type}!")
-    print("\nNext steps:")
-    print(f"1. Review {prompt_output}")
-    print(f"2. Review {base_output}")
-    print(f"3. Copy to production files when satisfied")
-
+    print(f"  Generated Pydantic model: {model_output}")
 
 if __name__ == "__main__":
     main()

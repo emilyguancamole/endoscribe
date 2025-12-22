@@ -984,7 +984,7 @@ async def process_transcript(request: ProcessRequest):
             }
 
         elif request.procedure_type == ProcedureType.PEP_RISK:
-            # PEP risk extraction and prediction #TODO
+            # PEP risk extraction and prediction #TODO PEP
             # 1. Extract risk factors
             # 2. Combine with manual inputs
             # 3. Feed to R model
@@ -1075,6 +1075,40 @@ async def process_transcript(request: ProcessRequest):
                         **response_json
                     })
             result_data = outputs[0] if outputs else {}
+            
+            # If ERCP, also try PEP risk extraction+prediction
+            pep_risk_score = None
+            pep_risk_category = None
+            pep_llm_extracted = None
+            try:
+                if request.procedure_type == ProcedureType.ERCP:
+                    pep_processor = PROCESSOR_MAP.get("pep_risk")
+                    if pep_processor:
+                        # Use same transcript row (first row)
+                        try:
+                            first_transcript = transcript_df.iloc[0]["pred_transcript"]
+                            first_id = transcript_df.iloc[0]["participant_id"]
+                        except Exception:
+                            first_transcript = request.transcript
+                            first_id = request.session_id or "web_session"
+
+                        pep_llm_extracted = pep_processor.extract_pep_from_transcript(
+                            first_transcript,
+                            filename=first_id
+                        )
+                        from pep_risk.peprisc_model import predict_pep_risk
+                        manual_data = None
+                        if request.manual_pep_data:
+                            manual_data = request.manual_pep_data.model_dump(exclude_none=True)
+                        prediction_result = predict_pep_risk(
+                            manual_data=manual_data,
+                            llm_extracted_data=pep_llm_extracted
+                        )
+                        if prediction_result.get("success"):
+                            pep_risk_score = prediction_result.get("risk_score")
+                            pep_risk_category = prediction_result.get("risk_category")
+            except Exception as e:
+                print(f"PEP risk computation for ERCP failed: {e}")
 
         processing_time = time.time() - start_time
         
@@ -1096,6 +1130,16 @@ async def process_transcript(request: ProcessRequest):
         else:
             # EUS, ERCP, EGD
             response_data.procedure_data = result_data
+
+        # If we computed PEP risk as part of ERCP processing above, include it on the response
+        try:
+            if request.procedure_type == ProcedureType.ERCP:
+                # prefer explicit extracted data from pep processing
+                response_data.pep_risk_data = pep_llm_extracted if 'pep_llm_extracted' in locals() and pep_llm_extracted else response_data.pep_risk_data
+                response_data.pep_risk_score = pep_risk_score if 'pep_risk_score' in locals() else None
+                response_data.pep_risk_category = pep_risk_category if 'pep_risk_category' in locals() else None
+        except Exception:
+            pass
 
 
         ### DRAFTER PLAIN TEXT with templating/drafter templates

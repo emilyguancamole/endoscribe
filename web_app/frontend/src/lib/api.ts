@@ -69,7 +69,7 @@ export async function processTranscript(data: ProcessRequest): Promise<ProcessRe
   return response.json();
 }
 
-// Get session data //todo need to add this endpoint to the backend
+// Get session data
 export async function getSession(sessionId: string): Promise<SessionData | null> {
   try {
     const response = await fetch(`/api/sessions/${sessionId}`);
@@ -80,7 +80,7 @@ export async function getSession(sessionId: string): Promise<SessionData | null>
   }
 }
 
-// List all sessions //todo need to add this endpoint to the backend
+// List all sessions
 export async function listSessions(): Promise<SessionData[]> {
   try {
     const response = await fetch('/api/sessions');

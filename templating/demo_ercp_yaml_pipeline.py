@@ -11,6 +11,8 @@ Usage:
     python reporting/demo_yaml_pipeline.py
 """
 
+import argparse
+import pyjson5 as json5
 import os
 import sys
 from pathlib import Path
@@ -20,110 +22,115 @@ _here = Path(__file__).parent
 _root = _here.parent
 sys.path.insert(0, str(_root))
 
-from templating.generate_from_fields import load_fields_config, generate_prompt_text, generate_base_yaml, generate_single
+from templating.generate_from_fields import load_fields_config, generate_single
 from templating.drafter_engine import build_report_sections
 import yaml
 
+
+def _coerce_bool_strings(obj):
+    """For demo data in json files, convert boolean-like strings to actual booleans in-place.
+    'true'/'false' (case-insensitive) and 'yes'/'no'.
+    """
+    if isinstance(obj, dict):
+        for k, v in list(obj.items()):
+            obj[k] = _coerce_bool_strings(v)
+        return obj
+    if isinstance(obj, list):
+        return [_coerce_bool_strings(v) for v in obj]
+    if isinstance(obj, str):
+        lv = obj.strip().lower()
+        if lv == 'true' or lv == 'false':
+            return lv == 'true'
+        if lv == 'yes' or lv == 'no':
+            return lv == 'yes'
+        if lv in ('none', 'unknown'):
+            return None
+    return obj
+
 def demo():
     print("=" * 80)
-    print("YAML-DRIVEN FIELD-TO-REPORT PIPELINE DEMO")
+    print("DEMO")
     print("=" * 80)
 
-    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--proc', default='ercp_base', help='Procedure type or path to yaml')
+    parser.add_argument('--demo_data_json', default='ercp_base.json5', help='Demo data json file name under demo_data/')
+    args = parser.parse_args()
+    print("Procedure type:", args.proc)
+    # Search for matching fields YAML under prompts/ercp/yaml
+    yaml_root = _root / 'prompts' / 'ercp' / 'yaml'
+    fields_path = None
+    config = None
 
-    # Load field definitions
-    print("\n📄 Step 1: Loading field definitions from fields.yaml...")
-    # Use the ERCP base fields currently in repo
-    fields_path = _root / "prompts/ercp/yaml/fields_base.yaml"
-    drafter_path = _root / f"drafters/procedures"
-    config = load_fields_config(str(fields_path))
+    # If direct path, use it
+    if os.path.exists(args.proc):
+        fields_path = Path(args.proc)
+        config = load_fields_config(str(fields_path))
+    else: # Match by meta.procedure_type or meta.module_id
+        candidates = list(yaml_root.rglob('*.yaml')) if yaml_root.exists() else []
+        for cand in candidates:
+            cand_cfg = load_fields_config(str(cand))
+            meta = cand_cfg.get('meta', {}) or {}
+            if meta.get('procedure_type') == args.proc or meta.get('module_id') == args.proc:
+                fields_path = cand
+                config = cand_cfg
+                break
+
+    # Fallback to base fields if nothing matched
+    if fields_path is None:
+        fields_path = _root / 'prompts' / 'ercp' / 'yaml' / 'fields_base.yaml'
+        config = load_fields_config(str(fields_path))
+
+    drafter_path = _root / 'drafters' / 'procedures'
     procedure_meta = config.get('meta', {'procedure_group': 'ercp'})
     proc_group = procedure_meta.get('procedure_group', 'ercp')
     
     field_count = sum(len(group.get('fields', [])) for group in config.get('field_groups', {}).values())
     group_count = len(config.get('field_groups', {}))
-    print(f"   ✓ Loaded {group_count} field groups with {field_count} total fields")
+    print(f"    Loaded {group_count} field groups with {field_count} total fields")
     
     # Generate prompt and base template using the single-generator helper
-    print("\nStep 2: Generating LLM extraction prompt...")
-    proc_type = config.get('meta', {}).get('procedure_type', 'ercp_base')
+    print("Generating LLM extraction prompt...")
+    proc_type = config.get('meta', {}).get('procedure_type', None)
+    if not proc_type:
+        proc_type = os.path.basename(str(fields_path)).replace('.yaml', '')
 
     # generate_single will write the prompt and base files to specific locations.
     generate_single(str(fields_path), proc_type)
 
-    # Recompute the output paths the generator uses so we can reference them.
-    base_name = os.path.basename(str(fields_path)).replace('.yaml', '')
-    prompt_output = Path(str(fields_path)).parent.joinpath(f'generated_{proc_type}_prompt.txt')
-    
-    drafter_output = Path(drafter_path) / proc_group / f'generated_{proc_type}.yaml'
-    print(f"   ✓ Generated prompt: {prompt_output}")
-    print(f"   ✓ Generated base template: {drafter_output}")
-    
-    test_data = {
-        "age": 58,
-        "sex": "female",
-        "chief_complaints": "recurrent bile duct stones",
-        "symptoms_duration": "1 month",
-        "symptoms_narrative": "Intermittent right upper quadrant pain for one month.",
-        "negative_history": "jaundice",
-        "past_medical_history": "Cholecystectomy 2 years ago.",
-        "current_medications": "None",
-        "family_history": "No relevant family history.",
-        "social_history": "patient has smoked for ten years",
-        "medications": "unknown",
-        "monitoring": "Cardiac and pulse oximetry monitoring",
-        "duodenoscope_type": "TJF-Q190V",
-        "grade_of_ercp": 2,
-        "pd_cannulation_status": "not_attempted",
-        "pd_cannulation": "not_attempted",
-        "cannulation_success": True,
-        "lactated_ringers": True,
-        "rectal_indomethacin": False,
-        "successful_completion": True,
-        "failed_ercp": False,
-        "scout_film_status": "normal",
-        "scout_film_optional_findings": "none",
-        "scout_film_free_text": "none",
-        "scope_advancement_difficulty": "without_difficulty",
-        "scope_advancement_difficulty_reason": "none",
-        "scope_advance_difficulty": "without_difficulty",
-        "upper_gi_examination_extent": "limited",
-        "upper_gi_findings": "normal",
-        "major_papilla_status": "abnormal",               # major_papilla
-        "major_papilla_abnormal_morphology": "edematous", 
-        "prior_biliary_sphincterotomy_evidence": True,
-        "papilla_stent_present": False,
-        "periampullary_diverticulum_present": True,
-        "papilla_diverticulum_loc": "inside the diverticulum",
-        "minor_papilla_status": "normal", # minor_papilla
-        "minor_papilla_morphology": "normal",
-        "biliary_stent_placed": True,
-        "plastic_stent_details": "10 Fr x 5 cm plastic biliary stent",
-        "pancreatic_stent_placed": True,
-        "pancreatic_stent_purpose": "pep_prophylaxis",
-        "pancreatic_stent_details": "3F",
-        "stent_optimal_description": "Final position was satisfactory in the bile duct.",
-        "estimated_blood_loss": -1,
-        "impressions": ["ERCP performed; stones removed."],
-    }
+    # Find generated prompt under prompts/ (supports subtypes -> prompts/subtypes)
+    prompts_dir = _root / 'prompts'
+    found_prompts = list(prompts_dir.rglob(f'generated_{proc_type}_prompt.txt')) if prompts_dir.exists() else []
+    prompt_output = found_prompts[0] if found_prompts else Path(str(fields_path)).parent.joinpath(f'generated_{proc_type}_prompt.txt')
 
-    # Ensure all fields declared in the fields config are present in test_data
+    procedure_meta = config.get('meta', {'procedure_group': 'ercp'})
+    proc_group = procedure_meta.get('procedure_group', 'ercp')
+    drafter_output = Path(drafter_path) / proc_group / f'generated_{proc_type}.yaml'
+    print(f"    Generated prompt: {prompt_output}")
+    print(f"    Generated base template: {drafter_output}")
+    
+    # load demo data json from ./demo_data folder
+    with open(_here / "demo_data" / args.demo_data_json, "r") as f:
+        demo_data = json5.load(f)
+    demo_data = _coerce_bool_strings(demo_data)
+    print(f"\nUsing demo data file ({args.demo_data_json})...")
+    # Ensure all fields declared in fields config are present in test_data
     for group in config.get('field_groups', {}).values():
         for f in group.get('fields', []):
             fname = f.get('name')
-            if fname and fname not in test_data:
+            if fname and fname not in demo_data:
                 # set booleans to False by default if type is boolean, else None
                 ftype = f.get('type', 'string')
                 if ftype == 'boolean':
-                    test_data[fname] = False
+                    demo_data[fname] = False
                 elif ftype in ('integer', 'number', 'float'):
-                    test_data[fname] = -1
+                    demo_data[fname] = -1
                 else:
-                    test_data[fname] = None
+                    demo_data[fname] = None
     
     # Render using the generated base template and write to txt
     temp_yaml_path = drafter_output
-    rendered = build_report_sections(str(temp_yaml_path), test_data)
+    rendered = build_report_sections(str(temp_yaml_path), demo_data)
     output_path = _here/"demo_ercp_report.txt"
     parts = []
     for section_name, content in rendered.items():

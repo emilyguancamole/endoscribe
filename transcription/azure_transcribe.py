@@ -55,9 +55,7 @@ def transcribe_azure(
         speechsdk.PropertyId.Speech_LogFilename, 
         "/tmp/azure_speech_debug.log"
     )
-    
     audio_config = speechsdk.audio.AudioConfig(filename=audio_file)
-
     if save:
         print(f"  Will save to transcription/results/{procedure_type}/{save_filename}")
 

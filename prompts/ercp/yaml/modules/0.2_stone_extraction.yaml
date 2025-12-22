@@ -1,0 +1,280 @@
+
+$extends: ../fields_base.yaml
+
+meta:
+  module_id: "0.2"
+  procedure_group: ercp
+  procedure_type: stone_extraction # output prompt file will be generated_{proc_type}_prompt.txt
+  title: ERCP for Follow-up
+
+#? When should this module be included?
+
+#? do i need to repeat prompt instructions, eg to write none/unknown
+activation_criteria: 
+  # If stone/sludge extraction performed and/or adjuncts used: Refer to 0.2 Stone extraction adjuncts
+  # keywords: 
+  #   - "stone"
+  #   - "balloon sweep"
+  #   - "basket extraction"
+  #   - "lithotripsy"
+  # semantic_triggers:
+  #   - "extraction of stones from bile duct"
+  #   - "choledocholithiasis treatment"
+
+field_groups:
+  initial_extraction:
+    description: "Initial extraction method and result"
+    report_section: "findings"
+    report_subsection: "stone_extraction"
+    #! stone_extraction_performed should be a base-level check / at orchestrator level - how to
+    template: | 
+      {% if stone_extraction_performed %}
+      {% if stone_indications | sku %}Adjunct stone therapy was performed due to {{ stone_indications }}. {% endif %}
+      {% if initial_method | sku %}Initial extraction was attempted with {{ initial_method | default('balloon') }}.
+      {% if initial_result_text %}{{initial_result_text}}{% endif %}
+      {% endif %}
+      {% endif %}
+    fields:
+      - name: stone_extraction_performed
+        type: boolean
+        prompt_instruction: "true/false if stone/sludge extraction performed and/or adjuncts used"
+
+      - name: stone_indications
+        type: string
+        item_type: string
+        prompt_instruction: |
+          If adjunct stone therapy was performed, record all reasons for it, e.g.
+          - 'giant stone(s)' (if largest ≥15-20mm)
+          - 'large stone(s)' (if largest >10mm)
+          - 'multiple stones/heavy stone burden'
+          - 'distal CBD narrowing/papillary stenosis'
+          - 'duct tortuosity/angulation'
+          - 'failed balloon sweeps/failed basket extraction'
+
+      - name: initial_method
+        type: string
+        prompt_instruction: "What was used for initial stone extraction attempt, e.g. 'balloon', 'basket', 'combination'"
+      
+      - name: initial_result_text
+        type: string
+        prompt_instruction: "Describe as a sentence, initial stone extraction result before any adjunct techniques, e.g. 'Complete clearance was achieved."
+        ##? when are adjuncts findings inserted?
+    
+  eplbd:
+  #If performed: Procedure was performed after biliary sphincterotomy / without sphincterotomy  
+  # If without sphincterotomy reason: bleeding risk / anticoagulation / prior wide sphincterotomy / Other: FREE TEXT. 
+  # Balloon type: CRE / wire-guided dilation balloon / other: FREE TEXT. 
+  # Target diameter: 8 mm / 10 mm / 12 mm / 13.5 mm / 15 mm / 16.5 mm / 18 mm / 20 mm / Other: FREE TEXT. 
+  # Inflation strategy: graded stepwise / single-step. 
+  # Duration: 30 sec / 60 sec / 90 sec / Other: FREE TEXT. 
+  # Waist: present and resolved / partially resolved / persistent / not seen. 
+  # Outcome: adequate papillary orifice enlargement achieved / partial / inadequate. 
+  # Immediate adverse events: 
+  # Bleeding: none / mild oozing / moderate / brisk (management: observation / epinephrine / soft coag / APC / clip / balloon tamponade / FCSEMS tamponade / Other: FREE TEXT) 
+  # Perforation/extravasation: none / suspected / confirmed (refer to perforation block if present) 
+  # Other: FREE TEXT
+    description: "Endoscopic papillary large balloon dilation"
+    report_section: "findings"
+    report_subsection: "stone_extraction"
+    template: |
+      {% set _eplbd %}
+      {% if eplbd_performed %}Endoscopic papillary large balloon dilation was performed{% if eplbd_sphinc | sku %} {{ eplbd_sphinc }}{%endif%}. 
+      {%if eplbd_balloon_type %}
+      A {{ eplbd_balloon_type }} balloon was used {%if eplbd_target_diameter | sku%}with target diameter {{ eplbd_target_diameter }}mm{%endif%}. 
+      {%endif%}
+      Inflation was performed using {{ eplbd_inflation_strategy }} strategy for {{ eplbd_duration }} seconds. 
+      {% if eplbd_waist_resolution %}Balloon waist was {{ eplbd_waist_resolution }}. {% endif %}
+      {% if eplbd_outcome %}Overall outcome was {{ eplbd_outcome }}. {% endif %}
+      {% if eplbd_adverse_events |sku%}Immediate adverse events: {{ eplbd_adverse_events }} {% endif %}
+      {% endif %}
+      {% endset %}
+      {{ _eplbd | replace('\n', ' ') | replace('  ', ' ') | trim }}
+    fields:
+      - name: eplbd_performed
+        type: boolean
+        prompt_instruction: "true/false if performed; if not mentioned, false"
+      
+      - name: eplbd_sphinc
+        type: string
+        prompt_instruction: "If epldb done after sphincterotomy, record 'after sphincterotomy'. If done without sphincterotomy, record 'without sphincterotomy' and the reason why; e.g. 'without sphincterotomy because of bleeding risk'."
+      
+      - name: eplbd_balloon_type
+        type: string
+        prompt_instruction: "Balloon type used"
+      
+      - name: eplbd_target_diameter
+        type: integer
+        prompt_instruction: "Target diameter in mm"
+      
+      - name: eplbd_inflation_strategy
+        type: string
+        prompt_instruction: "'graded stepwise' or 'single-step'"
+      
+      - name: eplbd_duration
+        type: integer
+        prompt_instruction: "In seconds, usually 30, 60, 90"
+      
+      - name: eplbd_waist_resolution
+        type: string
+        prompt_instruction: "Status of balloon waist during inflation, e.g. 'present and resolved', 'partially resolved', 'persistent'"
+      
+      - name: eplbd_outcome
+        type: string
+        prompt_instruction: "'adequate papillary orifice enlargement achieved', 'partial enlargement', 'inadequate enlargement'"
+      
+      - name: eplbd_adverse_events
+        type: string
+        prompt_instruction: "Describe any bleeding, perforation, or other complications in a sentence"
+
+  mechanical_lithotripsy:
+    # If performed: 
+    # Indication: large stone / impacted stone / failed balloon/basket / Other: FREE TEXT. 
+    # Basket system: Dormia/mechanical lithotripter basket / rescue lithotripter / other: FREE TEXT. 
+    # Location: distal CBD / mid CBD / proximal CBD / CHD / hilum / Other: FREE TEXT. 
+    # Stone characteristics: hard/calcified / soft / faceted / Other: FREE TEXT. 
+    # Lithotripsy outcome: 
+    # Complete fragmentation achieved 
+    # Partial fragmentation achieved (residual fragments remain) 
+    # Unsuccessful (unable to capture / stone hardness / duct angulation / basket could not be advanced / Other: FREE TEXT) 
+    # Basket impaction: no / yes. 
+    # If yes: 
+    # Impaction type: basket impacted with stone / basket trapped at papilla / wire fracture / Other: FREE TEXT 
+    # Rescue performed: 
+    # Extended sphincterotomy / EPLBD to facilitate release and/or 
+    # Rescue mechanical lithotripter used successfully and/or 
+    # Basket released after cutting handle and using metal sheath and/or 
+    # Balloon manipulation/push–pull technique and/or 
+    # Temporary biliary stent placed and staged retrieval planned and/or 
+    # Surgery/IR consulted and/or 
+    # Other: FREE TEXT 
+    # Outcome of rescue: resolved with basket removed / resolved but fragments remain / unresolved (alternate drainage required) / Other: FREE TEXT 
+    # Adverse events: bleeding none/mild/moderate/brisk (If managed: FREE TEXT ) / perforation none/suspected/confirmed / Other: FREE TEXT 
+    report_section: "findings"
+    report_subsection: "stone_extraction"
+    template: |
+      {% if mech_lithotripsy_performed %}
+        Mechanical lithotripsy was performed due to {{ mech_lithotripsy_indication }}.
+        {% if mech_lithotripsy_basket_system | sku%}Basket system: {{ mech_lithotripsy_basket_system }}.{% endif %}
+        {% if lithotripsy_location %}Location: {{ lithotripsy_location }}.{% endif %}
+        {% if mech_lithotripsy_stone | sku%}Stone characteristics: {{ mech_lithotripsy_stone }}.{% endif %}
+        {% if mech_lithotripsy_outcome | sku %}Lithotripsy outcome: {{ mech_lithotripsy_outcome }}.
+        {% if mech_lithotripsy_basket_impaction | sku %}Basket impaction occurred: {{ mech_lithotripsy_basket_impaction }}.{% endif %}
+        {% if mech_lithotripsy_adverse_events | sku %}Adverse events: {{ mech_lithotripsy_adverse_events }}.{% endif %}
+        {% endif %}
+      {% endif %}
+    fields:
+      - name: mech_lithotripsy_performed
+        type: boolean
+        prompt_instruction: "true/false if performed"
+      - name: mech_lithotripsy_indication
+        type: string
+        item_type: string
+        prompt_instruction: "All reasons mechanical lithotripsy was performed, e.g. large stone, impacted stone, failed balloon"
+      - name: mech_lithotripsy_basket_system
+        type: string
+        prompt_instruction: "Type of basket system used, e.g. 'mechanical lithrtripter basket'"
+      - name: lithotripsy_location
+        type: string
+        prompt_instruction: "Location of stone where lithotripsy was performed, e.g. distal CBD, hilum"
+      - name: mech_lithotripsy_stone
+        type: string
+        item_type: string
+        prompt_instruction: "Characteristics of stone, e.g. hard/calcified, soft, faceted"
+      - name: mech_lithotripsy_outcome
+        type: string
+        prompt_instruction: "Outcome of lithotripsy, e.g. 'Complete fragmentation achieved'"
+      - name: mech_lithotripsy_basket_impaction
+        type: string
+        prompt_instruction: "If basket impaction occured, describe impaction type, the rescue performe, and the outcome of rescue in sentences"
+      - name: mech_lithotripsy_adverse_events
+        type: string
+        prompt_instruction: "Describe any adverse events from mechanical lithotripsy in a sentence"
+  
+  chol_lithotripsy:
+  # If performed: 
+  #Cholangioscopy platform: SpyGlass DS II / other: FREE TEXT 
+  #Lithotripsy modality: EHL / laser / other: FREE TEXT 
+  #Target stone(s): number xx; location distal/mid/proximal CBD/CHD/hilar/intrahepatic; largest xx  mm 
+  #Irrigation: saline irrigation used / not used / Other: FREE TEXT 
+  #Fragmentation: complete / partial / unsuccessful Debris clearance after lithotripsy: balloon sweeps performed / basket extraction / spontaneous passage / Other: FREE TEXT 
+  #If detailed settings required: “Insert to 0.3 cholangioscopy add-on for energy settings/shot counts” / or document here: FREE TEXT
+    description: "Cholangioscopy-guided lithotripsy"
+    report_section: "findings"
+    report_subsection: "stone_extraction"
+    fields:
+      - name: chol_lithotripsy_performed
+        type: boolean
+        prompt_instruction: "true/false if chololangioscopy-guided lithotripsy performed"
+      - name: chol_lithotripsy_platform
+        type: string
+        prompt_instruction: "Cholangioscopy platform used, e.g. 'SpyGlass DS II'"
+      - name: chol_lithotripsy_modality
+        type: string
+        prompt_instruction: "Lithotripsy modality used, e.g. 'EHL', 'laser'"
+      - name: chol_lithotripsy_target_stones
+        type: string
+        prompt_instruction: "Describe target stones of chololangioscopy-guided lithotripsy, including number, location, size"
+      - name: chol_lithotripsy_irrigation
+        type: boolean
+        prompt_instruction: "true/false if saline irrigation used"
+      - name: chol_lithotripsy_fragmentation
+        type: string
+        prompt_instruction: "Outcome of fragmentation, e.g. 'complete', 'partial', 'unsuccessful'"
+      - name: chol_lithotripsy_debris_clearance
+        type: string
+        prompt_instruction: "Methods used for debris clearance after lithotripsy, e.g. 'balloon sweeps'"
+      - name: chol_lithotripsy_details
+        type: string
+        prompt_instruction: "Describe any additional details about settings or shot counts"
+  
+  stone_therapy_wrapup:
+  #Limitations: poor visualization due bile/pus/blood; unable to reach stone due to stricture/anatomy / time limit / Other: FREE TEXT 
+  #Final assessment of duct clearance: complete / near-complete / partial / failed. 
+  #If complete clearance: “All visible stones and sludge were removed.” “Final balloon occlusion cholangiogram demonstrated no residual filling defects with free flow of contrast into the duodenum.” “No biliary stent placed” / “Stent placed for other reason” (specify). Other: FREE TEXT
+  #If near-complete clearance: Residual: small non-obstructing stone(s) / minimal sludge / small fragments expected to pass Management: no stent (clinical judgment) / temporary plastic stent placed / other: FREE TEXT Other: FREE TEXT
+  #If partial/failed clearance: Reason: large/impacted stone / distal narrowing / intrahepatic stones / difficult papilla/diverticulum / patient intolerance / time/radiation limit / equipment limitations / Other: FREE TEXT. Material removed: fragments only / sludge only / none / Other
+  # If partial / failed clearance Staged strategy: yes / no. If yes, choose pathway: Indication: incomplete clearance / cholangitis / papillary edema / difficult anatomy / distal narrowing / other: FREE TEXT. Stent type: straight / single-pigtail / double-pigtail Size/length: 5F / 7F / 8.5F / 10F × 5 / 7 / 9 / 10 / 12 / 15 cm / Other: FREE TEXT Position: distal end 2–3 mm into duodenum / flush with papilla / slightly intramural; proximal end distal CBD / mid CBD / CHD / above stone burden / Other: FREE TEXT Drainage after stent: excellent / adequate / sluggish / suboptimal (reason: ____ ) Plan: repeat ERCP in ____ weeks for stone clearance and stent removal/exchange. Other: FREE TEXT ENBD placed for drainage/irrigation: yes / no. Tube position confirmed fluoroscopically: yes / no. Plan: inpatient irrigation/antibiotics; repeat ERCP timing: ____ / Other: FREE TEXT Alternative drainage/escalation when endoscopic clearance/drainage inadequate EUS-guided biliary drainage planned/performed (refer to EUS-BD template) PTBD planned Surgery consulted
+  #Complications during adjunct stone therapy: none / bleeding / perforation / cholangitis worsening / cardiopulmonary event / other.
+    #!If bleeding: insert 0.5 hemostasis add on for management. 
+    #!If perforation/extravasation: insert 0.6 perforation for management. 
+  #Bile and contrast drained well / adequately / suboptimally into the duodenum through the papilla / around the stent / through the stent.  
+  #The procedure was completed and the duodenoscope was removed.  #??
+  #Optional: final fluoroscopic image obtained for confirmation. 
+    report_section: "findings"
+    report_subsection: "stone_extraction"
+    template: |
+      {% if stone_therapy_limitations | sku %}Limitations: {{stone_therapy_limitations | sent}}
+      {% endif %}
+      {% if duct_clearance_status%}Final assessment of duct clearance: {{ duct_clearance_status }}.
+      {% endif %}
+      {% if duct_clearance_narrative | sku %}{{ duct_clearance_narrative | sent }}{% endif %}{% if duct_clearance_status in ['partial', 'failed'] and staged_strategy_narrative | sku %}{{ staged_strategy_narrative | sent }}
+      {% endif %}
+      {% if stone_therapy_complications | sku %}Complications during adjunct stone therapy included {{ stone_therapy_complications }}.
+        {% if stone_therapy_complications in ['bleeding'] %}TODO{% endif %}
+        {% if stone_therapy_complications in ['performation', 'extravasation'] %}TODO{% endif %}
+      {% endif %}
+      {% if stone_therapy_bile_drainage_narrative | sku %} {{ stone_therapy_bile_drainage_narrative }}
+      {% endif %}
+      {% if fluoroscopic_img_obtained %}A final fluoroscopic image was obtained for confirmation.{% endif %}
+    fields:
+      - name: stone_therapy_limitations
+        type: string
+        prompt_instruction: "Any limitations during stone therapy, e.g. 'poor visualization due to bile/pus/blood'"
+      - name: duct_clearance_status
+        type: string
+        prompt_instruction: "Final assessment of duct clearance after stone therapy as 'complete', 'near-complete', 'partial', 'failed'"
+      - name: duct_clearance_narrative
+        type: string
+        prompt_instruction: "Describe the findings and management based on the final duct clearance status in sentences, e.g. 'All visible stones and sludge were removed.', 'Small non-obstructing stone remains, expected to pass', 'Failed clearance due to distal narrowing'"
+      - name: staged_strategy_narrative
+        type: string
+        prompt_instruction: "If partial/failed clearance, describe in detailed sentences the staged strategy if planned, including indication, stent type/size/position, drainage quality, and plan"
+      - name: stone_therapy_complications
+        type: string
+        prompt_instruction: "Complications during adjunct stone therapy, e.g. bleeding, perforation, extravasation, cholangitis worsening"
+      - name: stone_therapy_bile_drainage_narrative
+        type: string
+        prompt_instruction: "Describe how and how well bile and contrast drained after stone therapy, e.g. 'Bile and contrast drained well into the duodenum through the papilla.'"
+      - name: fluoroscopic_img_obtained
+        type: boolean
+        prompt_instruction: "true/false if final fluoroscopic image obtained after stone therapy"

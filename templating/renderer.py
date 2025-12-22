@@ -128,7 +128,12 @@ def render_sections(sections: Dict[str, str], data: Dict[str, Any], env: Environ
     env = env or build_env()
     out: Dict[str, str] = {}
     for key, tmpl in sections.items():
-        out[key] = render_text(tmpl, data, env)
+        try:
+            out[key] = render_text(tmpl, data, env)
+        except Exception as e:
+            # Help debug Jinja syntax errors
+            snippet = tmpl[:1000].replace('\n', '\\n') if tmpl else ''
+            raise RuntimeError(f"Error rendering section '{key}': {e}\nTemplate snippet: {snippet}") from e
     return out
 
 

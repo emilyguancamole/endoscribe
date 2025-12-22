@@ -121,7 +121,6 @@ export default function DictationInterface({ onComplete, procedureType }: Dictat
   };
 
   const handleStart = async () => {
-    // Initialize WebSocket
     wsRef.current = new TranscriptionWebSocket(
       handleWsMessage,
       handleWsConnect,
@@ -130,17 +129,13 @@ export default function DictationInterface({ onComplete, procedureType }: Dictat
     );
     wsRef.current.connect();
 
-    // Start recording
     await startRecording();
   };
 
   const handleStop = () => {
     stopRecording();
     setIsFinalizing(true);
-
-    // Send end message
     wsRef.current?.sendJSON({ type: 'end' });
-
     // Wait a bit then complete
     setTimeout(() => {
       if (wsRef.current) {
@@ -163,7 +158,6 @@ export default function DictationInterface({ onComplete, procedureType }: Dictat
 
       {/* Visualizer Area */}
       <Card className="p-8 md:p-12 flex flex-col items-center justify-center min-h-[300px] relative overflow-hidden border-2 border-primary/5 shadow-lg bg-white/50 backdrop-blur-sm">
-
         {/* Animated Waveform Background */}
         <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
           {recording && !paused && (
@@ -253,7 +247,7 @@ export default function DictationInterface({ onComplete, procedureType }: Dictat
         </div>
       </Card>
 
-      {/* Live Transcript Preview - Always show when recording */}
+      {/* Live Transcript Preview */}
       <AnimatePresence>
         {recording && (
           <motion.div

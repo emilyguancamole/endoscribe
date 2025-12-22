@@ -72,11 +72,8 @@ if llm_handler is not None:
 
 
 async def process_pipeline(transcript: str) -> dict:
-    """Run ERCP extraction via LLM and return the validated dict of fields."""
     if ercp_processor is None:
         raise RuntimeError("ERCP processor is not initialized; check LLM config and credentials.")
-    # Run once on the final transcript
-    # Use the implemented single-transcript extractor
     result = ercp_processor.extract_pep_from_transcript(transcript, filename="session")
     return result
 
@@ -204,8 +201,9 @@ def save_batch_prediction_results(filename: str, manual_data: dict, llm_extracti
     # Treatment predictions
     treatment_predictions = prediction_result.get("treatment_predictions", [])
     for tp in treatment_predictions:
-        therapy_name = tp["therapy"].lower().replace(" ", "_").replace("+", "and")
-        result_row[f"risk_{therapy_name}_pct"] = tp["risk_percentage"]
+        therapy_name = tp.get("therapy_id") or tp.get("therapy") or "unknown"
+        therapy_name = str(therapy_name).lower().replace(" ", "_").replace("+", "and")
+        result_row[f"risk_{therapy_name}_pct"] = tp.get("risk_percentage")
     result_row["baseline_risk_pct"] = prediction_result.get("risk_score")
 
     result_row["transcript"] = transcript

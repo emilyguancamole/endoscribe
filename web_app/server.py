@@ -1016,9 +1016,10 @@ async def process_transcript(request: ProcessRequest):
                 "manual_input": manual_data,
                 "prediction": prediction_result
             }
-            # Add risk score and category
+            # Add risk score, category and treatment predictions
             pep_risk_score = prediction_result.get("risk_score") if prediction_result.get("success") else None
             pep_risk_category = prediction_result.get("risk_category") if prediction_result.get("success") else None
+            treatment_predictions = prediction_result.get("treatment_predictions", []) if prediction_result.get("success") else []
 
         else:
             # EUS, ERCP, EGD
@@ -1107,6 +1108,7 @@ async def process_transcript(request: ProcessRequest):
                         if prediction_result.get("success"):
                             pep_risk_score = prediction_result.get("risk_score")
                             pep_risk_category = prediction_result.get("risk_category")
+                            treatment_predictions = prediction_result.get("treatment_predictions", [])
             except Exception as e:
                 print(f"PEP risk computation for ERCP failed: {e}")
 
@@ -1127,6 +1129,7 @@ async def process_transcript(request: ProcessRequest):
             response_data.pep_risk_data = result_data.get("llm_extracted")
             response_data.pep_risk_score = pep_risk_score if 'pep_risk_score' in locals() else None
             response_data.pep_risk_category = pep_risk_category if 'pep_risk_category' in locals() else None
+            response_data.treatment_predictions = treatment_predictions if 'treatment_predictions' in locals() else []
         else:
             # EUS, ERCP, EGD
             response_data.procedure_data = result_data
@@ -1134,10 +1137,10 @@ async def process_transcript(request: ProcessRequest):
         # If we computed PEP risk as part of ERCP processing above, include it on the response
         try:
             if request.procedure_type == ProcedureType.ERCP:
-                # prefer explicit extracted data from pep processing
                 response_data.pep_risk_data = pep_llm_extracted if 'pep_llm_extracted' in locals() and pep_llm_extracted else response_data.pep_risk_data
                 response_data.pep_risk_score = pep_risk_score if 'pep_risk_score' in locals() else None
                 response_data.pep_risk_category = pep_risk_category if 'pep_risk_category' in locals() else None
+                response_data.treatment_predictions = treatment_predictions if 'treatment_predictions' in locals() else response_data.treatment_predictions
         except Exception:
             pass
 

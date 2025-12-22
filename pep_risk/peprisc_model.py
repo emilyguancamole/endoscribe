@@ -7,6 +7,7 @@ import os
 import sys
 import pandas as pd
 from typing import Dict, Optional
+from pep_risk.pep_types import therapy_id_from_label, therapy_label_from_id
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -196,17 +197,21 @@ def extract_r_model_results(r_output: Dict) -> tuple:
         
         if isinstance(test_pred_df, pd.DataFrame) and len(test_pred_df) > 0:
             for _, row in test_pred_df.iterrows():
-                therapy = str(row.get('therapy', 'Unknown'))
+                raw_therapy = str(row.get('therapy', 'No treatment'))
                 pred_value = float(row.get('pred', 0)) * 100
-                
+                # map label -> canonical id + label
+                tid = therapy_id_from_label(raw_therapy)
+                tlabel = therapy_label_from_id(tid)
+
                 treatment_predictions.append({
-                    "therapy": therapy,
+                    "therapy_id": tid.value,
+                    "therapy_label": tlabel,
                     "risk_percentage": round(pred_value, 1),
                     "risk_category": categorize_risk(pred_value)
                 })
             print(f"{len(treatment_predictions)} treatment predictions:")
             for tp in treatment_predictions:
-                print(f"  - {tp['therapy']}: {tp['risk_percentage']}% ({tp['risk_category']})")
+                print(f"  - {tp['therapy_label']}: {tp['risk_percentage']}% ({tp['risk_category']})")
     
     # Format additional details from R model
     details = {

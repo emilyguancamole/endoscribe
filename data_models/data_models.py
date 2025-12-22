@@ -153,7 +153,7 @@ class PEPRiskData(BaseModel):
     @classmethod
     def convert_na_to_false(cls, v):
         """Convert 'N/A' strings to False for optional boolean fields"""
-        if isinstance(v, str) and v.strip().upper() in ['N/A', 'NA']:
+        if isinstance(v, str) and v.strip().upper() in ['N/A', 'NA', 'None']:
             return False
         return v
 

@@ -1,0 +1,27 @@
+Lightning automatically upgraded your loaded checkpoint from v1.5.4 to v2.5.1.post0. To apply the upgrade to your files permanently, run `python -m pytorch_lightning.utilities.upgrade_checkpoint ../.conda/envs/endo/lib/python3.10/site-packages/whisperx/assets/pytorch_model.bin`
+/home/eguan2/.conda/envs/endo/lib/python3.10/site-packages/pyannote/audio/utils/reproducibility.py:74: ReproducibilityWarning: TensorFloat-32 (TF32) has been disabled as it might lead to reproducibility issues and lower accuracy.
+It can be re-enabled by calling
+   >>> import torch
+   >>> torch.backends.cuda.matmul.allow_tf32 = True
+   >>> torch.backends.cudnn.allow_tf32 = True
+See https://github.com/pyannote/pyannote-audio/issues/1370 for more details.
+
+  warnings.warn(
+Transcribing with WhisperX (large-v3)...
+CUDA detected. Setting CUDA_VISIBLE_DEVICES to: 8,9
+Auto-detected device: cuda
+Loading WhisperX model: large-v3
+No language specified, language will be first be detected for each audio file (increases inference time).
+>>Performing voice activity detection using Pyannote...
+Model was trained with pyannote.audio 0.0.1, yours is 3.3.2. Bad things might happen unless you revert pyannote.audio to 0.x.
+Model was trained with torch 1.10.0+cu102, yours is 2.6.0+cu124. Bad things might happen unless you revert torch to 1.x.
+Loading audio: transcription/recordings/ercp/bdstone/bdstone04.wav
+Transcribing...
+Aligning transcription for better accuracy...
+Saved whisperx transcription to /home/eguan2/endoscribe/transcription/results/ercp/whisperx_trs.csv
+TRANSCRIPTION with WHISPERX DONE ==========
+Duration: 191.01 seconds
+Segments: 30
+
+Preview:
+Today is the 17th of September, 2024, and I'm in the endoscopy suite at the Johns Hopkins Hospital performing an ERCP on an 82-year-old female for the treatment of CBD stones. The patient has a histor...

@@ -1,4 +1,5 @@
 #* pep_risk/peprisc_bridge.py
+import os
 import pandas as pd
 from rpy2 import robjects
 from rpy2.rinterface_lib.embedded import RRuntimeError
@@ -34,11 +35,17 @@ def load_python_r_bridge(path: str):
     #     return False
     
     try:
-        r.source(path,echo=True)
+        # Set R working directory to project root. should be .../pep_risk-master/pep_risk_app/bridge_exports.R
+        abs_path = os.path.abspath(path)
+        project_root = os.path.dirname(os.path.dirname(abs_path))
+        try:
+            r.setwd(project_root)
+        except Exception:
+            pass
+        r.source(abs_path, echo=True)
         return True
     except RRuntimeError:
         raise RuntimeError("Stopped after R error")
-         
          
 def load_r_peprisc_model(
     bridge_path : str, 

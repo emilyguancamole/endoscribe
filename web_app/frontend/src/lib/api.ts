@@ -23,6 +23,12 @@ export interface ProcessResponse {
   pep_risk_data?: any;
   pep_risk_score?: number;
   pep_risk_category?: string;
+  treatment_predictions?: Array<{
+    therapy_id?: string;
+    therapy_label?: string;
+    risk_percentage: number;
+    risk_category?: string;
+  }>;
   raw_output?: string;
   formatted_note?: string;
 }

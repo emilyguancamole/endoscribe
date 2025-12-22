@@ -9,7 +9,7 @@ import { ChevronRight, ArrowLeft, Check } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function NewNote() {
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2>(1); // 1: procedure type, 2: dictation
   const [selectedType, setSelectedType] = useState<string>("");
   const [, setLocation] = useLocation();
 
@@ -37,8 +37,8 @@ export default function NewNote() {
             {[1, 2].map((s) => (
               <div key={s} className="flex flex-col items-center gap-2 bg-background px-2">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${step >= s
-                    ? "bg-primary text-white shadow-lg shadow-primary/20 scale-110"
-                    : "bg-muted text-muted-foreground border-2 border-border"
+                  ? "bg-primary text-white shadow-lg shadow-primary/20 scale-110"
+                  : "bg-muted text-muted-foreground border-2 border-border"
                   }`}>
                   {step > s ? <Check className="w-5 h-5" /> : s}
                 </div>

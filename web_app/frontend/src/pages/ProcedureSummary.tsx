@@ -224,7 +224,6 @@ export default function ProcedureSummary() {
                   className="min-h-[500px] resize-y border-0 focus-visible:ring-0 p-6 text-base leading-relaxed font-normal"
                   value={noteContent}
                   onChange={(e) => setNoteContent(e.target.value)}
-                  placeholder="Processing transcript..."
                 />
               </CardContent>
             </Card>

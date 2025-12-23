@@ -469,41 +469,6 @@ async def home(request: Request):
         return templates.TemplateResponse("index.html", {"request": request})
 
 
-# Serve favicon at root so React build's `/favicon.svg` works when deployed
-FAV_DIST = REACT_BUILD_DIR / "favicon.svg"
-FAV_LEGACY = BASE_DIR / "static" / "favicon.svg"
-
-
-@app.get("/favicon.svg")
-async def favicon_svg():
-    if REACT_BUILD_DIR.exists() and FAV_DIST.exists():
-        return FileResponse(str(FAV_DIST))
-    if FAV_LEGACY.exists():
-        return FileResponse(str(FAV_LEGACY))
-    raise HTTPException(status_code=404, detail="favicon not found")
-
-
-@app.get("/favicon.ico")
-async def favicon_ico():
-    # Some clients request /favicon.ico by default — return the svg with correct media type if no .ico present
-    ico_path = None
-    # prefer an actual .ico if present in the dist or legacy static
-    if REACT_BUILD_DIR.exists() and (REACT_BUILD_DIR / "favicon.ico").exists():
-        ico_path = REACT_BUILD_DIR / "favicon.ico"
-    elif (BASE_DIR / "static" / "favicon.ico").exists():
-        ico_path = BASE_DIR / "static" / "favicon.ico"
-
-    if ico_path:
-        return FileResponse(str(ico_path))
-
-    # fall back to svg
-    svg = FAV_DIST if FAV_DIST.exists() else (FAV_LEGACY if FAV_LEGACY.exists() else None)
-    if svg:
-        return FileResponse(str(svg), media_type="image/svg+xml")
-
-    raise HTTPException(status_code=404, detail="favicon not found")
-
-
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint"""
@@ -1384,22 +1349,7 @@ async def save_session(session_id: str, request: SaveSessionRequest):
 if __name__ == "__main__":
     import uvicorn
     import sys
-    
-    print("=" * 50, flush=True)
-    print("Starting EndoScribe server...", flush=True)
-    print(f"Python version: {sys.version}", flush=True)
-    print(f"Working directory: {os.getcwd()}", flush=True)
-    print(f"PORT env var: {os.getenv('PORT', 'not set')}", flush=True)
-    print("=" * 50, flush=True)
-    
     #! use `PORT` environment variable set by Fly `fly.toml` so app listens on the expected internal port, default 8000
     port = int(os.getenv("PORT", "8000"))
     print(f"Attempting to start server on 0.0.0.0:{port}", flush=True)
-    
-    try:
-        uvicorn.run(app, host="0.0.0.0", port=port)
-    except Exception as e:
-        print(f"Failed to start server: {e}", flush=True)
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+    uvicorn.run(app, host="0.0.0.0", port=port)

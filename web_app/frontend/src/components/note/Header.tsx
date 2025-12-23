@@ -34,7 +34,7 @@ export default function Header({
                 className="pl-0 hover:bg-transparent hover:text-primary self-start"
             >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to History
+                Back to All Notes
             </Button>
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/50 pb-6">

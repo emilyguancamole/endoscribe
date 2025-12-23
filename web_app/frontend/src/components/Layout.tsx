@@ -29,7 +29,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const navItems = [
     { href: "/new-note", label: "New Note", icon: Mic },
-    { href: "/", label: "History", icon: History },
+    { href: "/", label: "All Notes", icon: History },
   ];
 
   return (

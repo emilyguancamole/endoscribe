@@ -50,18 +50,18 @@ export default function Header({
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" className="bg-white">
+                    {/* <Button variant="outline" className="bg-white">
                         <Printer className="w-4 h-4 mr-2" />
                         Print
-                    </Button>
+                    </Button> */}
                     {!results && sessionLoadFinished && (
                         <Button variant="outline" className="bg-white" onClick={handleRegenerate} disabled={processMutation.isPending}>
-                            Re-generate note
+                            Re-generate Note
                         </Button>
                     )}
                     <Button className="bg-primary shadow-lg shadow-primary/20" onClick={handleSave}>
                         <Save className="w-4 h-4 mr-2" />
-                        Finalize Note
+                        Save Note
                     </Button>
                 </div>
             </div>

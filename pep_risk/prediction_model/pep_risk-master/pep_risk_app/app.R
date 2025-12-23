@@ -348,7 +348,6 @@ server <- function(input, output, session) {
 
 
     # Normalize values
-    message("Normalize values")
     pre_proc_values <- preProcess(train %>% select(-c("study_id", "pep", "patient_id")), method = c("center", "scale"))
     test_impute = predict(pre_proc_values, input_dat)
 
@@ -395,7 +394,6 @@ server <- function(input, output, session) {
     rv$test_patient_pred = test_patient_pred
 
     # Nearest neighbors (ref_samples)
-    message("Nearest neighbors")
     patient_ids = train %>%
       filter(aggressive_hydration == 0 &
                indomethacin_nsaid_prophylaxis == 0 &
@@ -574,7 +572,6 @@ server <- function(input, output, session) {
     neighbors_6 = neighbors_6 %>% mutate(pred = pred_adj)
 
     # Store neighbors with test patient
-    message("Store neighbors")
     rv$ref_samples = bind_rows(neighbors_1, neighbors_2, neighbors_3,
                                neighbors_4, neighbors_5, neighbors_6) %>%
       select(patient_id, pred, pep) %>%

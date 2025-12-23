@@ -88,7 +88,6 @@ def _filter_default_if_unknown_sentence(value: Any, default: str = "") -> str:
     s = _filter_default_if_unknown(value, default)
     if not s:
         return ""
-    # Apply capfirst + sentence formatting
     return _filter_sentence(_filter_capfirst(s))
 
 
@@ -120,12 +119,10 @@ def build_env() -> Environment:
 def render_text(template_str: str, data: Dict[str, Any], env: Environment | None = None) -> str:
     env = env or build_env()
     tpl: Template = env.from_string(template_str)
-    # print("data:", data)  # Debug: uncomment to see data dict
     rendered = tpl.render(**data)
     if not rendered:
         return ""
     # Normalize blank lines: collapse runs of blank/whitespace-only lines to a single blank line and trim leading/trailing whitespace/newlines.
-    # Convert Windows CRLF to LF first for safety.
     text = rendered.replace('\r\n', '\n').replace('\r', '\n')
     text = re.sub(r"\n\s*\n+", "\n\n", text)
     return text.strip()
@@ -138,7 +135,7 @@ def render_sections(sections: Dict[str, str], data: Dict[str, Any], env: Environ
         try:
             out[key] = render_text(tmpl, data, env)
         except Exception as e:
-            # Help debug Jinja syntax errors
+            # Debug Jinja syntax errors
             snippet = tmpl[:1000].replace('\n', '\\n') if tmpl else ''
             raise RuntimeError(f"Error rendering section '{key}': {e}\nTemplate snippet: {snippet}") from e
     return out

@@ -409,9 +409,9 @@ async def lifespan(app: FastAPI):
             traceback.print_exc()
 
     # Start idle shutdown checker (only on Fly.io)
-    if CONFIG.ENABLE_IDLE_SHUTDOWN:
-        print(f"\nStarting idle shutdown monitor ({CONFIG.IDLE_TIMEOUT_SECONDS}s timeout)")
-        idle_check_task = asyncio.create_task(check_idle_and_shutdown())
+    # if CONFIG.ENABLE_IDLE_SHUTDOWN:
+    #     print(f"\nStarting idle shutdown monitor ({CONFIG.IDLE_TIMEOUT_SECONDS}s timeout)")
+    #     idle_check_task = asyncio.create_task(check_idle_and_shutdown())
 
     yield  # Application runs here
 
@@ -467,6 +467,41 @@ async def home(request: Request):
     else:
         # Fallback to legacy template
         return templates.TemplateResponse("index.html", {"request": request})
+
+
+# Serve favicon at root so React build's `/favicon.svg` works when deployed
+FAV_DIST = REACT_BUILD_DIR / "favicon.svg"
+FAV_LEGACY = BASE_DIR / "static" / "favicon.svg"
+
+
+@app.get("/favicon.svg")
+async def favicon_svg():
+    if REACT_BUILD_DIR.exists() and FAV_DIST.exists():
+        return FileResponse(str(FAV_DIST))
+    if FAV_LEGACY.exists():
+        return FileResponse(str(FAV_LEGACY))
+    raise HTTPException(status_code=404, detail="favicon not found")
+
+
+@app.get("/favicon.ico")
+async def favicon_ico():
+    # Some clients request /favicon.ico by default — return the svg with correct media type if no .ico present
+    ico_path = None
+    # prefer an actual .ico if present in the dist or legacy static
+    if REACT_BUILD_DIR.exists() and (REACT_BUILD_DIR / "favicon.ico").exists():
+        ico_path = REACT_BUILD_DIR / "favicon.ico"
+    elif (BASE_DIR / "static" / "favicon.ico").exists():
+        ico_path = BASE_DIR / "static" / "favicon.ico"
+
+    if ico_path:
+        return FileResponse(str(ico_path))
+
+    # fall back to svg
+    svg = FAV_DIST if FAV_DIST.exists() else (FAV_LEGACY if FAV_LEGACY.exists() else None)
+    if svg:
+        return FileResponse(str(svg), media_type="image/svg+xml")
+
+    raise HTTPException(status_code=404, detail="favicon not found")
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -833,8 +868,8 @@ async def websocket_transcribe(websocket: WebSocket):
 
                         # Run transcription in thread pool to avoid blocking event loop
                         loop = asyncio.get_event_loop()
-                        if CONFIG.ENABLE_IDLE_SHUTDOWN:
-                            keepalive_task = asyncio.create_task(_transcription_keepalive())
+                        # if CONFIG.ENABLE_IDLE_SHUTDOWN:
+                        #     keepalive_task = asyncio.create_task(_transcription_keepalive())
                         try:
                             result = await loop.run_in_executor(None, transcribe_buffered_audio)
                         finally:
@@ -1193,8 +1228,6 @@ async def process_transcript(request: ProcessRequest):
             if cfg_fp:
                 # Prepare data for templates
                 data_for_templates = response_data.procedure_data or response_data.data or result_data or {}
-                print(f"DEBUG: data_for_templates keys: {list(data_for_templates.keys() if isinstance(data_for_templates, dict) else [])}")
-                print(f"DEBUG: estimated_blood_loss value: {data_for_templates.get('estimated_blood_loss', 'KEY_MISSING')}")
                 sections = build_report_sections(cfg_fp, data_for_templates)
                 # Join non-empty sections with headings
                 parts = []
@@ -1348,9 +1381,25 @@ async def save_session(session_id: str, request: SaveSessionRequest):
 
     return {"ok": True}
 
-
 if __name__ == "__main__":
     import uvicorn
+    import sys
+    
+    print("=" * 50, flush=True)
+    print("Starting EndoScribe server...", flush=True)
+    print(f"Python version: {sys.version}", flush=True)
+    print(f"Working directory: {os.getcwd()}", flush=True)
+    print(f"PORT env var: {os.getenv('PORT', 'not set')}", flush=True)
+    print("=" * 50, flush=True)
+    
     #! use `PORT` environment variable set by Fly `fly.toml` so app listens on the expected internal port, default 8000
     port = int(os.getenv("PORT", "8000"))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    print(f"Attempting to start server on 0.0.0.0:{port}", flush=True)
+    
+    try:
+        uvicorn.run(app, host="0.0.0.0", port=port)
+    except Exception as e:
+        print(f"Failed to start server: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

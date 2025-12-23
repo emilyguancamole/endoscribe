@@ -148,7 +148,6 @@ if __name__ == "__main__":
             save_filename=args.save_filename
         )
 
-        # Print final summary
         print(f"\nTRANSCRIPTION COMPLETED for {len(results)} files:")
         print(f"Files transcribed: {', '.join([os.path.basename(r['audio_file']) for r in results])}")
         print(f"Service used: {args.service if args.service else 'auto-detected'}")

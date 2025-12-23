@@ -35,4 +35,4 @@ transformers
 # anthropic
 
 # PEP
-rpy==3.5.11 # in pep conda env on ia1. also r-base 4.3.1
+# rpy==3.5.11 # in pep conda env on ia1. also r-base 4.3.1. note for fly, i put this install in Dockerfile

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 class ServerConfig:
     """Configuration values for the web app, loaded from environment with sensible defaults."""
     IDLE_TIMEOUT_SECONDS: int = int(os.getenv("IDLE_TIMEOUT_SECONDS", "60"))
-    ENABLE_IDLE_SHUTDOWN: bool = bool(os.getenv("FLY_APP_NAME"))
+    ENABLE_IDLE_SHUTDOWN: bool = bool(os.getenv("FLY_APP_NAME", False))
 
     TRANSCRIPTION_BUFFER_DURATION_MS: int = int(os.getenv("TRANSCRIPTION_BUFFER_DURATION_MS", "10000"))
     TRANSCRIPTION_BUFFER_OVERLAP_MS: int = int(os.getenv("TRANSCRIPTION_BUFFER_OVERLAP_MS", "2000"))

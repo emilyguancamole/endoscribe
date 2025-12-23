@@ -94,4 +94,6 @@ test_*.py
 # Other
 demo.ipynb
 gradio-app.py
-pep_risk/
+# Include pep risk prompts
+!pep_risk/prompts/
+!pep_risk/prompts/**

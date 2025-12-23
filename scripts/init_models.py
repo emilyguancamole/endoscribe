@@ -21,7 +21,12 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import torch
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except Exception:
+    torch = None
+    TORCH_AVAILABLE = False
 import whisperx
 
 
@@ -104,23 +109,26 @@ def main():
 
     # Auto-detect device
     if args.device == "auto":
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = "cuda" if (TORCH_AVAILABLE and getattr(torch, 'cuda', None) and torch.cuda.is_available()) else "cpu"
         print(f"Auto-detected device: {device}")
     else:
         device = args.device
 
     # Verify CUDA if requested
-    if device == "cuda" and not torch.cuda.is_available():
+    if device == "cuda" and not (TORCH_AVAILABLE and getattr(torch, 'cuda', None) and torch.cuda.is_available()):
         print("ERROR: CUDA requested but not available!")
         print("Falling back to CPU...")
         device = "cpu"
 
     # Show GPU info if available
-    if device == "cuda":
-        print(f"\nGPU Information:")
-        print(f"  Device: {torch.cuda.get_device_name(0)}")
-        print(f"  CUDA Version: {torch.version.cuda}")
-        print(f"  Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+    if device == "cuda" and TORCH_AVAILABLE:
+        try:
+            print(f"\nGPU Information:")
+            print(f"  Device: {torch.cuda.get_device_name(0)}")
+            print(f"  CUDA Version: {torch.version.cuda}")
+            print(f"  Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+        except Exception:
+            print("GPU info unavailable")
 
     # Set environment variables for model caching
     os.environ["HF_HOME"] = str(args.model_dir.parent / "huggingface")

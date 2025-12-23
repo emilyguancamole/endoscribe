@@ -62,47 +62,114 @@ class EUSData(BaseModel):
             return [v]
         return v
 
-class ERCPData(BaseModel):
-    indications: Optional[str] = None
-    age: Optional[int] = None
-    sex: Optional[str] = None
-    chief_complaints: Optional[str] = None
-    symptoms_duration: Optional[str] = None
-    symptoms_description: Optional[str] = None
-    negative_history: Optional[str] = None
-    past_medical_history: Optional[str] = None
-    current_medications: Optional[str] = None
-    family_history: Optional[str] = None
-    social_history: Optional[str] = None
-    duodenoscope_type: Optional[str] = None
-    scout_film_status: Optional[str] = None
-    scout_film_findings: Optional[str] = None
-    scope_advancement_difficulty: Optional[str] = None
-    upper_gi_examination: Optional[str] = None
-    upper_gi_findings: Optional[str] = None
-    grade_of_ercp: Optional[str] = None
-    pd_cannulation: Optional[str] = None
-    cannulation_success: Optional[bool] = None
-    lactated_ringers: Optional[bool] = None
-    rectal_indomethacin: Optional[bool] = None
-    successful_completion_of_intended_procedure: Optional[bool] = None
-    failed_ercp_from_another_facility_or_provider: Optional[bool] = None
-    samples_taken: Optional[bool] = None
-    egd_findings: Optional[str] = None
-    ercp_findings: Optional[str] = None
-    biliary_stent_type: Optional[str] = None
-    pd_stent: Optional[bool] = None
-    impressions: Optional[List[str]] = None
+# class ERCPData(BaseModel):
+#     indications: Optional[str] = None
+#     age: Optional[int] = None
+#     sex: Optional[str] = None
+#     chief_complaints: Optional[str] = None
+#     symptoms_duration: Optional[str] = None
+#     symptoms_narrative: Optional[str] = None
+#     negative_history: Optional[str] = None
+#     past_medical_history: Optional[str] = None
+#     current_medications: Optional[str] = None
+#     family_history: Optional[str] = None
+#     social_history: Optional[str] = None
+#     duodenoscope_type: Optional[str] = None
+#     scout_film_status: Optional[str] = None
+#     scout_film_findings: Optional[str] = None
+#     scope_advancement_difficulty: Optional[str] = None
+#     upper_gi_examination: Optional[str] = None
+#     upper_gi_findings: Optional[str] = None
+#     grade_of_ercp: Optional[str] = None
+#     pd_cannulation: Optional[str] = None
+#     cannulation_success: Optional[bool] = None
+#     lactated_ringers: Optional[bool] = None
+#     rectal_indomethacin: Optional[bool] = None
+#     successful_completion_of_intended_procedure: Optional[bool] = None
+#     failed_ercp_from_another_facility_or_provider: Optional[bool] = None
+#     samples_taken: Optional[bool] = None
+#     egd_findings: Optional[str] = None
+#     ercp_findings: Optional[str] = None
+#     biliary_stent_type: Optional[str] = None
+#     pd_stent: Optional[bool] = None
+#     impressions: Optional[List[str]] = None
 
-    @field_validator('impressions', mode='before')
-    @classmethod
-    def convert_impressions_to_list(cls, v):
-        """Convert 'N/A' strings to empty list for impressions, and strings to single-element lists"""
-        if isinstance(v, str):
-            if v.strip().upper() in ['N/A', 'NA']:
-                return []
-            return [v]
-        return v
+#     @field_validator('impressions', mode='before')
+#     @classmethod
+#     def convert_impressions_to_list(cls, v):
+#         """Convert 'N/A' strings to empty list for impressions, and strings to single-element lists"""
+#         if isinstance(v, str):
+#             if v.strip().upper() in ['N/A', 'NA']:
+#                 return []
+#             return [v]
+#         return v
+
+#     @field_validator('grade_of_ercp', mode='before')
+#     @classmethod
+#     def normalize_grade_of_ercp(cls, v):
+#         """Ensure `grade_of_ercp` is a string or None"""
+#         if v is None:
+#             return None
+#         if isinstance(v, int):
+#             if v < 0:
+#                 return None
+#             return str(v)
+#         if isinstance(v, str):
+#             s = v.strip()
+#             if s == "":
+#                 return None
+#             if s.lower() in {"-1", "unknown", "none", "n/a", "na"}:
+#                 return None
+#             return s
+#         try:
+#             return str(v)
+#         except Exception:
+#             return None
+
+#     @field_validator(
+#         'cannulation_success', 'lactated_ringers', 'rectal_indomethacin',
+#         'successful_completion_of_intended_procedure', 'failed_ercp_from_another_facility_or_provider',
+#         'samples_taken', 'pd_stent', mode='before'
+#     )
+#     @classmethod
+#     def coerce_optional_bools(cls, v):
+#         """Coerce various inputs to Optional[bool]. Return None for unknown/unparseable values."""
+#         if v is None:
+#             return None
+#         if isinstance(v, bool):
+#             return v
+#         if isinstance(v, int):
+#             return bool(v)
+#         if isinstance(v, str):
+#             s = v.strip().lower()
+#             if s in {"true", "1", "yes", "y", "t"}:
+#                 return True
+#             if s in {"false", "0", "no", "n", "f"}:
+#                 return False
+#             # handle common placeholders as missing
+#             if s in {"unknown", "-1", "none", "n/a", "na", ""}:
+#                 return None
+#         # Unrecognized type: return None to avoid validation error
+#         return None
+
+#     @field_validator('age', mode='before')
+#     @classmethod
+#     def coerce_age(cls, v):
+#         """Coerce age to int"""
+#         if v is None:
+#             return None
+#         if isinstance(v, int):
+#             return v
+#         if isinstance(v, str):
+#             s = v.strip()
+#             if s.isdigit():
+#                 return int(s)
+#             try:
+#                 f = float(s)
+#                 return int(f)
+#             except Exception:
+#                 return None
+#         return None
 
 class ManualPEPRiskData(BaseModel):
     """Manual risk factors input by clinician before/after ERCP"""

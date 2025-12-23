@@ -1,4 +1,5 @@
-# Fly.io configuration for EndoScribe with GPU support
+# Fly.io configuration for EndoScribe with 
+# 12/21/25: original config had GPU support; removed since we moved to managed models
 # Documentation: https://fly.io/docs/reference/configuration/
 
 app = "endoscribe-local"
@@ -14,27 +15,28 @@ kill_timeout = "60s"
   PORT = "8000"
   PYTHONUNBUFFERED = "1"
 
-# NVIDIA A10 GPU (24GB VRAM)
-# Sufficient for WhisperX large-v3 model
+# NVIDIA A10 GPU (24GB VRAM); Sufficient for WhisperX large-v3 model
 [vm]
-  size = "a10" # gpu for local models
-  #size = "shared-cpu-1x"
+  #size = "a10" # gpu for local models
+  size = "shared-cpu-2x"
+  memory = "4gb"
 
 # Persistent volumes for model caching and data storage
 # Note: Volumes must be created with GPU constraints before deployment:
 #   fly volumes create data --size 30 --vm-gpu-kind a10 --region ord
 # NON GPU: fly volumes create datanongpu --size 30 --region ord --app endoscribe-local
 [[mounts]]
-  source = "data"
+  #source = "data"
+  source = "datanongpu"
   destination = "/data"
 
 # HTTP service configuration
 [http_service]
   internal_port = 8000
   force_https = true
-  auto_stop_machines = "stop"   # Stop machines when idle
+  auto_stop_machines = "suspend"   # suspend machines when idle
   auto_start_machines = true     # Start machines on incoming requests
-  min_machines_running = 0       # Allow scale to zero
+  min_machines_running = 1
 
   # Connection limits
   # soft_limit = 1 for scale-to-zero: wake single machine faster

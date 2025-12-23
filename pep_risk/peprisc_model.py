@@ -289,13 +289,10 @@ def predict_pep_risk(
         print("Calling R PEPRISC model...")
         r_output = r_model.peprisk_predict(input_df)
         
-        # Convert R output to a Python dict depending on the returned type
         r_dict = {}
-        # This should be the case. bridge already returned a Python dict/OrderedDict
+        # bridge should've returned a Python dict/OrderedDict
         if isinstance(r_output, dict) or hasattr(r_output, 'items'):
             r_dict = dict(r_output)
-
-        print(f"R model returned: {list(r_dict.keys())}")
         
         # Extract and format results (including all treatment predictions)
         risk_score, risk_category, treatment_predictions, r_details = extract_r_model_results(r_dict)

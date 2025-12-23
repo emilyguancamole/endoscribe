@@ -12,8 +12,13 @@ from typing import Dict, Optional
 from datetime import datetime
 from contextlib import asynccontextmanager
 
-import torch
-import torch.serialization
+try:
+    import torch
+    import torch.serialization
+    TORCH_AVAILABLE = True
+except Exception:
+    torch = None
+    TORCH_AVAILABLE = False
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -21,14 +26,20 @@ from fastapi.templating import Jinja2Templates
 from fastapi import Request
 from typing import Any, Dict, List, Tuple, Optional
 import collections
-import omegaconf
-from omegaconf.listconfig import ListConfig
-from omegaconf.dictconfig import DictConfig
-from omegaconf.base import ContainerMetadata
-torch.serialization.add_safe_globals([
-    ListConfig, DictConfig, ContainerMetadata,
-    Any, Dict, List, Tuple, Optional, list, dict, collections.defaultdict, int, float, omegaconf.nodes.AnyNode, omegaconf.base.Metadata, set, tuple, torch.torch_version.TorchVersion, 
-])
+
+if TORCH_AVAILABLE:
+    import omegaconf
+    from omegaconf.listconfig import ListConfig
+    from omegaconf.dictconfig import DictConfig
+    from omegaconf.base import ContainerMetadata
+    try:
+        torch.serialization.add_safe_globals([
+            ListConfig, DictConfig, ContainerMetadata,
+            Any, Dict, List, Tuple, Optional, list, dict, collections.defaultdict, int, float, omegaconf.nodes.AnyNode, omegaconf.base.Metadata, set, tuple, torch.torch_version.TorchVersion,
+        ])
+    except Exception:
+        # Best-effort: if adding safe globals fails, continue without crashing
+        pass
 
 
 def _convert_bytes_to_pcm16le_16k(input_bytes: bytes) -> bytes:
@@ -72,10 +83,10 @@ from data_models.data_models import (
     ColonoscopyData,
     PolypData,
     EUSData,
-    ERCPData,
     EGDData,
     PEPRiskData
 )
+from data_models.generated_ercp_base_model import ErcpBaseData
 from pydantic import ValidationError
 from web_app.config import CONFIG
 
@@ -171,17 +182,24 @@ class SaveSessionRequest(BaseModel):
     results: Optional[Dict[str, Any]] = None
 
 # Device configuration with detailed diagnostics
-if torch.cuda.is_available():
+if TORCH_AVAILABLE and getattr(torch, 'cuda', None) and torch.cuda.is_available():
     DEVICE = "cuda"
-elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+elif TORCH_AVAILABLE and hasattr(getattr(torch, 'backends', None), "mps") and torch.backends.mps.is_available():
     DEVICE = "mps"
 else:
     DEVICE = "cpu"
 
 print(f"\n{'='*60}")
-print(f"GPU DIAGNOSTICS")
-print(f"PyTorch version: {torch.__version__}")
-print(f"CUDA available: {torch.cuda.is_available()}")
+print("GPU DIAGNOSTICS")
+if TORCH_AVAILABLE:
+    try:
+        print(f"PyTorch version: {torch.__version__}")
+        cuda_avail = getattr(torch.cuda, 'is_available', lambda: False)()
+        print(f"CUDA available: {cuda_avail}")
+    except Exception:
+        print("PyTorch present but diagnostics failed")
+else:
+    print("PyTorch not installed; running in CPU-only mode")
 print(f"Using device: {DEVICE}")
 
 async def check_idle_and_shutdown():
@@ -303,11 +321,16 @@ async def lifespan(app: FastAPI):
                 compute_type = "int8"
 
             #! Fix for PyTorch 2.6+ weights_only=True default - for whisperx
-            from pyannote.audio.core.model import Introspection
-            from pyannote.audio.core.task import Specifications, Problem, Resolution
-            torch.serialization.add_safe_globals([
-                Introspection, Specifications, Problem, Resolution, torch.torch_version.TorchVersion, 
-            ])
+            
+            if TORCH_AVAILABLE:
+                from pyannote.audio.core.model import Introspection
+                from pyannote.audio.core.task import Specifications, Problem, Resolution
+                try:
+                    torch.serialization.add_safe_globals([
+                        Introspection, Specifications, Problem, Resolution, torch.torch_version.TorchVersion,
+                    ])
+                except Exception:
+                    pass
 
             print(f"Loading WhisperX with device={WHISPER_DEVICE}, compute_type={compute_type}")
             print("Note: First-time download of large-v3 model (~5GB) may take several minutes...")
@@ -482,22 +505,34 @@ async def health_check():
 async def gpu_info():
     """GPU diagnostics endpoint"""
     info = {
-        "pytorch_version": torch.__version__,
-        "cuda_available": torch.cuda.is_available(),
-        "mps_available": hasattr(torch.backends, "mps") and torch.backends.mps.is_available(),
         "device": DEVICE,
         "whisperx_device": WHISPER_DEVICE,  # Actual device WhisperX is using
     }
+    if TORCH_AVAILABLE:
+        try:
+            info.update({
+                "pytorch_version": torch.__version__,
+                "cuda_available": getattr(torch.cuda, 'is_available', lambda: False)(),
+                "mps_available": hasattr(getattr(torch, 'backends', None), "mps") and torch.backends.mps.is_available(),
+            })
+        except Exception:
+            info.update({"pytorch_version": None, "cuda_available": False, "mps_available": False})
+    else:
+        info.update({"pytorch_version": None, "cuda_available": False, "mps_available": False})
 
-    if DEVICE == "cuda":
-        info.update({
-            "cuda_version": torch.version.cuda,
-            "gpu_name": torch.cuda.get_device_name(0),
-            "gpu_memory_total_gb": round(torch.cuda.get_device_properties(0).total_memory / 1e9, 2),
-            "gpu_memory_allocated_gb": round(torch.cuda.memory_allocated(0) / 1e9, 2),
-            "gpu_memory_reserved_gb": round(torch.cuda.memory_reserved(0) / 1e9, 2),
-            "gpu_count": torch.cuda.device_count(),
-        })
+    if DEVICE == "cuda" and TORCH_AVAILABLE:
+        try:
+            info.update({
+                "cuda_version": torch.version.cuda,
+                "gpu_name": torch.cuda.get_device_name(0),
+                "gpu_memory_total_gb": round(torch.cuda.get_device_properties(0).total_memory / 1e9, 2),
+                "gpu_memory_allocated_gb": round(torch.cuda.memory_allocated(0) / 1e9, 2),
+                "gpu_memory_reserved_gb": round(torch.cuda.memory_reserved(0) / 1e9, 2),
+                "gpu_count": torch.cuda.device_count(),
+            })
+        except Exception:
+            # If querying GPU properties fails, return best-effort info
+            pass
     elif DEVICE == "mps":
         info.update({
             "platform": "Apple Silicon",
@@ -1046,11 +1081,12 @@ async def process_transcript(request: ProcessRequest):
                     response = LLM_HANDLER.chat(messages)[0].outputs[0].text.strip()
 
                 response_json = json.loads(response[response.find("{"): response.rfind("}") + 1])
+                print("ERCP RESPONSE", response_json)
                 
                 # VALIDATE with Pydantic model
                 procedure_models = {
                     "eus": EUSData,
-                    "ercp": ERCPData,
+                    "ercp": ErcpBaseData,  # Use generated model that matches the YAML/prompt
                     "egd": EGDData
                 }
                 model_class = procedure_models.get(request.procedure_type.value)
@@ -1153,27 +1189,25 @@ async def process_transcript(request: ProcessRequest):
             candidate_fp = BASE_DIR.parent / 'drafters' / 'procedures' / proc / f'generated_{proc}_base.yaml'
             if candidate_fp.exists():
                 cfg_fp = str(candidate_fp)
-
+ 
             if cfg_fp:
                 # Prepare data for templates
                 data_for_templates = response_data.procedure_data or response_data.data or result_data or {}
-                try:
-                    sections = build_report_sections(cfg_fp, data_for_templates)
-                    # Join non-empty sections with headings
-                    parts = []
-                    for k in ['indications', 'history', 'description_of_procedure', 'findings', 'ercp_quality_metrics', 'impressions', 'recommendations']:
-                        v = sections.get(k)
-                        if v and v.strip():
-                            parts.append(f"## {k.replace('_', ' ').title()}\n" + v.strip())
-                    rendered_note = "\n\n".join(parts).strip()
-                    if rendered_note:
-                        response_data.formatted_note = rendered_note
-                except Exception as e:
-                    print(f"Note rendering skipped: {e}")
-        except Exception:
-            # templating not available or failed; ignore and continue
-            pass
-        
+                print(f"DEBUG: data_for_templates keys: {list(data_for_templates.keys() if isinstance(data_for_templates, dict) else [])}")
+                print(f"DEBUG: estimated_blood_loss value: {data_for_templates.get('estimated_blood_loss', 'KEY_MISSING')}")
+                sections = build_report_sections(cfg_fp, data_for_templates)
+                # Join non-empty sections with headings
+                parts = []
+                for k in ['indications', 'history', 'description_of_procedure', 'findings', 'ercp_quality_metrics', 'impressions', 'recommendations']:
+                    v = sections.get(k)
+                    if v and v.strip():
+                        parts.append(f"## {k.replace('_', ' ').title()}\n" + v.strip())
+                rendered_note = "\n\n".join(parts).strip()
+                if rendered_note:
+                    response_data.formatted_note = rendered_note
+        except Exception as e:
+            print(f"Note rendering dailed: {e}")
+
         if request.session_id and request.session_id in SESSIONS:
             SESSIONS[request.session_id]["processed"] = True
             SESSIONS[request.session_id]["procedure_type"] = request.procedure_type.value

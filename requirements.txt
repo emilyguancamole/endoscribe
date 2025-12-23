@@ -1,10 +1,13 @@
 # conda
 pydantic
-whisperx==3.3.1
+# whisperx==3.3.1
     # installs: torch needs 2.5.1, pandas, numpy
     # had trouble with whisperx 3.7.4 and torch 2.8.0
     # check:    
         # python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}')"
+# whisperx usually installs pandas and numpy, but specify here when not using whisperx
+pandas
+numpy
 fastapi
 openai
 python-dotenv
@@ -30,3 +33,6 @@ transformers
 # vllm
 # psycopg2-binary
 # anthropic
+
+# PEP
+rpy==3.5.11 # in pep conda env on ia1. also r-base 4.3.1

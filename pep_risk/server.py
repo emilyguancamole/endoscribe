@@ -2,7 +2,23 @@ import traceback
 from fastapi import FastAPI, UploadFile, Form
 import os, uuid
 from whisperx import load_model
-import torch
+try:
+    import torch
+    TORCH_AVAILABLE = True
+    import torch.serialization
+    import omegaconf
+    torch.serialization.add_safe_globals([
+        omegaconf.listconfig.ListConfig, omegaconf.dictconfig.DictConfig, omegaconf.base.ContainerMetadata,
+        Any, Dict, List, Optional, list, dict, int, float, collections.defaultdict, omegaconf.nodes.AnyNode, omegaconf.base.Metadata, set, tuple, torch.torch_version.TorchVersion, 
+    ])
+    from pyannote.audio.core.model import Introspection
+    from pyannote.audio.core.task import Specifications, Problem, Resolution
+    torch.serialization.add_safe_globals([
+        Introspection, Specifications, Problem, Resolution, torch.torch_version.TorchVersion, 
+    ])
+except Exception:
+    torch = None
+    TORCH_AVAILABLE = False
 from typing import Any, Dict, List, Optional
 from transcription.whisperx_transcribe import transcribe_whisperx
 from llm.llm_client import LLMClient
@@ -28,21 +44,19 @@ os.makedirs(RECORDINGS_DIR, exist_ok=True)
 #* Fix for PyTorch 2.6+ weights_only=True default
 from typing import Dict, List, Optional
 import collections
-import torch.serialization
-import omegaconf
-torch.serialization.add_safe_globals([
-    omegaconf.listconfig.ListConfig, omegaconf.dictconfig.DictConfig, omegaconf.base.ContainerMetadata,
-    Any, Dict, List, Optional, list, dict, int, float, collections.defaultdict, omegaconf.nodes.AnyNode, omegaconf.base.Metadata, set, tuple, torch.torch_version.TorchVersion, 
-])
-from pyannote.audio.core.model import Introspection
-from pyannote.audio.core.task import Specifications, Problem, Resolution
-torch.serialization.add_safe_globals([
-    Introspection, Specifications, Problem, Resolution, torch.torch_version.TorchVersion, 
-])
 
 # Load WhisperX once at startup
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model = load_model("large-v3", device=device)
+if TORCH_AVAILABLE and getattr(torch, 'cuda', None) and torch.cuda.is_available():
+    device = "cuda"
+elif TORCH_AVAILABLE and hasattr(getattr(torch, 'backends', None), 'mps') and torch.backends.mps.is_available():
+    device = "mps"
+else:
+    device = "cpu"
+try:
+    model = load_model("large-v3", device=device)
+except Exception as e:
+    print(f"Warning: failed to load whisperx model at startup: {e}")
+    model = None
 
 # Simple in-memory session store for chunked recording sessions
 # session_id -> {"chunks": [file_paths], "transcripts": [texts], "finalized": bool, "final_transcript": Optional[str], "extraction": Optional[dict]}

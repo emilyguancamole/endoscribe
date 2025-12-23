@@ -75,7 +75,7 @@ field_groups:
         type: string
         prompt_instruction: "Duration of symptoms corresponding to '[duration]' (e.g., '3 months', '2 weeks')."
 
-      - name: symptoms_description
+      - name: symptoms_narrative
         type: string
         prompt_instruction: "Primary symptoms corresponding to '[symptoms]' (e.g., 'rectal bleeding', 'abdominal pain', 'diarrhea')."
 
@@ -502,7 +502,7 @@ field_groups:
 
       - name: estimated_blood_loss_value
         type: float
-        prompt_instruction: Estimated blood loss in ml if provided. If no blood loss, record 0.
+        prompt_instruction: Estimated blood loss in ml if provided. If no blood loss or not mentioned, record 0.
         # template: 'ESTIMATED BLOOD LOSS: XXX ml / No blood loss'
 
       - name: specimens_narrative

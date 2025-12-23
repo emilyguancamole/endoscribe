@@ -1,12 +1,15 @@
 from __future__ import annotations
 from typing import Any, Dict
 import re
-from jinja2 import Environment, StrictUndefined, Template
+from jinja2 import Environment, ChainableUndefined, Template
+from jinja2.runtime import Undefined
 
 
 def _filter_skip_unknown(value: Any) -> str:
     """Return empty string if a field is unknown/none-like to allow sentence omission.
     """
+    if isinstance(value, Undefined):
+        return ""
     return "" if _is_unknown(value) else str(value)
 
 
@@ -51,6 +54,8 @@ def _filter_capfirst(text: str) -> str:
 
 
 def _is_unknown(value: Any) -> bool:
+    if isinstance(value, Undefined):
+        return True
     if value is None: return True
     if isinstance(value, (int, float)):
         try:
@@ -70,6 +75,8 @@ def _is_unknown(value: Any) -> bool:
 
 
 def _filter_default_if_unknown(value: Any, default: str = "") -> str:
+    if isinstance(value, Undefined):
+        return default
     return default if _is_unknown(value) else str(value)
 
 
@@ -99,7 +106,7 @@ def _filter_join_nonempty(values: Any, sep: str = ", ") -> str:
 
 def build_env() -> Environment:
     ''' Register Jinja environment with custom filters'''
-    env = Environment(undefined=StrictUndefined, autoescape=False, trim_blocks=True, lstrip_blocks=True)
+    env = Environment(undefined=ChainableUndefined, autoescape=False, trim_blocks=True, lstrip_blocks=True)
     env.filters["sku"] = _filter_skip_unknown
     env.filters["sent"] = _filter_sentence
     env.filters["capfirst"] = _filter_capfirst

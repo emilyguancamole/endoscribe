@@ -2,7 +2,12 @@ import argparse
 import pandas as pd
 from llm.llm_client import LLMClient
 from processors import ColProcessor, ERCPProcessor, EUSProcessor, EGDProcessor
-import torch
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except Exception:
+    torch = None
+    TORCH_AVAILABLE = False
 import argparse
 from llm.llm_client import LLMClient
 from processors import ColProcessor, ERCPProcessor, EUSProcessor, EGDProcessor
@@ -35,8 +40,8 @@ def main():
     # args.model_dir = "/scratch/eguan2/llama33-70/llama33-70_model"
     output_fp = f"results/{args.procedure_type}/extractions/{args.output_filename}.csv"
 
-    if torch.cuda.is_available():
-        print(f"CUDA Available")
+    if TORCH_AVAILABLE and getattr(torch, 'cuda', None) and torch.cuda.is_available():
+        print("CUDA Available")
 
     # Initialize LLM with flexible configuration
     llm_kwargs = {}

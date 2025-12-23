@@ -4,17 +4,22 @@
 import argparse
 import os
 import pandas as pd
-import torch
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except Exception:
+    torch = None
+    TORCH_AVAILABLE = False
 from typing import Optional, List
 
 # Dynamic CUDA configuration - only set if CUDA is available
-if torch.cuda.is_available():
+if TORCH_AVAILABLE and getattr(torch, 'cuda', None) and torch.cuda.is_available():
     # Use CUDA_VISIBLE_DEVICES env var if set, otherwise use default GPUs for WhisperX
     if "CUDA_VISIBLE_DEVICES" not in os.environ:
         os.environ["CUDA_VISIBLE_DEVICES"] = "8,9"
         print(f"CUDA detected. Setting CUDA_VISIBLE_DEVICES to: {os.environ['CUDA_VISIBLE_DEVICES']}")
 else:
-    print("CUDA not available. WhisperX will run on CPU or MPS (Apple Silicon).")
+    print("CUDA not available or PyTorch missing. WhisperX will run on CPU or MPS (Apple Silicon).")
 
 import noisereduce as nr
 import soundfile as sf
@@ -44,7 +49,7 @@ def transcribe(audio_file, whisper_model="large-v3", device=None):
     """
     # Auto-detect device if not specified
     if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = "cuda" if (TORCH_AVAILABLE and getattr(torch, 'cuda', None) and torch.cuda.is_available()) else "cpu"
         print(f"Auto-detected device: {device}")
 
     model = whisperx.load_model(whisper_model, device=device, compute_type="float16")
@@ -84,7 +89,7 @@ def transcribe_whisperx(audio_file, whisper_model="large-v3", device=None, phras
     """
     # Auto-detect device if not specified
     if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = "cuda" if (TORCH_AVAILABLE and getattr(torch, 'cuda', None) and torch.cuda.is_available()) else "cpu"
         print(f"Auto-detected device: {device}")
 
     print(f"Loading WhisperX model: {whisper_model}")

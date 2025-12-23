@@ -1,7 +1,4 @@
 import os
-import pandas as pd
-import torch
-import json
 from typing import List, Dict
 
 def load_fewshot_examples(fp: str) -> str:

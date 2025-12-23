@@ -63,26 +63,34 @@ class BaseProcessor:
         upsert_extracted_outputs(df, table_name)
 
     def build_messages(self, transcript, prompt_field_definitions_fp: str, fewshot_examples_dir: Optional[str]=None, prefix: Optional[str]=None) -> List[Dict[str, str]]:
-
+        # Verify files exist before opening
+        if not os.path.exists(self.system_prompt_fp):
+            raise FileNotFoundError(f"System prompt file not found: {self.system_prompt_fp} (cwd: {os.getcwd()})")
+        if not os.path.exists(prompt_field_definitions_fp):
+            raise FileNotFoundError(f"Prompt field definitions file not found: {prompt_field_definitions_fp} (cwd: {os.getcwd()})")
+        
         system_prompt = open(self.system_prompt_fp).read().replace(
             '{{prompt_field_definitions}}',
             open(prompt_field_definitions_fp).read()
         )
-        print(f"Loaded system prompt from: {self.system_prompt_fp}")
+        print(f"\nLoaded system prompt from: {self.system_prompt_fp}")
         messages = [{"role": "system", "content": system_prompt}]
 
         # Load and add few-shot examples
-        if fewshot_examples_dir:
-            fewshot_examples = self.load_fewshot_examples(fewshot_examples_dir, prefix)
-            for ex in fewshot_examples:
-                messages.append({"role": "user", "content": ex["user"]})
-                messages.append({"role": "assistant", "content": ex["assistant"]})
+        if fewshot_examples_dir and os.path.exists(fewshot_examples_dir): #! TODO add few shot
+            print(f"Loading few-shot examples from: {fewshot_examples_dir} with prefix: {prefix}")
+            # fewshot_examples = self.load_fewshot_examples(fewshot_examples_dir, prefix)
+            # for ex in fewshot_examples:
+            #     messages.append({"role": "user", "content": ex["user"]})
+            #     messages.append({"role": "assistant", "content": ex["assistant"]})
         
         messages.append({
             "role": "user", 
             "content": f"""Extract procedure entities from the following transcript:\n\n{transcript}"""
         })
-        print("Built messages for LLM")
+        print("###############Built messages for LLM for processor", self.procedure_type)
+        for msg in messages:
+            print(f"\n###Message: {msg['content'][:300]}...")
         return messages
 
 

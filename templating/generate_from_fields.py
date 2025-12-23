@@ -230,7 +230,7 @@ def generate_pydantic_model(config: dict, model_name: str = "ERCPData") -> str:
         lines.append("        if isinstance(v, str):")
         lines.append("            v_lower = v.lower().strip()")
         lines.append("            # Treat unknown/none as None")
-        lines.append("            if v_lower in ('unknown', 'none', 'n/a', 'na'):")
+        lines.append("            if v_lower in ('unknown', 'none', 'n/a', 'na', '-1'):")
         lines.append("                return None")
         lines.append("            # Coerce truthy/falsey strings")
         lines.append("            if v_lower in ('true', 'yes', '1'):")

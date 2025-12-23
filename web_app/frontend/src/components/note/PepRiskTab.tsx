@@ -17,6 +17,7 @@ interface TreatmentPrediction {
 // }
 
 export default function PepRiskTab({ results }: { results: ProcessResponse | null }) {
+    console.log("PEP Risk Results:", results);
     return (
         <Card className="shadow-sm">
             <CardHeader className="bg-muted/20 border-b border-border/50">

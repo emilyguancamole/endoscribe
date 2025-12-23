@@ -1,17 +1,22 @@
 import os
 import sys
 import logging
-import torch
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except Exception:
+    torch = None
+    TORCH_AVAILABLE = False
 import argparse
 
 # Dynamic CUDA configuration - only set if CUDA is available
-if torch.cuda.is_available():
+if TORCH_AVAILABLE and getattr(torch, 'cuda', None) and torch.cuda.is_available():
     # Use CUDA_VISIBLE_DEVICES env var if set, otherwise use default GPUs for fine-tuning
     if "CUDA_VISIBLE_DEVICES" not in os.environ:
         os.environ["CUDA_VISIBLE_DEVICES"] = "5,6,7"
         print(f"CUDA detected. Setting CUDA_VISIBLE_DEVICES to: {os.environ['CUDA_VISIBLE_DEVICES']}")
 else:
-    print("CUDA not available. Fine-tuning will run on CPU or MPS (Apple Silicon) - this may be slow.")
+    print("CUDA not available or PyTorch missing. Fine-tuning will run on CPU or MPS (Apple Silicon) - this may be slow.")
 import evaluate
 from dataclasses import dataclass
 from typing import Any, Dict, List, Union

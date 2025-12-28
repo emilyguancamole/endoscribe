@@ -670,22 +670,65 @@ field_groups:
     description: "Biliary stent details if placed"
     report_section: "findings"
     report_subsection: "biliary_stent"
+    #* 'building sentences' approach... maybe better for readability of jinja than a single long template but idk??
     template: |
-      {% if biliary_stent_placed %}
-      {% if plastic_stent_details | sku %}A {{ plastic_stent_details}} was placed. {% elif metal_stent_details | sku %}A {{ metal_stent_details }} was placed. {% endif %}
+      {% if biliary_stent_type == 'plastic' %}
+        {% set sentence = 'A ' %}
+        {% if plastic_biliary_type | sku %}
+          {% set sentence = sentence ~ plastic_biliary_type ~ ' ' %}
+        {% endif %}
+        {% set sentence = sentence ~ 'plastic biliary stent' %}
+        {% if plastic_biliary_size | sku %}
+          {% set sentence = sentence ~ ' of ' ~ plastic_biliary_size %}
+        {% endif %}
+        {% if plastic_biliary_length is defined and plastic_biliary_length > 0 %}
+          {% set sentence = sentence ~ ' by ' ~ plastic_biliary_length ~ ' cm' %}
+        {% endif %}
+        {% set sentence = sentence ~ ' was placed.' %}
+      {% set ns.parts = ns.parts + [sentence] %}
+      {% endif %}
+
+      {% if biliary_stent_type == 'metal' %}
+      A {{ metal_biliary_type }} metal biliary stent
+      {% if metal_biliary_length > 0 %} of length {{ metal_biliary_length }} mm{% endif %}
+      was placed.
+      {% if metal_biliary_narrative | sku %}
+      {{ metal_biliary_narrative }}
+      {% endif %}
       {% endif %}
     fields:
-      - name: biliary_stent_placed
-        type: boolean
-        prompt_instruction: "true if any biliary stent was placed; false otherwise"
+      - name: biliary_stent_type
+        type: enum
+        enum_values: ["plastic", "metal", "none", "unknown"]
+        prompt_instruction: "If biliary stent placed, record type as 'plastic'/'metal'"
 
-      - name: plastic_stent_details
+      - name: plastic_biliary_size
         type: string
-        prompt_instruction: "If plastic stent, describe the stent including configuration, flaps, French size, length in cm, e.g. '10 Fr x 12 cm plastic biliary stent'"
+        prompt_instruction: "If plastic stent placed, record diameter, 5F/7F/10F"
 
-      - name: metal_stent_details
+      - name: plastic_biliary_type
         type: string
-        prompt_instruction: "If metal stent, describe stent including coverage (FCSEMS/PCSEMS/UCSEMS), diameter in mm, length in mm, features (flared ends, anti-migration fins, retrieval lasso, tapered tip), deployment position (suprapapillary/transpapillary/intraductal), and target lesion"
+        prompt_instruction: "If plastic stent placed, record type, single flap/double flap/barbed" 
+        
+      - name: plastic_biliary_length
+        type: integer
+        prompt_instruction: "If plastic stent placed, record length in cm, e.g. 5/7/9/10/12/15"
+
+      - name: metal_biliary_type
+        type: string
+        prompt_instruction: "If metal stent placed, record coverage as 'FCSEMS' (if fully covered)/ 'PCSEMS' (if partially covered) / 'UCSEMS' (if uncovered)"
+
+      - name: metal_biliary_type_features
+        type: string
+        prompt_instruction: "If metal stent placed, record features such as flared ends/anti-migration fins/retrieval lasso/tapered tip"
+#! check results of this prompt
+      - name: metal_biliary_narrative
+        type: string
+        prompt_instruction: "If metal stent placed, describe its deployment in sentences in the following format, choosing the right findings for fields in square brackets []: 'Deployed [suprapapillary/transpapillary/intraductal above papilla across the [distal CBD stricture/mid CBD/hilar/anastomotic stricture/bile leak site]. Distal end was [2-3 mm beyond papilla/flush with papilla/5-10 mm into duodenum] and proximal end was [xx cm] into [CBD/CHD/right hepatic duct/left hepatic duct/above cystic duct take-off/below cystic duct take-off].'"
+
+      - name: metal_biliary_length
+        type: integer
+        prompt_instruction: "If metal stent placed, record length in mm, e.g. 40/60/80/100/120"
 
   pancreatic_stents:
     # If for prophylaxis 3F straight, no internal flap / 5F straight, no internal flap was used. 
@@ -693,47 +736,64 @@ field_groups:
     # Final position was optimal / suboptimal 
       # 1.	If optimal: distal end at duodenal lumen / just beyond papilla. 
       # 2.	If suboptimal: the stent was too proximal / too distal / kinked / not bridging the lesion / partially intramural. Adjustment was performed using rat-tooth forceps / snare reposition / balloon push–pull / partial redeployment / complete exchange. 
-    # Bile and contrast drained well. The procedure was completed and the duodenoscope was removed. Optional: Final fluoroscopic picture done for confirmation
     description: "Pancreatic stent details if placed"
     report_section: "findings"
     report_subsection: "pancreatic_stent"
     template: |
-      {% if pancreatic_stent_placed %}
-      {% if pancreatic_stent_purpose == 'pep_prophylaxis' %}
-      A pancreatic stent for PEP prophylaxis was placed:{% if pancreatic_stent_details | sku %} {{ pancreatic_stent_details }} straight no internal flap.{% endif %}
-      {% elif pancreatic_stent_purpose == 'therapeutic' %}
-      A therapeutic pancreatic stent was placed:{% if pancreatic_stent_details | sku %} {{ pancreatic_stent_details }}.{% endif %}
+      {% if pd_stent_placed %}
+      {% set ns = namespace(parts=[]) %}
+
+      {% if pd_stent_purpose == 'pep_prophylaxis' %}
+      {% set base = 'A ' ~ pd_stent_size ~ ' ' ~ pd_stent_type ~ ' stent was placed for PEP prophylaxis.' %}
+      {% elif pd_stent_purpose == 'therapeutic' %}
+        {% set base = 'A ' ~ pd_stent_size ~ ' ' ~ pd_stent_type ~ ' stent was placed for therapeutic purposes.' %}
+      {% else %}
+        {% set base = 'Pancreatic duct stent was placed.' %}
       {% endif %}
-      {% if stent_placement_narrative | sku %} {{ stent_placement_narrative | sent }}{% endif %}
-      {% if bile_and_contrast_drainage | sku %} {{ bile_and_contrast_drainage | sent }}{% endif %}
-      {% if final_fluoroscopic_image_obtained %} Final fluoroscopic picture was done for confirmation.{% endif %}
+      {% set ns.parts = ns.parts + [base] %}
+
+      {% if pd_stent_purpose == 'therapeutic' and pd_stent_therapy_flaps | sku and pd_stent_therapy_narrative | sku %}
+        {% set therapy_clause = 'The stent had ' ~ pd_stent_therapy_flaps ~ ' internal flap(s). ' ~ pd_stent_therapy_narrative %}
+        {% set ns.parts = ns.parts + [therapy_clause] %}
+      {% endif %}
+
+      {% if pd_placement_narrative | sku %}
+        {% set ns.parts = ns.parts + [pd_placement_narrative] %}
+      {% endif %}
+
+      {{ ns.parts | join(' ') }}
       {% endif %}
     fields:
-      - name: pancreatic_stent_placed
+      - name: pd_stent_placed
         type: boolean
         prompt_instruction: "true if pancreatic duct stent was placed; false otherwise"
 
-      - name: pancreatic_stent_purpose
+      - name: pd_stent_purpose
         type: enum
         enum_values: ["pep_prophylaxis", "therapeutic", "none", "unknown"]
         prompt_instruction: "Purpose of pancreatic stent: 'pep_prophylaxis', 'therapeutic'"
 
-      - name: pancreatic_stent_details
+      - name: pd_stent_size
         type: string
-        prompt_instruction: "If prophylactic: size (3F/5F). If therapeutic: size (5F/7F), configuration (straight/single-pigtail/double-pigtail), flaps (single/double), length (3/5/7/9/12 cm), and tip position (head/body/tail, distance from orifice)."
+        prompt_instruction: "If pd stent placed, record diameter, 3F/5F"
 
-      - name: stent_placement_narrative
+      - name: pd_stent_type
         type: string
-        prompt_instruction: "Describe final stent placement in sentence(s): 'Final position was...'. Include adjustment techniques if suboptimal position"
+        prompt_instruction: "If pd stent placed, record type, straight/single-pigtail/double-pigtail"
+        If therapeutic: size (5F/7F), configuration (straight/single-pigtail/double-pigtail), flaps (single/double), length (3/5/7/9/12 cm), and tip position (head/body/tail, distance from orifice).
+
+      - name: pd_stent_therapy_flaps
+        type: string
+        prompt_instruction: "If therapeutic pd stent placed, record number of internal flaps: 'single', 'double'"
+
+      - name: pd_stent_therapy_narrative
+        type: string
+        prompt_instruction: "If therapeutic pd stent placed, describe length and positioning as sentence: 'Length was [xx] cm with tip positioned in [head/body/tail] approximately [xx cm] from the orifice.'"
         
-      - name: bile_and_contrast_drainage
+      - name: pd_placement_narrative
         type: string
-        prompt_instruction: "Describe quality of drainage as sentence: 'Bile and contrast drained well', 'There was poor drainage', etc."
+        prompt_instruction: "Describe final pd stent placement in sentences with the following format: 'Final position was [optimal/suboptimal].' If optimal: 'Distal end [at duodenal lumen/just beyond papilla].' If suboptimal: 'The stent was [too proximal/too distal/kinked/not bridging the lesion/partially intramural]. Adjustment was performed using [technique]'"
 
-      - name: final_fluoroscopic_image_obtained
-        type: boolean
-        prompt_instruction: "true if a final fluoroscopic image was obtained for confirmation; false if not mentioned"
-  
   post_procedure_static:
     description: ""
     report_section: "findings"
@@ -802,3 +862,12 @@ field_groups:
           Summarize the most important findings, procedures, and biopsies as a comma-separated list of strings.
           If there are multiple normal findings, combine them into a single list item for EGD and another for ERCP (for example: "Normal ERCP examination of x, y, z" where x, y, z are different areas with normal ERCP findings). Normal findings do not need to be in the order of examination.
           Do not include scout film results.
+## RECS
+  recommendations:
+    report_section: "recommendations"
+    template: |
+      {{ recommendations }}
+    fields:
+      - name: recommendations
+        type: list
+        prompt_instruction: "If the clinician describes specific recommendations for follow-up in the procedure transcript, record the recommendation(s) as a comma-separated list of strings. Otherwise leave blank."

@@ -209,25 +209,39 @@ templates:
     \ {% set clause = clause ~ ' until ' ~ sphincterotomy_goal_achieved ~ ' was achieved'\
     \ %}\n    {% endif %}\n  {% endif %}\n  {% set clause = clause ~ '.' %}\n  {%\
     \ set ns.parts = ns.parts + [clause] %}\n{% endif %}\n\n{{ ns.parts | join(' ')\
-    \ }}\n{% endif %}\n\n{% if biliary_stent_placed %}\n{% if plastic_stent_details\
-    \ | sku %}A {{ plastic_stent_details}} was placed. {% elif metal_stent_details\
-    \ | sku %}A {{ metal_stent_details }} was placed. {% endif %}\n{% endif %}\n\n\
-    {% if pancreatic_stent_placed %}\n{% if pancreatic_stent_purpose == 'pep_prophylaxis'\
-    \ %}\nA pancreatic stent for PEP prophylaxis was placed:{% if pancreatic_stent_details\
-    \ | sku %} {{ pancreatic_stent_details }} straight no internal flap.{% endif %}\n\
-    {% elif pancreatic_stent_purpose == 'therapeutic' %}\nA therapeutic pancreatic\
-    \ stent was placed:{% if pancreatic_stent_details | sku %} {{ pancreatic_stent_details\
-    \ }}.{% endif %}\n{% endif %}\n{% if stent_placement_narrative | sku %} {{ stent_placement_narrative\
-    \ | sent }}{% endif %}\n{% if bile_and_contrast_drainage | sku %} {{ bile_and_contrast_drainage\
-    \ | sent }}{% endif %}\n{% if final_fluoroscopic_image_obtained %} Final fluoroscopic\
-    \ picture was done for confirmation.{% endif %}\n{% endif %}\n\nThe scope was\
-    \ then completely withdrawn from the patient and the procedure completed.\n\n\
-    {% if estimated_blood_loss > 0 %}\nEstimated blood loss: {{ estimated_blood_loss\
-    \ }} ml.\n{% elif estimated_blood_loss == 0 %}\nEstimated blood loss: None.\n\
-    {% endif %}\n\n{% if specimens_removed | sku and specimens_removed != 'none' %}\n\
-    Specimens removed: Specimens were optained. {{ specimens_removed | sent }}\n{%\
-    \ elif specimens_removed == 'none' %}\nSpecimens removed: None.\n{% endif %}\n\
-    \n{% if complications | sku and complications != 'none' %}\nComplications: {{\
-    \ complications | sent }}\n{% elif complications == 'none' %}\nComplications:\
-    \ There were no immediate complications.\n{% endif %}"
+    \ }}\n{% endif %}\n\n{% if biliary_stent_type == 'plastic' %}\n  {% set sentence\
+    \ = 'A ' %}\n  {% if plastic_biliary_type | sku %}\n    {% set sentence = sentence\
+    \ ~ plastic_biliary_type ~ ' ' %}\n  {% endif %}\n  {% set sentence = sentence\
+    \ ~ 'plastic biliary stent' %}\n  {% if plastic_biliary_size | sku %}\n    {%\
+    \ set sentence = sentence ~ ' of ' ~ plastic_biliary_size %}\n  {% endif %}\n\
+    \  {% if plastic_biliary_length is defined and plastic_biliary_length > 0 %}\n\
+    \    {% set sentence = sentence ~ ' by ' ~ plastic_biliary_length ~ ' cm' %}\n\
+    \  {% endif %}\n  {% set sentence = sentence ~ ' was placed.' %}\n{% set ns.parts\
+    \ = ns.parts + [sentence] %}\n{% endif %}\n\n{% if biliary_stent_type == 'metal'\
+    \ %}\nA {{ metal_biliary_type }} metal biliary stent\n{% if metal_biliary_length\
+    \ > 0 %} of length {{ metal_biliary_length }} mm{% endif %}\nwas placed.\n{% if\
+    \ metal_biliary_narrative | sku %}\n{{ metal_biliary_narrative }}\n{% endif %}\n\
+    {% endif %}\n\n{% if pd_stent_placed %}\n{% set ns = namespace(parts=[]) %}\n\n\
+    {% if pd_stent_purpose == 'pep_prophylaxis' %}\n{% set base = 'A ' ~ pd_stent_size\
+    \ ~ ' ' ~ pd_stent_type ~ ' stent was placed for PEP prophylaxis.' %}\n{% elif\
+    \ pd_stent_purpose == 'therapeutic' %}\n  {% set base = 'A ' ~ pd_stent_size ~\
+    \ ' ' ~ pd_stent_type ~ ' stent was placed for therapeutic purposes.' %}\n{% else\
+    \ %}\n  {% set base = 'Pancreatic duct stent was placed.' %}\n{% endif %}\n{%\
+    \ set ns.parts = ns.parts + [base] %}\n\n{% if pd_stent_purpose == 'therapeutic'\
+    \ and pd_stent_therapy_flaps | sku and pd_stent_therapy_narrative | sku %}\n \
+    \ {% set therapy_clause = 'The stent had ' ~ pd_stent_therapy_flaps ~ ' internal\
+    \ flap(s). ' ~ pd_stent_therapy_narrative %}\n  {% set ns.parts = ns.parts + [therapy_clause]\
+    \ %}\n{% endif %}\n\n{% if pd_placement_narrative | sku %}\n  {% set ns.parts\
+    \ = ns.parts + [pd_placement_narrative] %}\n{% endif %}\n\n{{ ns.parts | join('\
+    \ ') }}\n{% endif %}\n\nThe scope was then completely withdrawn from the patient\
+    \ and the procedure completed.\n\n{% if estimated_blood_loss > 0 %}\nEstimated\
+    \ blood loss: {{ estimated_blood_loss }} ml.\n{% elif estimated_blood_loss ==\
+    \ 0 %}\nEstimated blood loss: None.\n{% endif %}\n\n{% if specimens_removed |\
+    \ sku and specimens_removed != 'none' %}\nSpecimens removed: Specimens were optained.\
+    \ {{ specimens_removed | sent }}\n{% elif specimens_removed == 'none' %}\nSpecimens\
+    \ removed: None.\n{% endif %}\n\n{% if complications | sku and complications !=\
+    \ 'none' %}\nComplications: {{ complications | sent }}\n{% elif complications\
+    \ == 'none' %}\nComplications: There were no immediate complications.\n{% endif\
+    \ %}"
   impressions: '{{ impressions }}'
+  recommendations: '{{ recommendations }}'

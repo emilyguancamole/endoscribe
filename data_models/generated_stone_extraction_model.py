@@ -85,19 +85,26 @@ class StoneExtractionData(BaseModel):
     incision_direction: Optional[str] = None
     sphincterotomy_extent: Optional[str] = None
     sphincterotomy_goal_achieved: Optional[str] = None
-    biliary_stent_placed: Optional[bool] = None
-    plastic_stent_details: Optional[str] = None
-    metal_stent_details: Optional[str] = None
-    pancreatic_stent_placed: Optional[bool] = None
-    pancreatic_stent_purpose: Optional[str] = None
-    pancreatic_stent_details: Optional[str] = None
-    stent_placement_narrative: Optional[str] = None
-    bile_and_contrast_drainage: Optional[str] = None
-    final_fluoroscopic_image_obtained: Optional[bool] = None
+    biliary_stent_type: Optional[str] = None
+    plastic_biliary_size: Optional[str] = None
+    plastic_biliary_type: Optional[str] = None
+    plastic_biliary_length: Optional[int] = None
+    metal_biliary_type: Optional[str] = None
+    metal_biliary_type_features: Optional[str] = None
+    metal_biliary_narrative: Optional[str] = None
+    metal_biliary_length: Optional[int] = None
+    pd_stent_placed: Optional[bool] = None
+    pd_stent_purpose: Optional[str] = None
+    pd_stent_size: Optional[str] = None
+    pd_stent_type: Optional[str] = None
+    pd_stent_therapy_flaps: Optional[str] = None
+    pd_stent_therapy_narrative: Optional[str] = None
+    pd_placement_narrative: Optional[str] = None
     estimated_blood_loss: Optional[float] = None
     specimens_removed: Optional[str] = None
     complications: Optional[str] = None
     impressions: Optional[List[str]] = None
+    recommendations: Optional[str] = None
     stone_extraction_performed: Optional[bool] = None
     stone_indications: Optional[str] = None
     initial_method: Optional[str] = None
@@ -135,7 +142,7 @@ class StoneExtractionData(BaseModel):
     stone_therapy_bile_drainage_narrative: Optional[str] = None
     fluoroscopic_img_obtained: Optional[bool] = None
 
-    @field_validator('cannulation_success', 'lactated_ringers', 'rectal_indomethacin', 'successful_completion', 'failed_ercp', 'prior_biliary_sphincterotomy_evidence', 'papilla_stent_present', 'periampullary_diverticulum_present', 'minor_papilla_prior_sphincterotomy', 'ampulla_pus_present', 'ampulla_active_bleeding', 'ampullectomy_performed', 'bile_duct_cannulation_successful', 'rendezvous_attempted', 'pancreatic_duct_cannulation_success', 'contrast_injection_performed', 'pancreatogram_obtained', 'pd_pseudocyst_communication', 'biliary_stent_placed', 'pancreatic_stent_placed', 'final_fluoroscopic_image_obtained', 'stone_extraction_performed', 'eplbd_performed', 'mech_lithotripsy_performed', 'chol_lithotripsy_performed', 'chol_lithotripsy_irrigation', 'fluoroscopic_img_obtained', mode='before')
+    @field_validator('cannulation_success', 'lactated_ringers', 'rectal_indomethacin', 'successful_completion', 'failed_ercp', 'prior_biliary_sphincterotomy_evidence', 'papilla_stent_present', 'periampullary_diverticulum_present', 'minor_papilla_prior_sphincterotomy', 'ampulla_pus_present', 'ampulla_active_bleeding', 'ampullectomy_performed', 'bile_duct_cannulation_successful', 'rendezvous_attempted', 'pancreatic_duct_cannulation_success', 'contrast_injection_performed', 'pancreatogram_obtained', 'pd_pseudocyst_communication', 'pd_stent_placed', 'stone_extraction_performed', 'eplbd_performed', 'mech_lithotripsy_performed', 'chol_lithotripsy_performed', 'chol_lithotripsy_irrigation', 'fluoroscopic_img_obtained', mode='before')
     @classmethod
     def coerce_boolean_with_unknown(cls, v):
         """Handle 'unknown' sentinel for boolean fields and coerce truthy/falsey strings."""
@@ -146,7 +153,7 @@ class StoneExtractionData(BaseModel):
         if isinstance(v, str):
             v_lower = v.lower().strip()
             # Treat unknown/none as None
-            if v_lower in ('unknown', 'none', 'n/a', 'na'):
+            if v_lower in ('unknown', 'none', 'n/a', 'na', '-1'):
                 return None
             # Coerce truthy/falsey strings
             if v_lower in ('true', 'yes', '1'):

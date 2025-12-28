@@ -102,9 +102,10 @@ def generate_prompt_text(config: dict) -> str:
                 lines.append(f"{field_name}: {instruction}")
                 
     lines.append("\n###FURTHER INSTRUCTIONS############################")
-    lines.append("If the transcript contains spelling mistakes, use your domain expertise of endoscopy to correct them in your report. If there are self-corrections for a finding later in the transcript, include only the most recent correct information. For example, if the transcript has: 'There were no masses or polyps found. But I'm checking again and I now see a 6 mm polyp in the transverse colon.' The second statement is a correction. The actual polyps size in mm you should record is 6.")
+    lines.append("The transcript may have spelling or transcription mistakes; use your domain expertise of endoscopy to correct them before recording an answer. If there are self-corrections for a finding later in the transcript, include only the most recent correct information. For example, if the transcript has: 'There were no masses or polyps found. But I'm checking again and I now see a 6 mm polyp in the transverse colon.' The second statement is a correction. The actual polyps size in mm you should record is 6.")
+    lines.append("Follow the instructions for each field carefully; record none/unknown for unknown/NA fields.")
     #TODO structured output instead
-    lines.append("\nReturn the result as a JSON file. Do not return any additional comments or explanation.")
+    lines.append("Return the result as a JSON file. Do not return any additional comments or explanation.")
     
     return "\n".join(lines)
 

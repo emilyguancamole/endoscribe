@@ -42,8 +42,6 @@ The minor papilla was identified and inspected. It appeared normal in position a
 
 Bile duct cannulation was unsuccessful.  The procedure was terminated.
 
-A 10 Fr x 5 cm plastic biliary stent was placed. 
-A pancreatic stent for PEP prophylaxis was placed: 3F straight no internal flap.
 The scope was then completely withdrawn from the patient and the procedure completed.
 
 Adjunct stone therapy was performed due to large stones. Initial extraction was attempted with balloon.
@@ -58,3 +56,9 @@ A final fluoroscopic image was obtained for confirmation.
 == IMPRESSIONS ==
 
 ['ERCP performed; stones removed.']
+
+== RECOMMENDATIONS ==
+
+1. Finish IV fluids now.
+2. Pain control as needed.
+3. Follow up with referring provider.

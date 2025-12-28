@@ -25,7 +25,7 @@ class EUSProcessor(BaseProcessor):
                 prefix="eus"
             )
 
-            if self.llm_handler.model_type == "local": #! diff response processing for local vs openai
+            if self.llm_handler.model_type == "local":
                 response = self.llm_handler.chat(messages)[0].outputs[0].text.strip()
             elif self.llm_handler.model_type in ["openai", "anthropic"]:
                 response = self.llm_handler.chat(messages)

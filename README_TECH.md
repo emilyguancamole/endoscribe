@@ -3,7 +3,7 @@ last updated: 12/13/25
 
 # Reference: FULL EndoScribe Pipeline
 ```bash
-# Generate artifacts  from fields.yaml
+# Generate artifacts from fields.yaml
 python templating/generate_from_fields.py prompts/ercp/yaml/fields_base.yaml
   # This outputs: LLM prompt (generated_{proc}_prompt.txt), drafter model (generated_{proc}.yaml), data model (generated_{proc}_model.py))
 
@@ -106,7 +106,9 @@ python reporting/generate_from_fields.py prompts/ercp/fields.yaml
 ```
 
 ### Adding a Subtype
-described in [PROCEDURE_SUBTYPES.md](./PROCEDURE_SUBTYPES.md)
+
+### Rules and Restrictions
+- field names must be unique
 
 ## Templating WORKFLOW
 1. **Edit** `prompts/ercp/yaml/fields_base.yaml`

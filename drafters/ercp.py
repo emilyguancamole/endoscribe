@@ -18,33 +18,47 @@ class ERCPDrafter(EndoscopyDrafter):
     def construct_recommendations(self):
         rec = []
         ercp_row = self.sample_df
-        if ercp_row.get('samples_taken', False):
+        if ercp_row.get('samples_taken', False): #TODO 12/27 update
             rec.append("Follow up pathology results.")
         rec.append("Finish IV fluids now.")
         rec.append("Pain control as needed.")
 
         # Stent recommendations
         biliary_stent = ercp_row.get('biliary_stent_type', 'None')
-        if biliary_stent != "None":
-            if biliary_stent=="plastic biliary 5F":
+        # BILIARY STENTS: 
+        # - Plastic Biliary Stents (sizes: 5F/7F/10F): 
+        #   • 5F: Repeat ERCP in 6-8 weeks for stent removal/replacemen 
+        #   • 7F: Repeat ERCP in 3–4 months for stent removal/replacemen 
+        #   • 10F: Repeat ERCP in 3-4 months for stent removal/replacemen 
+        # - FCSEMS (Fully Covered Metal Biliary Stents): 
+        #   • Benign disease: Repeat ERCP in 6 months for stent removal/replacement 
+        #   • Malignant disease: Repeat ERCP as needed
+        if biliary_stent == 'plastic':
+            if ercp_row.get('plastic_biliary_size', 'None') == '5F':
                 rec.append("Repeat ERCP in 6-8 weeks for stent removal/replacement.")
-            elif biliary_stent=="plastic biliary 7F":
+            elif ercp_row.get('plastic_biliary_size', 'None') == '7F':
                 rec.append("Repeat ERCP in 3-4 months for stent removal/replacement.")
-            elif biliary_stent=="plastic biliary 10F":
-                rec.append("Repeat ERCP in ~4-5 months for stent removal/replacement.")
-            elif biliary_stent=="other biliary":
+            elif ercp_row.get('plastic_biliary_size', 'None') == '10F':
+                rec.append("Repeat ERCP in 4-5 months for stent removal/replacement.")
+            else:
                 rec.append("Repeat ERCP for stent removal/replacement as clinically indicated.")
-            elif biliary_stent=="FCSEMS bengign" or biliary_stent=="FCSEMS unknown" and self.patients_df.loc[self.sample].get('relevant_co_morbidities_malignancy___cancer')=="False":
-                rec.append("Repeat ERCP in 3 months for stent removal/replacement.")
-            elif biliary_stent=="FCSEMS malignant" or biliary_stent=="FCSEMS unknown" and self.patients_df.loc[self.sample].get('relevant_co_morbidities_malignancy___cancer')=="True":
-                rec.append("Repeat ERCP in 6 months for stent removal/replacement.")
-            elif biliary_stent=="FCSEMS unknown":
-                rec.append("Repeat ERCP in 6 months for stent removal/replacement.")
-        if ercp_row.get('pd_stent'):
-            rec.append("AXR in 2-4 weeks to confirm stent passage.")
-        #todo If stent was placed and patient had indication of chronic pancreatitis/pancreatic duct strictures/pancreatic duct leaks: • Repeat ERCP for stent exchange in 3 months
-            ### update when I understand if indications come from pre-written or speech
+        elif biliary_stent == 'metal':
+            if ercp_row.get('metal_biliary_type', '') == 'FCSEMS':
+                rec.append("Repeat ERCP as clinically indicated for reassessment and management/exchange.") #! temp
+                #??12/27 does this come from indications or?? • Benign disease: Repeat ERCP in 6 months for stent removal/replacement   • Malignant disease: Repeat ERCP as needed 
+            elif ercp_row.get('metal_biliary_type', '') == 'UCSEMS':
+                pass # no routine repeat ercp needed
+        if ercp_row.get('pd_stent_placed', False):
+            if ercp_row.get('pd_stent_purpose', '') == 'pep_prophylaxis':
+                rec.append("AXR in 2-4 weeks to confirm PD stent passage.")
 
+        #TODOs - If stent was placed and patient had indication of chronic pancreatitis/pancreatic duct strictures/pancreatic duct leaks: Repeat ERCP for stent exchange in 3 months 
+        # If choledocholithiasis indications: Proceed with Cholecystectomy, can remove stent after Cholecystectomy tentatively in 3 months
+        # Recommendation for EDGE (EUS gastro-gastrostomy + ERCP): “Return in 4 weeks for biliary/pancreatic stent removal (if placed) and GG LAMS removal/GG fistula closure” 
+
+        if ercp_row.get('Recommendations', []):
+            for r in ercp_row.get('Recommendations'):
+                rec.append(r)
         rec.append("Follow up with referring provider.")
         return rec
     

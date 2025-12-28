@@ -24,7 +24,8 @@ sys.path.insert(0, str(_root))
 
 from templating.generate_from_fields import load_fields_config, generate_single
 from templating.drafter_engine import build_report_sections
-import yaml
+import pandas as pd
+from drafters.ercp import ERCPDrafter
 
 
 def _coerce_bool_strings(obj):
@@ -131,6 +132,20 @@ def demo():
     # Render using the generated base template and write to txt
     temp_yaml_path = drafter_output
     rendered = build_report_sections(str(temp_yaml_path), demo_data)
+
+    # Instantiate an ERCP drafter for recommendations
+    try:
+        # df structure expected by Drafter
+        sample_id = 'demo_sample'
+        pred_df = pd.DataFrame([demo_data], index=[sample_id])
+        drafter = ERCPDrafter(sample_id, pred_df)
+        recommendations = drafter.construct_recommendations() or []
+        if recommendations:
+            rendered['recommendations'] = '\n'.join([f"{i}. {r}" for i, r in enumerate(recommendations, start=1)])
+    except Exception:
+        print("Error generating recommendations")
+        pass
+
     output_path = _here/"demo_ercp_report.txt"
     parts = []
     for section_name, content in rendered.items():

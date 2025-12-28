@@ -18,7 +18,7 @@ class ERCPDrafter(EndoscopyDrafter):
     def construct_recommendations(self):
         rec = []
         ercp_row = self.sample_df
-        if ercp_row.get('samples_taken', False): # todo reextract
+        if ercp_row.get('samples_taken', False):
             rec.append("Follow up pathology results.")
         rec.append("Finish IV fluids now.")
         rec.append("Pain control as needed.")

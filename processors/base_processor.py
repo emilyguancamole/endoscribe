@@ -73,7 +73,7 @@ class BaseProcessor:
             '{{prompt_field_definitions}}',
             open(prompt_field_definitions_fp).read()
         )
-        print(f"\nLoaded system prompt from: {self.system_prompt_fp}")
+        print(f"\nLoaded system prompt from: {self.system_prompt_fp} with field definitions from: {prompt_field_definitions_fp}")
         messages = [{"role": "system", "content": system_prompt}]
 
         # Load and add few-shot examples

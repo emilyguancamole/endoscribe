@@ -91,6 +91,8 @@ from pydantic import ValidationError
 from web_app.config import CONFIG
 
 BASE_DIR = Path(__file__).parent
+PROMPTS_DIR = BASE_DIR.parent / "prompts"  # Project root prompts directory
+
 # Use persistent volumes in production (Fly.io), local in dev
 if os.getenv("FLY_APP_NAME"):
     # Production: use persistent volume
@@ -369,35 +371,35 @@ async def lifespan(app: FastAPI):
             PROCESSOR_MAP = {
                 "col": ColProcessor(
                     procedure_type="col",
-                    system_prompt_fp="prompts/col/system.txt",
+                    system_prompt_fp=str(BASE_DIR.parent / "prompts" / "col" / "system.txt"),
                     output_fp=str(RESULTS_DIR / "col_results.csv"),
                     llm_handler=LLM_HANDLER,
                     to_postgres=False
                 ),
                 "eus": EUSProcessor(
                     procedure_type="eus",
-                    system_prompt_fp="prompts/eus/system.txt",
+                    system_prompt_fp=str(BASE_DIR.parent / "prompts" / "eus" / "system.txt"),
                     output_fp=str(RESULTS_DIR / "eus_results.csv"),
                     llm_handler=LLM_HANDLER,
                     to_postgres=False
                 ),
                 "ercp": ERCPProcessor(
                     procedure_type="ercp",
-                    system_prompt_fp="prompts/ercp/system.txt",
+                    system_prompt_fp=str(BASE_DIR.parent / "prompts" / "ercp" / "system.txt"),
                     output_fp=str(RESULTS_DIR / "ercp_results.csv"),
                     llm_handler=LLM_HANDLER,
                     to_postgres=False
                 ),
                 "egd": EGDProcessor(
                     procedure_type="egd",
-                    system_prompt_fp="prompts/egd/system.txt",
+                    system_prompt_fp=str(BASE_DIR.parent / "prompts" / "egd" / "system.txt"),
                     output_fp=str(RESULTS_DIR / "egd_results.csv"),
                     llm_handler=LLM_HANDLER,
                     to_postgres=False
                 ),
                 "pep_risk": ERCPProcessor(
                     procedure_type="pep_risk",
-                    system_prompt_fp="pep_risk/prompts/system.txt",
+                    system_prompt_fp=str(BASE_DIR.parent / "pep_risk" / "prompts" / "system.txt"),
                     output_fp=str(RESULTS_DIR / "pep_risk_results.csv"),
                     llm_handler=LLM_HANDLER,
                     to_postgres=False
@@ -952,8 +954,8 @@ async def process_transcript(request: ProcessRequest):
                 # Colonoscopy-level processing
                 col_messages = processor.build_messages(
                     row["pred_transcript"],
-                    prompt_field_definitions_fp='./prompts/col/colonoscopies.txt',
-                    fewshot_examples_dir="./prompts/col/fewshot",
+                    prompt_field_definitions_fp=str(PROMPTS_DIR / "col" / "colonoscopies.txt"),
+                    fewshot_examples_dir=str(PROMPTS_DIR / "col" / "fewshot"),
                     prefix="col"
                 )
                 if LLM_HANDLER.model_type in ["openai", "anthropic"]:
@@ -1062,16 +1064,16 @@ async def process_transcript(request: ProcessRequest):
             for _, row in transcript_df.iterrows():
                 # Determine the correct prompt field definitions file
                 prompt_files = {
-                    "ercp": "./prompts/ercp/generated_ercp_base_prompt.txt",
-                    "col": "./prompts/col/generated_col_base_prompt.txt",
-                    "egd": "./prompts/egd/generated_egd_base_prompt.txt",
-                    "eus": "./prompts/eus/generated_eus_base_prompt.txt",
+                    "ercp": str(PROMPTS_DIR / "ercp" / "generated_ercp_base_prompt.txt"),
+                    "col": str(PROMPTS_DIR / "col" / "generated_col_base_prompt.txt"),
+                    "egd": str(PROMPTS_DIR / "egd" / "generated_egd_base_prompt.txt"),
+                    "eus": str(PROMPTS_DIR / "eus" / "generated_eus_base_prompt.txt"),
                 }
 
                 messages = processor.build_messages(
                     row["pred_transcript"],
                     prompt_field_definitions_fp=prompt_files.get(request.procedure_type.value, ""),
-                    fewshot_examples_dir=f"./prompts/{request.procedure_type.value}/fewshot",
+                    fewshot_examples_dir=str(PROMPTS_DIR / request.procedure_type.value / "fewshot"),
                     prefix=request.procedure_type.value
                 )
 

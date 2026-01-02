@@ -51,7 +51,6 @@ field_groups:
     fields:
       - name: field_name
         type: string              # string, boolean, integer, enum
-        required: true            # Pydantic won't allow None
         prompt_instruction: "..." # what LLM should extract
         enum_values: ["a", "b"]  
 ```
@@ -110,11 +109,7 @@ python reporting/generate_from_fields.py prompts/ercp/fields.yaml
 ### Rules and Restrictions
 - field names must be unique
 
-## Templating WORKFLOW
-1. **Edit** `prompts/ercp/yaml/fields_base.yaml`
-2. **Generate**: `python templating/generate_from_fields.py prompts/ercp/yaml/fields_base.yaml`
-3. **Test**: Has dummy data (may need to update after yaml changes) so I can test the flow without LLM calls: `python templating/demo_ercp_yaml_pipeline.py`
-4. **Review** generated files
+## Templating
 
 ### More Docs
 - `reporting/README.md` - Template customization

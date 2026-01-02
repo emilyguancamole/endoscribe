@@ -2,8 +2,9 @@ import json
 from pydantic import ValidationError
 from .base_processor import BaseProcessor
 import pandas as pd
-from data_models.data_models import EUSData
+from models.data_models import EUSData
 
+# NOTE 1/1/2026: DEPRECATED
 class EUSProcessor(BaseProcessor):
     def process_transcripts(self, filenames_to_process, transcripts_df):
         outputs = []

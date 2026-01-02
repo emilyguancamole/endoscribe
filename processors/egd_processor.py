@@ -1,9 +1,9 @@
 import json
 from .base_processor import BaseProcessor
 import pandas as pd
-from data_models.data_models import EGDData
+from models.data_models import EGDData
 
-
+# NOTE 1/1/2026: DEPRECATED
 class EGDProcessor(BaseProcessor):
     def process_transcripts(self, filenames_to_process, transcripts_df):
         outputs = []

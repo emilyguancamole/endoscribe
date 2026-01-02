@@ -60,10 +60,10 @@ class ProcessResponse(BaseModel):
     pep_risk_score: Optional[float] = Field(None, description="PEP risk prediction score (0-100)")
     pep_risk_category: Optional[str] = Field(None, description="PEP risk category (low/moderate/high)")
     treatment_predictions: Optional[List[Dict[str, Any]]] = Field(None, description="List of treatment prediction objects {therapy_id, therapy_label, risk_percentage, risk_category}")
-    
-    #?? additional fields for frontend compatibility
+    classification: Optional[Dict[str, Any]] = Field(None, description="Procedure classification (procedure_type, procedure_group, active_modules, reasoning)")
+
     colonoscopy_data: Optional[Dict[str, Any]] = Field(None, description="Colonoscopy-specific data")
-    polyps_data: Optional[List[Dict[str, Any]]] = Field(None, description="Polyp data for colonoscopy")
+    # polyps_data: Optional[List[Dict[str, Any]]] = Field(None, description="Polyp data for colonoscopy")
     procedure_data: Optional[Dict[str, Any]] = Field(None, description="General procedure data (EUS, ERCP, EGD)")
     pep_risk_data: Optional[Dict[str, Any]] = Field(None, description="PEP risk assessment data")
     raw_output: Optional[str] = Field(None, description="Raw LLM output")
@@ -79,7 +79,6 @@ class ColonoscopyResult(BaseModel):
     """Colonoscopy-specific results"""
     colonoscopy: Dict[str, Any]
     polyps: List[Dict[str, Any]]
-
 
 class WebSocketMessage(BaseModel):
     """WebSocket message structure"""

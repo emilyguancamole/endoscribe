@@ -75,19 +75,9 @@ from web_app.models import (
     HealthResponse,
     ProcedureType,
 )
-from pydantic import BaseModel
-from llm.llm_client import LLMClient
-from processors import ColProcessor, ERCPProcessor, EUSProcessor, EGDProcessor
+from pydantic import BaseModel, ValidationError
+from llm.client import LLMClient
 from transcription.transcription_service import TranscriptionConfig, transcribe_unified
-from data_models.data_models import (
-    ColonoscopyData,
-    PolypData,
-    EUSData,
-    EGDData,
-    PEPRiskData
-)
-from data_models.generated_ercp_base_model import ErcpBaseData
-from pydantic import ValidationError
 from web_app.config import CONFIG
 
 BASE_DIR = Path(__file__).parent
@@ -172,6 +162,7 @@ WHISPER_ALIGN_METADATA = None
 WHISPER_DEVICE = None  # Actual device WhisperX is using (cpu for MPS, cuda for CUDA)
 LLM_HANDLER = None
 PROCESSOR_MAP = {}
+ORCHESTRATOR_ADAPTER = None
 SESSIONS: Dict[str, Dict] = {}
 
 last_activity_time = time.time()
@@ -302,7 +293,7 @@ def transcribe_audio(audio_path: str, service: Optional[str] = None, **kwargs):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize models on startup and cleanup on shutdown"""
-    global WHISPER_MODEL, WHISPER_ALIGN_MODEL, WHISPER_ALIGN_METADATA, WHISPER_DEVICE, LLM_HANDLER, PROCESSOR_MAP, idle_check_task
+    global WHISPER_MODEL, WHISPER_ALIGN_MODEL, WHISPER_ALIGN_METADATA, WHISPER_DEVICE, LLM_HANDLER, PROCESSOR_MAP, ORCHESTRATOR_ADAPTER, idle_check_task
 
     # Startup
     # Initialize WhisperX only if configured to use WhisperX; otherwise skip
@@ -366,46 +357,17 @@ async def lifespan(app: FastAPI):
         LLM_HANDLER = None
 
     if LLM_HANDLER:
-        print("Initializing processors...")
         try:
-            PROCESSOR_MAP = {
-                "col": ColProcessor(
-                    procedure_type="col",
-                    system_prompt_fp=str(BASE_DIR.parent / "prompts" / "col" / "system.txt"),
-                    output_fp=str(RESULTS_DIR / "col_results.csv"),
-                    llm_handler=LLM_HANDLER,
-                    to_postgres=False
-                ),
-                "eus": EUSProcessor(
-                    procedure_type="eus",
-                    system_prompt_fp=str(BASE_DIR.parent / "prompts" / "eus" / "system.txt"),
-                    output_fp=str(RESULTS_DIR / "eus_results.csv"),
-                    llm_handler=LLM_HANDLER,
-                    to_postgres=False
-                ),
-                "ercp": ERCPProcessor(
-                    procedure_type="ercp",
-                    system_prompt_fp=str(BASE_DIR.parent / "prompts" / "ercp" / "system.txt"),
-                    output_fp=str(RESULTS_DIR / "ercp_results.csv"),
-                    llm_handler=LLM_HANDLER,
-                    to_postgres=False
-                ),
-                "egd": EGDProcessor(
-                    procedure_type="egd",
-                    system_prompt_fp=str(BASE_DIR.parent / "prompts" / "egd" / "system.txt"),
-                    output_fp=str(RESULTS_DIR / "egd_results.csv"),
-                    llm_handler=LLM_HANDLER,
-                    to_postgres=False
-                ),
-                "pep_risk": ERCPProcessor(
-                    procedure_type="pep_risk",
-                    system_prompt_fp=str(BASE_DIR.parent / "pep_risk" / "prompts" / "system.txt"),
-                    output_fp=str(RESULTS_DIR / "pep_risk_results.csv"),
-                    llm_handler=LLM_HANDLER,
-                    to_postgres=False
-                ),
-            }
-            print("All processors initialized successfully")
+            from web_app.orchestrator_adapter import OrchestratorAdapter
+            ORCHESTRATOR_ADAPTER = OrchestratorAdapter(
+                llm_client=LLM_HANDLER,
+                enable_multipass=True
+            )
+        except Exception as e:
+            print(f"Failed to initialize orchestrator adapter: {e}")
+            traceback.print_exc()
+            ORCHESTRATOR_ADAPTER = None
+            print("Processors initialized successfully")
         except Exception as e:
             print(f"Failed to initialize processors: {e}")
             traceback.print_exc()
@@ -916,10 +878,69 @@ async def websocket_transcribe(websocket: WebSocket):
                     pass
 
 
+@app.post("/api/process/v2", response_model=ProcessResponse)
+async def process_transcript_v2(request: ProcessRequest):
+    """
+    NEW centralized processing endpoint using Orchestrator pipeline.
+    Supports:
+    - Automatic procedure classification
+    - Multi-pass extraction for optimal performance
+    - Unified note generation with ERCPDrafter
+    
+    Args:
+        request: ProcessRequest with transcript, procedure_type (used as hint), session_id
+    Returns:
+        ProcessResponse with classification, extracted data, and formatted note
+    """
+    if ORCHESTRATOR_ADAPTER is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Orchestrator adapter not initialized. Using legacy /api/process endpoint."
+        )
+    
+    try:
+        # Process using centralized orchestrator
+        response = ORCHESTRATOR_ADAPTER.process_request(request)
+        
+        # Store session data
+        if request.session_id and request.session_id in SESSIONS:
+            SESSIONS[request.session_id]["processed"] = True
+            SESSIONS[request.session_id]["procedure_type"] = response.procedure_type
+            SESSIONS[request.session_id]["results"] = response.model_dump()
+            
+            # Persist to disk
+            try:
+                _persist_session_record(
+                    request.session_id,
+                    {
+                        "procedure_type": response.procedure_type,
+                        "transcript": request.transcript,
+                        "processed": True,
+                        "results": response.model_dump()
+                    }
+                )
+            except Exception as e:
+                print(f"Failed to persist session: {e}")
+        
+        return response
+        
+    except Exception as e:
+        error_msg = f"Processing failed: {str(e)}"
+        print(error_msg)
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
 @app.post("/api/process", response_model=ProcessResponse)
 async def process_transcript(request: ProcessRequest):
     """
-    Process a transcript and extract structured data
+    LEGACY processing endpoint - uses old processor-based approach.
+    
+    DEPRECATED: For new integrations, use /api/process/v2 which uses the centralized
+    orchestrator pipeline with automatic classification and multi-pass extraction.
+    
+    This endpoint is maintained for backward compatibility only.
+    
     Args:
         request: ProcessRequest with transcript, procedure_type, and optional session_id
     Returns:
@@ -938,6 +959,9 @@ async def process_transcript(request: ProcessRequest):
 
     try:
         import pandas as pd
+        # Import legacy data models locally (only used in this deprecated endpoint)
+        from models.data_models import ColonoscopyData, PolypData, EUSData, EGDData
+        from models.generated_ercp_base_model import ErcpBaseData
         # Create a single-row dataframe with the transcript
         transcript_df = pd.DataFrame([{
             "participant_id": request.session_id or "web_session",
@@ -959,9 +983,9 @@ async def process_transcript(request: ProcessRequest):
                     prefix="col"
                 )
                 if LLM_HANDLER.model_type in ["openai", "anthropic"]:
-                    col_response = LLM_HANDLER.chat(col_messages)
+                    col_response = LLM_HANDLER.chat_llm(col_messages)
                 else:
-                    col_response = LLM_HANDLER.chat(col_messages)[0].outputs[0].text.strip()
+                    col_response = LLM_HANDLER.chat_llm(col_messages)[0].outputs[0].text.strip()
                 print(f"Col response: {col_response[:500]}")  
                 start_idx = col_response.find("{")
                 end_idx = col_response.rfind("}")
@@ -987,9 +1011,9 @@ async def process_transcript(request: ProcessRequest):
                     system_prompt_fp=processor.system_prompt_fp
                 )
                 if LLM_HANDLER.model_type in ["openai", "anthropic"]:
-                    polyp_response = LLM_HANDLER.chat(polyp_messages)
+                    polyp_response = LLM_HANDLER.chat_llm(polyp_messages)
                 else:
-                    polyp_response = LLM_HANDLER.chat(polyp_messages)[0].outputs[0].text.strip()
+                    polyp_response = LLM_HANDLER.chat_llm(polyp_messages)[0].outputs[0].text.strip()
                 start_idx = polyp_response.find("[")
                 end_idx = polyp_response.rfind("]")
                 if start_idx == -1 or end_idx == -1 or start_idx > end_idx:
@@ -1078,9 +1102,9 @@ async def process_transcript(request: ProcessRequest):
                 )
 
                 if LLM_HANDLER.model_type in ["openai", "anthropic"]:
-                    response = LLM_HANDLER.chat(messages)
+                    response = LLM_HANDLER.chat_llm(messages)
                 else:
-                    response = LLM_HANDLER.chat(messages)[0].outputs[0].text.strip()
+                    response = LLM_HANDLER.chat_llm(messages)[0].outputs[0].text.strip()
 
                 response_json = json.loads(response[response.find("{"): response.rfind("}") + 1])
                 print("ERCP RESPONSE", response_json)
@@ -1185,7 +1209,7 @@ async def process_transcript(request: ProcessRequest):
 
         ### DRAFTER PLAIN TEXT with templating/drafter templates
         try:
-            from templating.drafter_engine import build_report_sections
+            from templating.generate_from_fields import build_report_sections
             proc = request.procedure_type.value
             cfg_fp = None
             candidate_fp = BASE_DIR.parent / 'drafters' / 'procedures' / proc / f'generated_{proc}_base.yaml'

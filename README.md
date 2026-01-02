@@ -52,7 +52,7 @@ This README documents the current (Dec 2025) state of the project and how to run
    - Transcripts are saved under `transcription/results/{procedure_type}/` or a specified filename.
 
 2. Processors / LLM Extraction
-   - Processors (in `processors/`) build prompts from `prompts/{procedure}/`, call an LLM via `llm/llm_client.py`, parse the result, and validate with Pydantic models (`data_models/`).
+   - Processors (in `processors/`) build prompts from `prompts/{procedure}/`, call an LLM via `llm/llm_client.py`, parse the result, and validate with Pydantic models (`models/`).
    - Default local LLM: Llama via `vllm`; adapters allow other providers.
 
 3. Drafters / Templating
@@ -102,7 +102,7 @@ Key files
 - `processors/` — per-procedure processors (Col, ERCP, EGD, EUS)
 - `llm/llm_client.py` — LLM client adapter (local or remote)
 - `prompts/{procedure}/` — `system.txt`, `field_definitions.txt`, `fewshot/`
-- `data_models/` — Pydantic models for validation
+- `models/` — Pydantic models for validation
 
 Workflow
 1. Processor builds messages from prompt files and transcript text.

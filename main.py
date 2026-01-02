@@ -1,6 +1,6 @@
 import argparse
 import pandas as pd
-from llm.llm_client import LLMClient
+from llm.client import LLMClient
 from processors import ColProcessor, ERCPProcessor, EUSProcessor, EGDProcessor
 try:
     import torch
@@ -9,7 +9,7 @@ except Exception:
     torch = None
     TORCH_AVAILABLE = False
 import argparse
-from llm.llm_client import LLMClient
+from llm.client import LLMClient
 from processors import ColProcessor, ERCPProcessor, EUSProcessor, EGDProcessor
 
 def infer_procedure_type(row):

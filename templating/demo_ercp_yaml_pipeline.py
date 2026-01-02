@@ -1,31 +1,23 @@
-#!/usr/bin/env python3
-"""
-End-to-end demo of YAML-driven field-to-report pipeline.
-
-This script demonstrates:
-1. Generating prompts and templates from fields.yaml
-2. Rendering a report using the generated templates
-3. Comparing with manually created templates
-
-Usage:
-    python reporting/demo_yaml_pipeline.py
-"""
-
 import argparse
 import pyjson5 as json5
 import os
 import sys
 from pathlib import Path
 
-# Add project root to path
 _here = Path(__file__).parent
 _root = _here.parent
 sys.path.insert(0, str(_root))
 
-from templating.generate_from_fields import load_fields_config, generate_single
-from templating.drafter_engine import build_report_sections
+from templating.generate_from_fields import (
+    load_fields_config,
+    build_report_sections,
+    merge_configs,
+    generate_prompt_text,
+    generate_base_yaml,
+    generate_pydantic_model,
+)
 import pandas as pd
-from drafters.ercp import ERCPDrafter
+from central.drafters.ercp import ERCPDrafter
 
 
 def _coerce_bool_strings(obj):
@@ -49,12 +41,9 @@ def _coerce_bool_strings(obj):
     return obj
 
 def demo():
-    print("=" * 80)
-    print("DEMO")
-    print("=" * 80)
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--proc', default='ercp_base', help='Procedure type or path to yaml')
+    parser.add_argument('--modules', default=None, help='Comma-separated module ids to merge into the base, e.g. "0.2,0.4"')
     parser.add_argument('--demo_data_json', default='ercp_base.json5', help='Demo data json file name under demo_data/')
     args = parser.parse_args()
     print("Procedure type:", args.proc)
@@ -82,6 +71,33 @@ def demo():
         fields_path = _root / 'prompts' / 'ercp' / 'yaml' / 'fields_base.yaml'
         config = load_fields_config(str(fields_path))
 
+    # If modules specified, merge them into base
+    if args.modules:
+        module_ids = [m.strip() for m in args.modules.split(',') if m.strip()]
+        # ensure base_config is the base
+        base_path = _root / 'prompts' / 'ercp' / 'yaml' / 'fields_base.yaml'
+        base_config = load_fields_config(str(base_path))
+        for mid in module_ids:
+            # find module file by id
+            modules_dir = _root / 'prompts' / 'ercp' / 'yaml' / 'modules'
+            mod_file = None
+            if modules_dir.exists():
+                matches = list(modules_dir.glob(f"{mid}_*.yaml"))
+                if matches:
+                    mod_file = matches[0]
+            if not mod_file:
+                candidate = modules_dir / f"{mid}.yaml"
+                if candidate.exists():
+                    mod_file = candidate
+            if not mod_file:
+                print(f"Warning: module {mid} not found; skipping")
+                continue
+            addon_cfg = load_fields_config(str(mod_file))
+            base_config = merge_configs(base_config, addon_cfg)
+        # replace config and fields_path with the merged result
+        config = base_config
+        fields_path = None
+
     drafter_path = _root / 'drafters' / 'procedures'
     procedure_meta = config.get('meta', {'procedure_group': 'ercp'})
     proc_group = procedure_meta.get('procedure_group', 'ercp')
@@ -90,27 +106,35 @@ def demo():
     group_count = len(config.get('field_groups', {}))
     print(f"    Loaded {group_count} field groups with {field_count} total fields")
     
-    # Generate prompt and base template using the single-generator helper
-    print("Generating LLM extraction prompt...")
+    # Generate prompt and base template
     proc_type = config.get('meta', {}).get('procedure_type', None)
-    if not proc_type:
-        proc_type = os.path.basename(str(fields_path)).replace('.yaml', '')
 
-    # generate_single will write the prompt and base files to specific locations.
-    generate_single(str(fields_path), proc_type)
+    # write prompt
+    prompt_text = generate_prompt_text(config)
+    prompt_dir = _root / 'prompts' / proc_group
+    os.makedirs(prompt_dir, exist_ok=True)
+    prompt_output = prompt_dir / f'generated_{proc_type}_prompt.txt'
+    with open(prompt_output, 'w') as f:
+        f.write(prompt_text)
 
-    # Find generated prompt under prompts/ (supports subtypes -> prompts/subtypes)
-    prompts_dir = _root / 'prompts'
-    found_prompts = list(prompts_dir.rglob(f'generated_{proc_type}_prompt.txt')) if prompts_dir.exists() else []
-    prompt_output = found_prompts[0] if found_prompts else Path(str(fields_path)).parent.joinpath(f'generated_{proc_type}_prompt.txt')
-
-    procedure_meta = config.get('meta', {'procedure_group': 'ercp'})
-    proc_group = procedure_meta.get('procedure_group', 'ercp')
+    # write base (drafter) yaml
+    procedure_meta = config.get('meta', {'procedure_group': proc_group, 'procedure_type': proc_type})
+    base_yaml = generate_base_yaml(config, procedure_meta)
     drafter_output = Path(drafter_path) / proc_group / f'generated_{proc_type}.yaml'
+    os.makedirs(os.path.dirname(drafter_output), exist_ok=True)
+    with open(drafter_output, 'w') as f:
+        f.write(base_yaml)
+
+    # Generate and write pydantic model
+    model_code = generate_pydantic_model(config, f"{proc_type.replace('_', ' ').title().replace(' ', '')}Data")
+    model_output = _root / 'models' / f'generated_{proc_type}_model.py'
+    os.makedirs(os.path.dirname(model_output), exist_ok=True)
+    with open(model_output, 'w') as f:
+        f.write(model_code)
     print(f"    Generated prompt: {prompt_output}")
     print(f"    Generated base template: {drafter_output}")
     
-    # load demo data json from ./demo_data folder
+    # Load demo data json
     with open(_here / "demo_data" / args.demo_data_json, "r") as f:
         demo_data = json5.load(f)
     demo_data = _coerce_bool_strings(demo_data)

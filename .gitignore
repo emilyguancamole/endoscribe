@@ -35,7 +35,12 @@ uploads
 chunks
 
 # Note drafts
+results/col
+results/egd
+results/ercp
+results/eus
 drafters/results
+generated_artifacts
 
 # old files/folders
 05_col_experiments

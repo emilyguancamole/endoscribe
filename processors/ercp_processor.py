@@ -2,16 +2,16 @@ import json
 import os
 from .base_processor import BaseProcessor
 import pandas as pd
-from data_models.generated_ercp_base_model import ErcpBaseData
-from data_models.data_models import PEPRiskData
+from models.generated_ercp_base_model import ErcpBaseData
+from models.data_models import PEPRiskData
 
+# NOTE 1/1/2026: DEPRECATED
 
 class ERCPProcessor(BaseProcessor):
     def extract_pep_from_transcript(self, transcript: str, filename: str = "live") -> dict:
         """
         Run PEP risk extraction on a single transcript and return a validated dict.
         This is a lightweight wrapper for server-side, one-off processing.
-        # todo perhaps place this within pep_risk folder for modularity
         Returns a dict with keys: id, model, and the ERCPData fields.
         """
         # Use absolute paths to avoid working directory issues

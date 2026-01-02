@@ -1,7 +1,8 @@
 I am giving you a transcript from an ERCP procedure. The task is to extract procedure entities. 
 Make sure you are accurate and complete. The information you extract will be used to fill a structured procedure note template.
 If examples of the template are given, ensure your extracted field fits with that structure. For instance, field "scope_advancement_difficulty_reason" will be used to fill in the template sentence "Scope advancement was challenging due to {scope_advancement_difficulty_reason}", so your answer should be a phrase that fits in that sentence.
-If examples of valid responses are given, you may also write free text responses outside those examples, unless otherwise specified. Just ensure any free text responses have the same grammatical structure as the examples.
+If examples of valid responses are given, you may also write free text responses outside those examples, unless otherwise specified. Ensure the free text responses have the same grammatical structure. 
+Unless otherwise specified, default to string type outputs.
 Not all fields may be mentioned in the transcript or applicable for the procedure. Unless explicitly otherwise specified, if you do not know the answer, record "unknown". If it wasn't mentioned or if not applicable, record "none". Do not make up information.
 
 The entities you must extract are listed below. Follow the instructions.
@@ -12,10 +13,10 @@ chief_complaints: State all main symptoms, indications, or reasons for the proce
 symptoms_duration: Duration of symptoms if mentioned, e.g. '3 months'
 symptoms_narrative: Describe symptoms in detail as complete sentence, e.g. 'Patient's stributre was initially thought to be malignant; however, given negative biopsies this was felt to be benign.'
 negative_history: Relevant negative history if mentioned. Will be used as 'No history of {{negative_history}} is reported'
-past_medical_history: Describe past non-negative medical history as sentence(s)
-current_medications: Describe current medications as sentence(s)
-family_history: Describe family history as sentence(s)
-social_history: Describe social history as sentence(s) only if non-negative social history is mentioned
+past_medical_history: Describe past non-negative medical history as sentence starting with 'He/She has a history of ...'
+current_medications: List current medications; will be used in the sentence 'Current medications include {{current_medications}}.'
+family_history: Describe family history as sentence starting with 'Family history of/for...'
+social_history: Describe social history as sentence
 medications: If specific medications are mentioned, include them with doses if available, else 'unknown
 monitoring: If the transcript describes monitoring, include details, else 'unknown'
 duodenoscope_type: duodenoscope type used, e.g. TJF-Q180V, TJF-Q190V, ED-530XT
@@ -26,7 +27,7 @@ lactated_ringers: true/false
 rectal_indomethacin: true/false
 successful_completion: true/false
 failed_ercp: true if it was, otherwise false
-scout_film_status: 'normal', 'abnormal', or 'not_obtained'
+scout_film_status: 'normal', 'abnormal', 'not_obtained', or 'unknown' if not mentioned
 scout_film_optional_findings: If scout_film_status was abnormal, describe findings in sentence(s) if mentioned
 scout_film_free_text: Any additional free-text description of scout film as complete sentence(s), else 'none
 scope_advance_difficulty: Record scope advancement as 'with_difficulty', 'without_difficulty', or 'unknown'
@@ -107,11 +108,11 @@ pd_placement_narrative: Describe final pd stent placement in sentences with the 
 estimated_blood_loss: Estimated blood loss in ml, as a integer. -1 if not mentioned
 specimens_removed: If speciments were obtained, describe their details/findings
 complications: If there were complications from procedure, describe details/findings as sentence(s)
-impressions: Summarize the most important findings, procedures, and biopsies as a comma-separated list of strings.
+impressions: Summarize the most important findings, procedures, and biopsies. Record as a list type field with each item in the list as an impression.
 If there are multiple normal findings, combine them into a single list item for EGD and another for ERCP (for example: "Normal ERCP examination of x, y, z" where x, y, z are different areas with normal ERCP findings). Normal findings do not need to be in the order of examination.
 Do not include scout film results.
 
-recommendations: If the clinician describes specific recommendations for follow-up in the procedure transcript, record the recommendation(s) as a comma-separated list of strings. Otherwise leave blank.
+recommendations: If the clinician describes specific recommendations for follow-up in the procedure transcript, record the recommendation(s). Record as a list type field with each item in the list as a recommendation. Otherwise leave blank.
 
 ###FURTHER INSTRUCTIONS############################
 The transcript may have spelling or transcription mistakes; use your domain expertise of endoscopy to correct them before recording an answer. If there are self-corrections for a finding later in the transcript, include only the most recent correct information. For example, if the transcript has: 'There were no masses or polyps found. But I'm checking again and I now see a 6 mm polyp in the transverse colon.' The second statement is a correction. The actual polyps size in mm you should record is 6.

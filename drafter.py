@@ -117,8 +117,8 @@ def main():
             try:
                 proc_variant = getattr(drafter, 'procedure_variant', None) or getattr(drafter, 'PROCEDURE_VARIANT', None)
                 if proc_variant:
-                    # module path like data_models.generated_ercp_base_model
-                    mod_name = f"data_models.generated_{proc_variant}_model"
+                    # module path like models.generated_ercp_base_model
+                    mod_name = f"models.generated_{proc_variant}_model"
                     model_mod = __import__(mod_name, fromlist=['*'])
                     # class name like ErcpBaseData
                     class_name = ''.join([p.title() for p in proc_variant.split('_')]) + 'Data'

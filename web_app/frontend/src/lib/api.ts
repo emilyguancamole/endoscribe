@@ -60,14 +60,13 @@ export async function checkHealth(): Promise<HealthResponse> {
 
 // Process transcript
 export async function processTranscript(data: ProcessRequest): Promise<ProcessResponse> {
-  const response = await fetch('/api/process', {
+  const response = await fetch('/api/process/v2', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(data),
   });
-
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
     throw new Error(error.detail || 'Failed to process transcript');

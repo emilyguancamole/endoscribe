@@ -1,8 +1,10 @@
 import json
 from .base_processor import BaseProcessor
-from data_models.data_models import ColonoscopyData, PolypData
+from models.data_models import ColonoscopyData, PolypData
 from typing import List, Dict
 import pandas as pd
+
+# NOTE 1/1/2026: DEPRECATED
 
 class ColProcessor(BaseProcessor):
     def build_polyp_messages(self, transcript: str, findings: str, polyp_count: str, system_prompt_fp: str) -> List[Dict[str, str]]:

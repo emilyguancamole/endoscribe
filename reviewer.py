@@ -3,7 +3,7 @@ import os
 import re
 from typing import Optional, Dict, Any
 
-from llm.llm_client import LLMClient
+from llm.client import LLMClient
 
 
 REVIEWER_SCHEMA_TOP_KEYS = {'updated_fields', 'updated_sections', 'accept_rendered_note', 'final_note', 'deltas', 'confidence', 'warnings'}
@@ -173,7 +173,7 @@ def run_reviewer_on_package(package_fp: str, llm_handler: Optional[LLMClient] = 
     else:
         print("Reviewer messages:\n", messages)
         try:
-            raw_resp = llm_handler.chat(messages)
+            raw_resp = llm_handler.chat_llm(messages)
             response_text = _normalize_llm_response(raw_resp)
 
         except Exception as e:

@@ -3,6 +3,7 @@ import os
 from typing import Dict, List, Optional
 import pandas as pd
 
+# NOTE 1/1/2026: DEPRECATED
 class BaseProcessor:
     def __init__(self, procedure_type, system_prompt_fp, output_fp, llm_handler, to_postgres=False):
         self.procedure_type = procedure_type

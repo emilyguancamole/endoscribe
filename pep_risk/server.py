@@ -21,7 +21,7 @@ except Exception:
     TORCH_AVAILABLE = False
 from typing import Any, Dict, List, Optional
 from transcription.whisperx_transcribe import transcribe_whisperx
-from llm.llm_client import LLMClient
+from llm.client import LLMClient
 from processors.ercp_processor import ERCPProcessor
 from pep_risk.peprisc_model import predict_pep_risk
 import pandas as pd

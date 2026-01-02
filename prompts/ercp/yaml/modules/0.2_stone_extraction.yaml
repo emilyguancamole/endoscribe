@@ -5,28 +5,23 @@ meta:
   module_id: "0.2"
   procedure_group: ercp
   procedure_type: stone_extraction # output prompt file will be generated_{proc_type}_prompt.txt
-  title: ERCP for Follow-up
+  title: ERCP Stone Extraction
+  insert_after: cholangiogram
+  extraction_group: stone_management 
 
-#? When should this module be included?
-
-#? do i need to repeat prompt instructions, eg to write none/unknown
-activation_criteria: 
-  # If stone/sludge extraction performed and/or adjuncts used: Refer to 0.2 Stone extraction adjuncts
-  # keywords: 
-  #   - "stone"
-  #   - "balloon sweep"
-  #   - "basket extraction"
-  #   - "lithotripsy"
-  # semantic_triggers:
-  #   - "extraction of stones from bile duct"
-  #   - "choledocholithiasis treatment"
+system_instructions: |
+  I am giving you a transcript from an ERCP procedure. The task is to extract procedure entities, focusing on stone extractions.
+  The information you extract will be used to fill a structured procedure note template.
+  If examples of the template are given, ensure your extracted field fits with that structure. For instance, field "scope_advancement_difficulty_reason" will be used to fill in the template sentence "Scope advancement was challenging due to {scope_advancement_difficulty_reason}", so your answer should be a phrase that fits in that sentence.
+  If examples of valid responses are given, you may also write free text responses outside those examples, unless otherwise specified. Ensure the free text responses have the same grammatical structure. 
+  Unless otherwise specified, default to string type outputs.
+  Not all fields may be mentioned in the transcript or applicable for the procedure. Unless explicitly otherwise specified, if you do not know the answer, record "unknown". If it wasn't mentioned or if not applicable, record "none". Do not make up information.
 
 field_groups:
   initial_extraction:
     description: "Initial extraction method and result"
     report_section: "findings"
     report_subsection: "stone_extraction"
-    #! stone_extraction_performed should be a base-level check / at orchestrator level - how to
     template: | 
       {% if stone_extraction_performed %}
       {% if stone_indications | sku %}Adjunct stone therapy was performed due to {{ stone_indications }}. {% endif %}
@@ -41,11 +36,10 @@ field_groups:
 
       - name: stone_indications
         type: string
-        item_type: string
         prompt_instruction: |
-          If adjunct stone therapy was performed, record all reasons for it, e.g.
-          - 'giant stone(s)' (if largest ≥15-20mm)
-          - 'large stone(s)' (if largest >10mm)
+          If adjunct stone therapy was performed, record all reasons for it as a string, e.g. 'large stone and duct tortuosity'. Possible reasons include:
+          - 'giant stone(s)' (largest ≥15-20mm)
+          - 'large stone(s)' (largest >10mm)
           - 'multiple stones/heavy stone burden'
           - 'distal CBD narrowing/papillary stenosis'
           - 'duct tortuosity/angulation'
@@ -168,7 +162,6 @@ field_groups:
         prompt_instruction: "true/false if performed"
       - name: mech_lithotripsy_indication
         type: string
-        item_type: string
         prompt_instruction: "All reasons mechanical lithotripsy was performed, e.g. large stone, impacted stone, failed balloon"
       - name: mech_lithotripsy_basket_system
         type: string
@@ -178,7 +171,6 @@ field_groups:
         prompt_instruction: "Location of stone where lithotripsy was performed, e.g. distal CBD, hilum"
       - name: mech_lithotripsy_stone
         type: string
-        item_type: string
         prompt_instruction: "Characteristics of stone, e.g. hard/calcified, soft, faceted"
       - name: mech_lithotripsy_outcome
         type: string

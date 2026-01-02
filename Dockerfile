@@ -88,6 +88,7 @@ ENV TRANSFORMERS_CACHE=/data/cache/transformers
 ENV PYTHONPATH=/app
 ENV R_HOME=/usr/local/lib/R
 ENV R_LIBS_USER=/usr/local/lib/R/site-library
+ENV LLM_CONFIG=openai_gpt4o
 
 # Copy application code
 COPY . .
@@ -99,6 +100,10 @@ COPY --from=frontend-builder /build/frontend/../static/dist web_app/static/dist
 RUN python -c "import rpy2; print('rpy2 installed successfully')" && \
     python -c "from rpy2 import robjects; print('R integration working:', robjects.r('1+1')[0])"
 
+# Verify orchestrator structure
+RUN python -c "from central.orchestration.orchestrator import Orchestrator; print('Orchestrator imported successfully')" && \
+    python -c "from central.drafters.ercp import ERCPDrafter; print('ERCPDrafter imported successfully')"
+    
 # Expose port
 EXPOSE 8000
 

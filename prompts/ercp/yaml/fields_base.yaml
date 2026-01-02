@@ -7,7 +7,8 @@ system_instructions: |
   I am giving you a transcript from an ERCP procedure. The task is to extract procedure entities. 
   Make sure you are accurate and complete. The information you extract will be used to fill a structured procedure note template.
   If examples of the template are given, ensure your extracted field fits with that structure. For instance, field "scope_advancement_difficulty_reason" will be used to fill in the template sentence "Scope advancement was challenging due to {scope_advancement_difficulty_reason}", so your answer should be a phrase that fits in that sentence.
-  If examples of valid responses are given, you may also write free text responses outside those examples, unless otherwise specified. Just ensure any free text responses have the same grammatical structure as the examples.
+  If examples of valid responses are given, you may also write free text responses outside those examples, unless otherwise specified. Ensure the free text responses have the same grammatical structure. 
+  Unless otherwise specified, default to string type outputs.
   Not all fields may be mentioned in the transcript or applicable for the procedure. Unless explicitly otherwise specified, if you do not know the answer, record "unknown". If it wasn't mentioned or if not applicable, record "none". Do not make up information.
 
 # Metadata about this procedure type
@@ -16,6 +17,7 @@ meta:
   procedure_type: ercp_base
   title: Endoscopic Retrograde Cholangiopancreatography
   version: "1.0.1"
+  extraction_group: base
 
 # Common field groups for ALL ERCP procedures
 field_groups:
@@ -62,19 +64,19 @@ field_groups:
         
       - name: past_medical_history
         type: string
-        prompt_instruction: "Describe past non-negative medical history as sentence(s)"
+        prompt_instruction: "Describe past non-negative medical history as sentence starting with 'He/She has a history of ...'"
         
       - name: current_medications
         type: string
-        prompt_instruction: "Describe current medications as sentence(s)"
+        prompt_instruction: "List current medications; will be used in the sentence 'Current medications include {{current_medications}}.'"
         
       - name: family_history
         type: string
-        prompt_instruction: "Describe family history as sentence(s)"
+        prompt_instruction: "Describe family history as sentence starting with 'Family history of/for...'"
         
       - name: social_history
         type: string
-        prompt_instruction: "Describe social history as sentence(s) only if non-negative social history is mentioned"
+        prompt_instruction: "Describe social history as sentence"
 
   medications:
     description: "Medications with default"
@@ -117,22 +119,22 @@ field_groups:
     description: "ERCP quality and technical details"
     report_section: "ercp_quality_metrics"
     template: |
-      Difficulty of ERCP: {% if grade_of_ercp | sku %}
-      Grade {{ grade_of_ercp }}.
+      {% if grade_of_ercp | sku %}
+      Difficulty of ERCP: Grade {{ grade_of_ercp }}.
       {% endif %}
       {% if pd_cannulation_status | sku %}
       Pancreatic duct cannulation {{ pd_cannulation_status | sent }}
       {% endif %}
-      {% if cannulation_success is defined %}Cannulation success: {% if cannulation_success %}Yes{% else %}No{% endif %}.
+      {% if cannulation_success | sku %}Cannulation success: {% if cannulation_success %}Yes{% else %}No{% endif %}.
       {% endif %}
-      {% if lactated_ringers is defined %}
+      {% if lactated_ringers | sku %}
       Post-ERCP pancreatitis prophylaxis: {% if lactated_ringers %}Lactated ringers: Yes, refer to record of source{% else %}No{% endif %}.
       {% endif %}
-      {% if rectal_indomethacin is defined %}Rectal indomethacin: {% if rectal_indomethacin %} Yes{% else %}No{% endif %}.
+      {% if rectal_indomethacin | sku %}Rectal indomethacin: {% if rectal_indomethacin %} Yes{% else %}No{% endif %}.
       {% endif %}
-      {% if successful_completion is defined %}Successful completion of intended procedure: {% if successful_completion %}Yes{% else %}No{% endif %}.
+      {% if successful_completion | sku %}Successful completion of intended procedure: {% if successful_completion %}Yes{% else %}No{% endif %}.
       {% endif %}
-      {% if failed_ercp is defined %}
+      {% if failed_ercp | sku %}
       Failed ERCP from another facility or provider: {% if failed_ercp %}Yes{% else %}No{% endif %}.{% endif %}
     fields:
       - name: grade_of_ercp
@@ -185,7 +187,7 @@ field_groups:
       - name: scout_film_status
         type: enum
         enum_values: ["normal", "abnormal", "not_obtained", "unknown", "none"]
-        prompt_instruction: "'normal', 'abnormal', or 'not_obtained'"
+        prompt_instruction: "'normal', 'abnormal', 'not_obtained', or 'unknown' if not mentioned"
 
       - name: scout_film_optional_findings
         type: string
@@ -381,7 +383,7 @@ field_groups:
     report_subsection: "ampullectomy"
     template: |
       {% if ampullectomy_performed %}
-      After a submucosal lift{% if snare_size_mm > 0 %}, a {{ snare_size_mm }} mm snare{% else %}, a snare{% endif %} was used to perform ampullectomy. Resection was performed {% if resection_style | sku and resection_style not in ['none', 'unknown'] %}{{ resection_style | replace('_', ' ') }}{% endif %}{% if energy_settings | sku and energy_settings != 'not specified' %} using electrocautery {{ energy_settings }}{% endif %}. The specimen was retrieved {% if specimen_retrieval_method | sku and specimen_retrieval_method != 'not specified' %}{{ specimen_retrieval_method }}{% endif %} and sent for histopathology. The resection base and margins were carefully inspected; {% if resection_base_assessment | sku %}{{ resection_base_assessment }}{% endif %}.{% if ampullectomy_hemostasis_method | sku and ampullectomy_hemostasis_method != 'none' %} Hemostasis was achieved with {{ ampullectomy_hemostasis_method }}.{% endif %}
+      After a submucosal lift{% if snare_size_mm | sku and snare_size_mm > 0 %}, a {{ snare_size_mm }} mm snare{% else %}, a snare{% endif %} was used to perform ampullectomy. Resection was performed {% if resection_style | sku and resection_style not in ['none', 'unknown'] %}{{ resection_style | replace('_', ' ') }}{% endif %}{% if energy_settings | sku and energy_settings != 'not specified' %} using electrocautery {{ energy_settings }}{% endif %}. The specimen was retrieved {% if specimen_retrieval_method | sku and specimen_retrieval_method != 'not specified' %}{{ specimen_retrieval_method }}{% endif %} and sent for histopathology. The resection base and margins were carefully inspected; {% if resection_base_assessment | sku %}{{ resection_base_assessment }}{% endif %}.{% if ampullectomy_hemostasis_method | sku and ampullectomy_hemostasis_method != 'none' %} Hemostasis was achieved with {{ ampullectomy_hemostasis_method }}.{% endif %}
       {% endif %}
     fields:
       - name: ampullectomy_performed
@@ -508,9 +510,10 @@ field_groups:
     report_section: "findings"
     report_subsection: "cholangiogram"
     template: |
+      {% set _chol %}
       {% if contrast_injection_performed %}
       Contrast was injected under fluoroscopic guidance and cholangiogram was performed.
-      {% if cbd_diameter_mm > 0 %}The common bile duct (CBD) measured {{ cbd_diameter_mm }} mm{% if cbd_diameter_mm >= 6 and cbd_diameter_mm <= 10 %} and was normal{% endif %}.{% endif %}
+      {% if cbd_diameter_mm | sku and cbd_diameter_mm > 0 %}The common bile duct (CBD) measured {{ cbd_diameter_mm }} mm{% if cbd_diameter_mm >= 6 and cbd_diameter_mm <= 10 %} and was normal{% endif %}.{% endif %}
       {% if ihd_status | sku and ihd_status not in ['unknown', 'none'] %} Intrahepatic ducts were {{ ihd_status | replace('_', ' ') }}{% if ihd_status == 'normal' %} in caliber, and contrast drained freely into the duodenum{% endif %}.{% endif %}
       {% if stone_description | sku and stone_description != 'none' %} {{ stone_description | sent }}{% endif %}
       {% if stricture_description | sku and stricture_description != 'none' %} {{ stricture_description | sent }}{% endif %}
@@ -518,7 +521,11 @@ field_groups:
       {% if bile_leak_location | sku and bile_leak_location != 'none' %} Contrast extravasation from the {{ bile_leak_location }} consistent with a bile leak.{% endif %}
       {% if prior_stent_status | sku and prior_stent_status != 'none' %} {{ prior_stent_status | sent }}{% endif %}
       {% if cholangiogram_free_text | sku and cholangiogram_free_text != 'none' %} {{ cholangiogram_free_text | sent }}{% endif %}
+      {% else %}
+        Contrast injection was not performed.
       {% endif %}
+      {% endset %}
+      {{ _chol | replace('\n', ' ') | replace('  ', ' ') | replace('  ', ' ') | trim }}
     fields:
       - name: contrast_injection_performed
         type: boolean
@@ -571,10 +578,10 @@ field_groups:
     template: |
       {% if pancreatogram_obtained %}
       Pancreatogram was obtained{% if pancreatogram_overall | sku %} and {{ pancreatogram_overall }} identified{% endif %}.
-      {% if main_pd_diameter_head_mm > 0 or main_pd_diameter_body_mm > 0 or main_pd_diameter_tail_mm > 0 %} Main PD diameter was{% if main_pd_diameter_head_mm > 0 %} {{ main_pd_diameter_head_mm }} mm at head{% endif %}{% if main_pd_diameter_body_mm > 0 %}{% if main_pd_diameter_head_mm > 0 %},{% endif %} {{ main_pd_diameter_body_mm }} mm at body{% endif %}{% if main_pd_diameter_tail_mm > 0 %}{% if main_pd_diameter_head_mm > 0 or main_pd_diameter_body_mm > 0 %},{% endif %} {{ main_pd_diameter_tail_mm }} mm at tail{% endif %}.{% endif %}
+      {% if (main_pd_diameter_head_mm | sku and main_pd_diameter_head_mm > 0) or (main_pd_diameter_body_mm | sku and main_pd_diameter_body_mm > 0) or (main_pd_diameter_tail_mm | sku and main_pd_diameter_tail_mm > 0) %} Main PD diameter was{% if main_pd_diameter_head_mm | sku and main_pd_diameter_head_mm > 0 %} {{ main_pd_diameter_head_mm }} mm at head{% endif %}{% if main_pd_diameter_body_mm | sku and main_pd_diameter_body_mm > 0 %}{% if main_pd_diameter_head_mm | sku and main_pd_diameter_head_mm > 0 %},{% endif %} {{ main_pd_diameter_body_mm }} mm at body{% endif %}{% if main_pd_diameter_tail_mm | sku and main_pd_diameter_tail_mm > 0 %}{% if (main_pd_diameter_head_mm | sku and main_pd_diameter_head_mm > 0) or (main_pd_diameter_body_mm | sku and main_pd_diameter_body_mm > 0) %},{% endif %} {{ main_pd_diameter_tail_mm }} mm at tail{% endif %}.{% endif %}
       {% if side_branch_status | sku and side_branch_status not in ['unknown', 'none'] %} Side branches were {{ side_branch_status }}.{% endif %}
       {% if pd_stricture_location | sku and pd_stricture_location != 'none' %} Stricture was located at {{ pd_stricture_location }}.{% endif %}
-      {% if pd_pseudocyst_communication is defined %} There was {% if not pd_pseudocyst_communication %}no {% endif %}communication with pseudocyst.{% endif %}
+      {% if pd_pseudocyst_communication | sku %} There was {% if not pd_pseudocyst_communication %}no {% endif %}communication with pseudocyst.{% endif %}
       {% endif %}
     fields:
       - name: pancreatogram_obtained
@@ -672,6 +679,7 @@ field_groups:
     report_subsection: "biliary_stent"
     #* 'building sentences' approach... maybe better for readability of jinja than a single long template but idk??
     template: |
+      {% set ns = namespace(parts=[]) %}
       {% if biliary_stent_type == 'plastic' %}
         {% set sentence = 'A ' %}
         {% if plastic_biliary_type | sku %}
@@ -681,7 +689,7 @@ field_groups:
         {% if plastic_biliary_size | sku %}
           {% set sentence = sentence ~ ' of ' ~ plastic_biliary_size %}
         {% endif %}
-        {% if plastic_biliary_length is defined and plastic_biliary_length > 0 %}
+        {% if plastic_biliary_length | sku and plastic_biliary_length > 0 %}
           {% set sentence = sentence ~ ' by ' ~ plastic_biliary_length ~ ' cm' %}
         {% endif %}
         {% set sentence = sentence ~ ' was placed.' %}
@@ -690,7 +698,7 @@ field_groups:
 
       {% if biliary_stent_type == 'metal' %}
       A {{ metal_biliary_type }} metal biliary stent
-      {% if metal_biliary_length > 0 %} of length {{ metal_biliary_length }} mm{% endif %}
+      {% if metal_biliary_length | sku and metal_biliary_length > 0 %} of length {{ metal_biliary_length }} mm{% endif %}
       was placed.
       {% if metal_biliary_narrative | sku %}
       {{ metal_biliary_narrative }}
@@ -808,9 +816,9 @@ field_groups:
     report_section: "findings"
     report_subsection: "blood_loss"
     template: |
-      {% if estimated_blood_loss > 0 %}
+      {% if estimated_blood_loss | sku and estimated_blood_loss > 0 %}
       Estimated blood loss: {{ estimated_blood_loss }} ml.
-      {% elif estimated_blood_loss == 0 %}
+      {% elif estimated_blood_loss | sku and estimated_blood_loss == 0 %}
       Estimated blood loss: None.
       {% endif %}
     fields:
@@ -831,7 +839,7 @@ field_groups:
     fields:
       - name: specimens_removed
         type: string
-        prompt_instruction: "If speciments were obtained, describe their details/findings"
+        prompt_instruction: "If specimens were obtained, describe their details/findings"
         
   complications:
     description: "Complications from procedure"
@@ -859,7 +867,7 @@ field_groups:
       - name: impressions
         type: list
         prompt_instruction: |
-          Summarize the most important findings, procedures, and biopsies as a comma-separated list of strings.
+          Summarize the most important findings, procedures, and biopsies. Record as a list type field with each item in the list as an impression.
           If there are multiple normal findings, combine them into a single list item for EGD and another for ERCP (for example: "Normal ERCP examination of x, y, z" where x, y, z are different areas with normal ERCP findings). Normal findings do not need to be in the order of examination.
           Do not include scout film results.
 ## RECS
@@ -870,4 +878,4 @@ field_groups:
     fields:
       - name: recommendations
         type: list
-        prompt_instruction: "If the clinician describes specific recommendations for follow-up in the procedure transcript, record the recommendation(s) as a comma-separated list of strings. Otherwise leave blank."
+        prompt_instruction: "If the clinician describes specific recommendations for follow-up in the procedure transcript, record the recommendation(s). Record as a list type field with each item in the list as a recommendation. Otherwise leave blank."

@@ -111,9 +111,7 @@ def demo():
 
     # write prompt
     prompt_text = generate_prompt_text(config)
-    prompt_dir = _root / 'prompts' / proc_group
-    os.makedirs(prompt_dir, exist_ok=True)
-    prompt_output = prompt_dir / f'generated_{proc_type}_prompt.txt'
+    prompt_output = _here / f'demo_output/generated_{proc_type}_prompt.txt'
     with open(prompt_output, 'w') as f:
         f.write(prompt_text)
 
@@ -127,7 +125,7 @@ def demo():
 
     # Generate and write pydantic model
     model_code = generate_pydantic_model(config, f"{proc_type.replace('_', ' ').title().replace(' ', '')}Data")
-    model_output = _root / 'models' / f'generated_{proc_type}_model.py'
+    model_output = _here / f'demo_output/generated_{proc_type}_model.py'
     os.makedirs(os.path.dirname(model_output), exist_ok=True)
     with open(model_output, 'w') as f:
         f.write(model_code)
@@ -170,7 +168,7 @@ def demo():
         print("Error generating recommendations")
         pass
 
-    output_path = _here/"demo_ercp_report.txt"
+    output_path = _here/"demo_output/demo_ercp_report.txt"
     parts = []
     for section_name, content in rendered.items():
         parts.append(f"== {section_name.upper()} ==\n\n{content.strip()}\n")

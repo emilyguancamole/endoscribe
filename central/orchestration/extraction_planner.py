@@ -34,12 +34,13 @@ class ExtractionPlanner:
     """Plans multi-pass extraction by grouping modules"""
     # Priority order for extraction groups
     GROUP_PRIORITIES = {
-        'base': 0,
-        'access_intervention': 1,
-        'stone_management': 2,
-        'drainage_management': 3, 
-        'diagnostic': 4, 
-        'complications': 5,  
+        'history': 0,
+        'base': 1,
+        'access_intervention': 2,
+        'stone_management': 3,
+        'drainage_management': 4, 
+        'diagnostic': 5, 
+        'complications': 6,  
     }
     
     def __init__(self):
@@ -112,13 +113,14 @@ class ExtractionPlanner:
             grouped_field_groups[group_name][fg_name] = fg_config
         
         # Build separate templates for each group
-        result = {}
+        result = {} # group_name (e.g. 'base') -> template dict from yaml
         for group_name, group_fgs in grouped_field_groups.items():
             group_template = deepcopy(merged_template)
             group_template['field_groups'] = group_fgs
             group_template['meta']['extraction_group'] = group_name
             group_template['meta']['procedure_type'] = f"{meta.get('procedure_type', 'procedure')}_{group_name}"
             result[group_name] = group_template
+        print("Resulting grouped templates, ExtractionPlanner:\n", result)
         
         return result
     

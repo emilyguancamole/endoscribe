@@ -23,12 +23,15 @@ field_groups:
     report_section: "findings"
     report_subsection: "stone_extraction"
     template: | 
+      {% set _init_ext %}
       {% if stone_extraction_performed %}
       {% if stone_indications | sku %}Adjunct stone therapy was performed due to {{ stone_indications }}. {% endif %}
       {% if initial_method | sku %}Initial extraction was attempted with {{ initial_method | default('balloon') }}.
       {% if initial_result_text %}{{initial_result_text}}{% endif %}
       {% endif %}
       {% endif %}
+      {% endset %}
+      {{ _init_ext | replace('\n', ' ') | replace('  ', ' ') | trim }}
     fields:
       - name: stone_extraction_performed
         type: boolean
@@ -37,13 +40,14 @@ field_groups:
       - name: stone_indications
         type: string
         prompt_instruction: |
-          If adjunct stone therapy was performed, record all reasons for it as a string, e.g. 'large stone and duct tortuosity'. Possible reasons include:
-          - 'giant stone(s)' (largest ≥15-20mm)
-          - 'large stone(s)' (largest >10mm)
-          - 'multiple stones/heavy stone burden'
-          - 'distal CBD narrowing/papillary stenosis'
-          - 'duct tortuosity/angulation'
-          - 'failed balloon sweeps/failed basket extraction'
+          If adjunct stone therapy was performed, record all reasons for it as a string, e.g. 'large stones (largest 9mm) and duct tortuosity'. Not exhaustive list, be specific if possible:
+          - giant stones (largest ≥15-20mm)
+          - large stones (largest >10mm)
+          - multiple stones
+          - heavy stone burden
+          - distal CBD narrowing/papillary stenosis
+          - duct tortuosity/angulation
+          - failed balloon sweeps
 
       - name: initial_method
         type: string
@@ -52,7 +56,6 @@ field_groups:
       - name: initial_result_text
         type: string
         prompt_instruction: "Describe as a sentence, initial stone extraction result before any adjunct techniques, e.g. 'Complete clearance was achieved."
-        ##? when are adjuncts findings inserted?
     
   eplbd:
   #If performed: Procedure was performed after biliary sphincterotomy / without sphincterotomy  

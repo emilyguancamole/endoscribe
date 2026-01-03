@@ -3,6 +3,7 @@ from typing import Any, Dict
 import re
 from jinja2 import Environment, ChainableUndefined, Template
 from jinja2.runtime import Undefined
+import datetime
 
 
 def _filter_skip_unknown(value: Any) -> str:
@@ -103,6 +104,17 @@ def _filter_join_nonempty(values: Any, sep: str = ", ") -> str:
     return sep.join(parts)
 
 
+def _filter_today(value: Any = None, fmt: str = "%Y-%m-%d") -> str:
+    """Return today's date formatted by `fmt`.
+    - as a global: `{{ today("%b %d, %Y") }}`
+    - as a filter: `{{ "" | today("%b %d, %Y") }}`
+    """
+    try:
+        return datetime.date.today().strftime(fmt)
+    except Exception:
+        return datetime.date.today().isoformat()
+
+
 def build_env() -> Environment:
     ''' Register Jinja environment with custom filters'''
     env = Environment(undefined=ChainableUndefined, autoescape=False, trim_blocks=True, lstrip_blocks=True)
@@ -113,6 +125,8 @@ def build_env() -> Environment:
     env.filters["default_if_unknown_sentence"] = _filter_default_if_unknown_sentence
     env.filters["period"] = _filter_period
     env.filters["join_nonempty"] = _filter_join_nonempty
+    env.filters["today"] = _filter_today
+    env.globals["today"] = lambda fmt: _filter_today(None, fmt)
     return env
 
 

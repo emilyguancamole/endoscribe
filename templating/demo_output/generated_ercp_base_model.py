@@ -1,19 +1,7 @@
 from typing import List, Optional, Union
 from pydantic import BaseModel, field_validator
 
-class ErcpBaseBaseData(BaseModel):
-    age: Optional[int] = None
-    sex: Optional[str] = None
-    chief_complaints: Optional[str] = None
-    symptoms_duration: Optional[str] = None
-    symptoms_narrative: Optional[str] = None
-    negative_history: Optional[str] = None
-    past_medical_history: Optional[str] = None
-    current_medications: Optional[str] = None
-    family_history: Optional[str] = None
-    social_history: Optional[str] = None
-    medications: Optional[str] = None
-    monitoring: Optional[str] = None
+class ErcpBaseData(BaseModel):
     duodenoscope_type: Optional[str] = None
     grade_of_ercp: Optional[int] = None
     pd_cannulation_status: Optional[str] = None
@@ -106,7 +94,7 @@ class ErcpBaseBaseData(BaseModel):
     impressions: Optional[List[str]] = None
     recommendations: Optional[List[str]] = None
 
-    @field_validator('age', 'grade_of_ercp', 'snare_size_mm', 'plastic_biliary_length', 'metal_biliary_length', mode='before')
+    @field_validator('grade_of_ercp', 'snare_size_mm', 'plastic_biliary_length', 'metal_biliary_length', mode='before')
     @classmethod
     def coerce_integer_with_unknown(cls, v):
         """Handle 'unknown' sentinel for integer fields."""

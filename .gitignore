@@ -28,8 +28,7 @@ ground_truth.csv
 *long*
 *longform*
 irb
-data/patients.csv
-data/procedures.csv
+ehr
 tests
 uploads
 chunks

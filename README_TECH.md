@@ -1,7 +1,12 @@
 # EndoScribe Technical Reference
-last updated: 12/13/25
+up-to-date (mostly) as of: 12/13/25
 
-# Reference: FULL EndoScribe Pipeline
+# 1/3/26 deprecated
+_root/results/ folder - llm extractions only - need to rework how i save intermediate results with my updated pipeline
+_root/processors - moved functionality into central/ for ercp
+models/ ?? maybe pep is still relevant
+
+# Manual EndoScribe Pipeline
 ```bash
 # Generate artifacts from fields.yaml
 python templating/generate_from_fields.py prompts/ercp/yaml/fields_base.yaml

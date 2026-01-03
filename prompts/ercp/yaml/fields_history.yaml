@@ -1,0 +1,98 @@
+﻿
+$extends: fields_base.yaml
+
+# System-level instructions (shared by all ERCP subtypes)
+system_instructions: |
+  I am giving you a transcript from an ERCP procedure. The task is to extract procedure entities. 
+  Make sure you are accurate and complete. The information you extract will be used to fill a structured procedure note template.
+  If examples of the template are given, ensure your extracted field fits with that structure. For instance, field "scope_advancement_difficulty_reason" will be used to fill in the template sentence "Scope advancement was challenging due to {scope_advancement_difficulty_reason}", so your answer should be a phrase that fits in that sentence.
+  If examples of valid responses are given, you may also write free text responses outside those examples, unless otherwise specified. Ensure the free text responses have the same grammatical structure. 
+  Unless otherwise specified, default to string type outputs.
+  Not all fields may be mentioned in the transcript or applicable for the procedure. Unless explicitly otherwise specified, if you do not know the answer, record "unknown". If it wasn't mentioned or if not applicable, record "none". Do not make up information.
+
+meta:
+  procedure_group: ercp
+  procedure_type: ercp_history
+  title: Endoscopic Retrograde Cholangiopancreatography
+  extraction_group: history
+  insert_after: exam_header
+
+field_groups:
+  indications:
+    # xxxx -year-old male / female patient is here for an ERCP procedure for the evaluation of [chief complaints]
+    description: "Patient demographics, in indications"
+    report_section: "indications"
+    template: |
+      {{ age }}-year-old {{ sex }} patient is here for an ERCP procedure {% if chief_complaints | sku %}for {{ chief_complaints | sku | lower }}{% endif %}.
+    fields:
+      - name: age
+        type: integer
+        prompt_instruction: "patient age as integer"
+        
+      - name: sex
+        type: string
+        prompt_instruction: "male, female, other, or unknown"
+        
+      - name: chief_complaints
+        type: string
+        prompt_instruction: "State all main symptoms, indications, or reasons for the procedure, e.g. 'the evaluation and treatment of bile duct stricture'"
+
+  patient_history:
+    description: "Patient medical and social history"
+    report_section: "history"
+    template: |
+      {% set _hist %}
+      {{ symptoms_duration_symptoms | sku | sent }} {{ symptoms_narrative | sku | sent }}
+      {% if negative_history | sku %}No history of {{ negative_history | sku }} is reported unless otherwise specified.{% endif %}
+      {% if past_medical_history | sku %}{{ past_medical_history | sku | sent }}{% endif %} {% if current_medications | sku %} Current medications include {{ current_medications | sku }}.{% endif %}
+      {% if family_history | sku %}{{ family_history | sku | sent }}{% endif %} {% if social_history | sku %}{{ social_history | sku | sent }}{% endif %}
+      {% endset %}
+      {{ _hist | replace('  ', ' ') | trim }}
+    fields:
+      - name: symptoms_duration_symptoms
+        type: string
+        prompt_instruction: "Report duration and name of symptoms as 'Patient reports {3 months} history of {jaundice and abdominal pain}'"
+        
+      - name: symptoms_narrative
+        type: string
+        prompt_instruction: "Describe symptoms in detail as complete sentence, e.g. 'Patient's stricture was initially thought to be malignant; however, given negative biopsies this was felt to be benign.'"
+        
+      - name: negative_history
+        type: string
+        prompt_instruction: "Relevant negative history if mentioned. Will be used as 'No history of {{negative_history}} is reported'"
+        
+      - name: past_medical_history
+        type: string
+        prompt_instruction: "Describe past non-negative medical history as sentence starting with 'He/She has a history of ...'"
+        
+      - name: current_medications
+        type: string
+        prompt_instruction: "List current medications; will be used in the sentence 'Current medications include {{current_medications}}.'"
+        
+      - name: family_history
+        type: string
+        prompt_instruction: "Describe family history as sentence starting with 'Family history of/for...'"
+        
+      - name: social_history
+        type: string
+        prompt_instruction: "Describe social history as sentence"
+
+  medications:
+    description: "Medications with default"
+    report_section: "medications"
+    template:  |
+      {{ medications | default_if_unknown('Refer to record of source.') }}
+    fields:
+      - name: medications
+        type: string
+        prompt_instruction: "If specific medications are mentioned, include them with doses if available, else 'unknown"
+
+  monitoring:
+    description: "Monitoring with default"
+    report_section: "monitoring"
+    template: |
+      {{ monitoring | default_if_unknown('Johns Hopkins Standard.') }}
+    fields:
+      - name: monitoring
+        type: string
+        prompt_instruction: "If the transcript describes monitoring, include details, else 'unknown'"

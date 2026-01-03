@@ -11,41 +11,6 @@ meta:
   title: Colonoscopy
 
 field_groups:
-  # header:
-  #   description: "Administrative identifiers and provider information"
-  #   report_section: "header"
-  #   fields:
-  #     - name: patient_name
-  #       type: string
-  #       prompt_instruction: "Patient name if present in the header (NAME: XXXX)."
-
-  #     - name: exam_date
-  #       type: string
-  #       prompt_instruction: "Exam date if mentioned (EXAM DATE: XXXX)."
-
-  #     - name: date_of_birth
-  #       type: string
-  #       prompt_instruction: "Date of birth if mentioned (DATE OF BIRTH: XXXX)."
-
-  #     - name: mrn
-  #       type: string
-  #       prompt_instruction: "Medical record number (MR #: XXXXX)."
-
-  #     - name: csn
-  #       type: string
-  #       prompt_instruction: "Visit ID / CSN (VISIT ID (CSN): CSNxxxxxx)."
-
-  #     - name: attending_physician
-  #       type: string
-  #       prompt_instruction: "Attending physician name from the header."
-
-  #     - name: assisting_physician
-  #       type: string
-  #       prompt_instruction: "Assisting physician name if present."
-
-  #     - name: referring_physician
-  #       type: string
-  #       prompt_instruction: "Referring physician name if present."
 
   patient_demographics:
     description: "Basic patient information used in HISTORY / INDICATIONS"

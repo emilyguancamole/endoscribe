@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 # Add project root to path
-_here = Path(__file__).parent
+_here = Path(__file__).parent.parent
 _root = _here.parent
 sys.path.insert(0, str(_root))
 
@@ -74,6 +74,7 @@ def test_flow(transcript: str):
 
 
 if __name__ == "__main__":
+    """ python central/test/test_classification_assembly.py """
     try:
         test_name = "stone_extraction_2"
         print(f"TEST FOR {test_name} \n"+"="*60)

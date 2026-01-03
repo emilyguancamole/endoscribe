@@ -46,7 +46,7 @@ class TemplateAssembler:
         Returns:
             Merged yaml configuration dict with base + modules + metadata
         """
-        self.extraction_group_map = {}
+        self.extraction_group_map = {} # e.g. 'quality_metrics' -> 'base', 'stone_details' -> 'stone_management'
         base_path = self._resolve_base_template_path(classification.base_template)
         base_config = load_fields_config(str(base_path))
         
@@ -55,7 +55,26 @@ class TemplateAssembler:
         for fg_name in base_config.get('field_groups', {}).keys():
             self.extraction_group_map[fg_name] = base_extraction_group
         
-        # no modules, return base
+        # Merge sibling yaml files in the same folder that have insert_after
+        # Allows files, e.g. history, to be added to base template without being listed as modules by classifier
+        base_dir = base_path.parent
+        for sibling in sorted(base_dir.glob("*.yaml")):
+            if sibling.resolve() == base_path.resolve():
+                continue # skip the base
+            try:
+                sibling_cfg = load_fields_config(str(sibling))
+            except Exception:
+                continue
+            # Only consider siblings that explicitly request insertion
+            if sibling_cfg.get('meta', {}).get('insert_after'):
+                # track extraction_group for any new field_groups
+                for fg_name in sibling_cfg.get('field_groups', {}).keys():
+                    if fg_name not in self.extraction_group_map:
+                        self.extraction_group_map[fg_name] = sibling_cfg.get('meta', {}).get('extraction_group', 'unknown')
+                # merge into base_config
+                base_config = merge_configs(base_config, sibling_cfg)
+        
+        # No modules, return base (+ siblings)
         if not classification.active_modules:
             base_config['meta']['extraction_group_map'] = self.extraction_group_map
             return base_config

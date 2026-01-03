@@ -1,7 +1,7 @@
 from typing import List, Optional, Union
 from pydantic import BaseModel, field_validator
 
-class StoneExtractionBaseData(BaseModel):
+class ErcpHistoryData(BaseModel):
     age: Optional[int] = None
     sex: Optional[str] = None
     chief_complaints: Optional[str] = None

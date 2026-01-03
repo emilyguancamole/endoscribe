@@ -2,31 +2,12 @@ meta:
   procedure_group: ercp
   procedure_type: ercp_base
   title: Endoscopic Retrograde Cholangiopancreatography
-  version: 1.0.1
+  version: 1.2.0
   extraction_group: base
 prompts:
   definition_file: prompts/ercp/generated_ercp_base_prompt.txt
 templates:
-  indications: '{{ age }}-year-old {{ sex }} patient is here for an ERCP procedure
-    {% if chief_complaints | sku %}for {{ chief_complaints | sku | lower }}{% endif
-    %}.'
-  history: 'The patient reports {{ symptoms_duration | sku }} history of {{ chief_complaints
-    | lower | sku }}.
-
-    {{ symptoms_narrative | sku | sent }}
-
-    {% if negative_history | sku %}No history of {{ negative_history | sku }} is reported
-    unless otherwise specified.{% endif %}
-
-    {% if past_medical_history | sku %}{{ past_medical_history | sku | sent }}{% endif
-    %} {% if current_medications | sku %} Current medications include {{ current_medications
-    | sku }}.{% endif %}
-
-    {% if family_history | sku %}{{ family_history | sku | sent }}{% endif %} {% if
-    social_history | sku %}{{ social_history | sku | sent }}{% endif %}'
-  medications: '{{ medications | default_if_unknown(''Refer to record of source.'')
-    }}'
-  monitoring: '{{ monitoring | default_if_unknown(''Johns Hopkins Standard.'') }}'
+  header: 'EXAM DATE: {{ today("%b %d, %Y") }}'
   description_of_procedure: '{% set scope_type = duodenoscope_type | default('''')
     | sku %}
 
@@ -169,29 +150,29 @@ templates:
     {% endif %}\n{% if biliary_rendezvous_route | sku and biliary_rendezvous_route\
     \ != 'not applicable' %} {{ biliary_rendezvous_route | capfirst }} puncture was\
     \ performed.{% endif %}\n\n{% set _chol %}\n{% if contrast_injection_performed\
-    \ %}\n  Contrast was injected under fluoroscopic guidance and cholangiogram was\
-    \ performed.\n  {% if cbd_diameter_mm | sku and cbd_diameter_mm > 0 %}The common\
+    \ %}\nContrast was injected under fluoroscopic guidance and cholangiogram was\
+    \ performed.\n{% if cbd_diameter_mm | sku and cbd_diameter_mm > 0 %}The common\
     \ bile duct (CBD) measured {{ cbd_diameter_mm }} mm{% if cbd_diameter_mm >= 6\
-    \ and cbd_diameter_mm <= 10 %} and was normal{% endif %}.{% endif %}\n  {% if\
-    \ ihd_status | sku and ihd_status not in ['unknown', 'none'] %} Intrahepatic ducts\
-    \ were {{ ihd_status | replace('_', ' ') }}{% if ihd_status == 'normal' %} in\
-    \ caliber, and contrast drained freely into the duodenum{% endif %}.{% endif %}\n\
-    \  {% if stone_description | sku and stone_description != 'none' %} {{ stone_description\
-    \ | sent }}{% endif %}\n  {% if stricture_description | sku and stricture_description\
-    \ != 'none' %} {{ stricture_description | sent }}{% endif %}\n  {% if non_stone_filling_defects\
-    \ | sku %} {{ non_stone_filling_defects | sent }}{% endif %}\n  {% if bile_leak_location\
+    \ and cbd_diameter_mm <= 10 %} and was normal{% endif %}.{% endif %}\n{% if ihd_status\
+    \ | sku and ihd_status not in ['unknown', 'none'] %} Intrahepatic ducts were {{\
+    \ ihd_status | replace('_', ' ') }}{% if ihd_status == 'normal' %} in caliber,\
+    \ and contrast drained freely into the duodenum{% endif %}.{% endif %}\n{% if\
+    \ stone_description | sku and stone_description != 'none' %} {{ stone_description\
+    \ | sent }}{% endif %}\n{% if stricture_description | sku and stricture_description\
+    \ != 'none' %} {{ stricture_description | sent }}{% endif %}\n{% if non_stone_filling_defects\
+    \ | sku %} {{ non_stone_filling_defects | sent }}{% endif %}\n{% if bile_leak_location\
     \ | sku and bile_leak_location != 'none' %} Contrast extravasation from the {{\
-    \ bile_leak_location }} consistent with a bile leak.{% endif %}\n  {% if prior_stent_status\
+    \ bile_leak_location }} consistent with a bile leak.{% endif %}\n{% if prior_stent_status\
     \ | sku and prior_stent_status != 'none' %} {{ prior_stent_status | sent }}{%\
-    \ endif %}\n  {% if cholangiogram_free_text | sku and cholangiogram_free_text\
-    \ != 'none' %} {{ cholangiogram_free_text | sent }}{% endif %}\n{% else %}\n \
-    \ Contrast injection was not performed.\n{% endif %}\n{% endset %}\n{{ _chol |\
-    \ replace('\\n', ' ') | replace('  ', ' ') | replace('  ', ' ') | trim }}\n\n\
-    {% if pancreatogram_obtained %}\nPancreatogram was obtained{% if pancreatogram_overall\
-    \ | sku %} and {{ pancreatogram_overall }} identified{% endif %}.\n{% if (main_pd_diameter_head_mm\
-    \ | sku and main_pd_diameter_head_mm > 0) or (main_pd_diameter_body_mm | sku and\
-    \ main_pd_diameter_body_mm > 0) or (main_pd_diameter_tail_mm | sku and main_pd_diameter_tail_mm\
-    \ > 0) %} Main PD diameter was{% if main_pd_diameter_head_mm | sku and main_pd_diameter_head_mm\
+    \ endif %}\n{% if cholangiogram_free_text | sku and cholangiogram_free_text !=\
+    \ 'none' %} {{ cholangiogram_free_text | sent }}{% endif %}\n{% else %}\n  Contrast\
+    \ injection was not performed.\n{% endif %}\n{% endset %}\n{{ _chol | replace('\\\
+    n', ' ') | replace('  ', ' ') | replace('  ', ' ') | trim }}\n\n{% if pancreatogram_obtained\
+    \ %}\nPancreatogram was obtained{% if pancreatogram_overall | sku %} and {{ pancreatogram_overall\
+    \ }} identified{% endif %}.\n{% if (main_pd_diameter_head_mm | sku and main_pd_diameter_head_mm\
+    \ > 0) or (main_pd_diameter_body_mm | sku and main_pd_diameter_body_mm > 0) or\
+    \ (main_pd_diameter_tail_mm | sku and main_pd_diameter_tail_mm > 0) %} Main PD\
+    \ diameter was{% if main_pd_diameter_head_mm | sku and main_pd_diameter_head_mm\
     \ > 0 %} {{ main_pd_diameter_head_mm }} mm at head{% endif %}{% if main_pd_diameter_body_mm\
     \ | sku and main_pd_diameter_body_mm > 0 %}{% if main_pd_diameter_head_mm | sku\
     \ and main_pd_diameter_head_mm > 0 %},{% endif %} {{ main_pd_diameter_body_mm\

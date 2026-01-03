@@ -16,87 +16,17 @@ meta:
   procedure_group: ercp
   procedure_type: ercp_base
   title: Endoscopic Retrograde Cholangiopancreatography
-  version: "1.0.1"
+  version: "1.2.0"
   extraction_group: base
 
 # Common field groups for ALL ERCP procedures
 field_groups:
-  indications:
-    # xxxx -year-old male / female patient is here for an ERCP procedure for the evaluation of [chief complaints]
-    description: "Patient demographics, in indications"
-    report_section: "indications"
-    template: |
-      {{ age }}-year-old {{ sex }} patient is here for an ERCP procedure {% if chief_complaints | sku %}for {{ chief_complaints | sku | lower }}{% endif %}.
-    fields:
-      - name: age
-        type: integer
-        prompt_instruction: "patient age as integer"
-        
-      - name: sex
-        type: string
-        prompt_instruction: "male, female, other, or unknown"
-        
-      - name: chief_complaints
-        type: string
-        prompt_instruction: "State all main symptoms, indications, or reasons for the procedure, e.g. 'the evaluation and treatment of bile duct stricture'"
-
-  patient_history:
-    description: "Patient medical and social history"
-    report_section: "history"
-    template: |
-      The patient reports {{ symptoms_duration | sku }} history of {{ chief_complaints | lower | sku }}.
-      {{ symptoms_narrative | sku | sent }}
-      {% if negative_history | sku %}No history of {{ negative_history | sku }} is reported unless otherwise specified.{% endif %}
-      {% if past_medical_history | sku %}{{ past_medical_history | sku | sent }}{% endif %} {% if current_medications | sku %} Current medications include {{ current_medications | sku }}.{% endif %}
-      {% if family_history | sku %}{{ family_history | sku | sent }}{% endif %} {% if social_history | sku %}{{ social_history | sku | sent }}{% endif %}
-    fields:
-      - name: symptoms_duration
-        type: string
-        prompt_instruction: "Duration of symptoms if mentioned, e.g. '3 months'"
-        
-      - name: symptoms_narrative
-        type: string
-        prompt_instruction: "Describe symptoms in detail as complete sentence, e.g. 'Patient's stributre was initially thought to be malignant; however, given negative biopsies this was felt to be benign.'"
-        
-      - name: negative_history
-        type: string
-        prompt_instruction: "Relevant negative history if mentioned. Will be used as 'No history of {{negative_history}} is reported'"
-        
-      - name: past_medical_history
-        type: string
-        prompt_instruction: "Describe past non-negative medical history as sentence starting with 'He/She has a history of ...'"
-        
-      - name: current_medications
-        type: string
-        prompt_instruction: "List current medications; will be used in the sentence 'Current medications include {{current_medications}}.'"
-        
-      - name: family_history
-        type: string
-        prompt_instruction: "Describe family history as sentence starting with 'Family history of/for...'"
-        
-      - name: social_history
-        type: string
-        prompt_instruction: "Describe social history as sentence"
-
-  medications:
-    description: "Medications with default"
-    report_section: "medications"
-    template:  |
-      {{ medications | default_if_unknown('Refer to record of source.') }}
-    fields:
-      - name: medications
-        type: string
-        prompt_instruction: "If specific medications are mentioned, include them with doses if available, else 'unknown"
-
-  monitoring:
-    description: "Monitoring with default"
-    report_section: "monitoring"
-    template: |
-      {{ monitoring | default_if_unknown('Johns Hopkins Standard.') }}
-    fields:
-      - name: monitoring
-        type: string
-        prompt_instruction: "If the transcript describes monitoring, include details, else 'unknown'"
+  exam_header:
+      description: "Note header fields (STATIC for now), before indications"
+      report_section: "header"
+      template: |
+        EXAM DATE: {{ today("%b %d, %Y") }}
+      fields: []
 
   procedure_description:
     description: "Equipment and procedure specifics"

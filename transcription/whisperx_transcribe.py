@@ -180,7 +180,7 @@ if __name__ == "__main__":
     --save_filename=long-10-2025 \
     --model=large-v3 \
     --audio_dir=transcription/recordings/long \
-    --procedures_data=data/procedures.csv
+    --procedures_data=ehr/procedures.csv
 
     Notes: 
         - for whisperx, model names don't have "openai/" or "whisper-" prefix
@@ -188,7 +188,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--audio_dir', type=str, required=True, help='Path to audio folder (general, not specialized vocals folder)')
     parser.add_argument('--save_filename', type=str, required=True, help='Name of file, without .csv, to save transcriptions to')
-    parser.add_argument('--procedures_data', default="data/procedures.csv", help="Path to procedures data csv")
+    parser.add_argument('--procedures_data', default="ehr/procedures.csv", help="Path to procedures data csv")
     parser.add_argument('--model', type=str, required=True) #'distil-whisper/distil-large-v3' #openai/whisper-medium.en 
     parser.add_argument('--use_prompt', default=False, help='Whether to use the provided prompt for each audio file')
     args = parser.parse_args()

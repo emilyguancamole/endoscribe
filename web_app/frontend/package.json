@@ -50,9 +50,13 @@
     "react-day-picker": "^9.11.1",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.66.0",
+    "react-markdown": "^10.1.0",
     "react-resizable-panels": "^2.1.9",
     "recharts": "^2.15.4",
     "recordrtc": "^5.6.2",
+    "rehype-highlight": "^7.0.2",
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
@@ -61,6 +65,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.1.14",
     "@types/node": "^20.19.0",
     "@types/react": "^18.2.0",

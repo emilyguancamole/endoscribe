@@ -2,7 +2,7 @@ import Layout from "@/components/Layout";
 import { useEffect, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
+import MarkdownNote from "@/components/note/MarkdownNote";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -220,11 +220,7 @@ export default function ProcedureSummary() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <Textarea
-                  className="min-h-[500px] resize-y border-0 focus-visible:ring-0 p-6 text-base leading-relaxed font-normal"
-                  value={noteContent}
-                  onChange={(e) => setNoteContent(e.target.value)}
-                />
+                <MarkdownNote noteContent={noteContent} setNoteContent={setNoteContent} defaultEditing={false} />
               </CardContent>
             </Card>
           </TabsContent>

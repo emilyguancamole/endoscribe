@@ -64,6 +64,9 @@ class TemplateAssembler:
             try:
                 sibling_cfg = load_fields_config(str(sibling))
             except Exception:
+                print(f"   ! Warning: Could not load sibling template {sibling}")
+                import traceback
+                traceback.print_exc()
                 continue
             # Only consider siblings that explicitly request insertion
             if sibling_cfg.get('meta', {}).get('insert_after'):

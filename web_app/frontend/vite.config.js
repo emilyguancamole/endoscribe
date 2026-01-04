@@ -30,7 +30,7 @@ export default defineConfig({
         ws: true,
         changeOrigin: true,
       },
-      '/health': {
+      '/ready': {
         target: 'http://localhost:8000',
         changeOrigin: true,
       }

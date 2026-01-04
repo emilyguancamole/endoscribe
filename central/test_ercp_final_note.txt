@@ -2,14 +2,14 @@
 65-year-old female patient is here for an ERCP procedure for the evaluation and treatment of choledocholithiasis.
 
 ## HISTORY
-Patient reports 2-week history of right upper quadrant pain and jaundice. Patient reports a 2-week history of right upper quadrant pain and jaundice.
-No history of pancreatitis is reported unless otherwise specified. Current medications include aspirin and metformin.
+Patient reports 2 weeks history of right upper quadrant pain and jaundice. She's been having right upper quadrant pain and jaundice for around 2 weeks.
+No history of pancreatitis is reported unless otherwise specified.She has a history of stomach cancer ten years ago and has been in remission. Current medications include aspirin and metformin.
 
 ## MEDICATIONS
 aspirin and metformin
 
 ## MONITORING
-Monitored anesthesia care was provided.
+Monitored anesthesia care is provided.
 
 ## DESCRIPTION OF PROCEDURE
 After the risks, benefits and alternatives of the procedure were thoroughly explained, informed consent was verified, confirmed and timeout was successfully executed by the treatment team. With the patient in the left semi-prone position, medications were administered intravenously. The duodenoscope was passed from the mouth into the esophagus and further advanced from the esophagus into the stomach. From the stomach, the scope was directed to the second portion of the duodenum.
@@ -29,7 +29,7 @@ The duodenoscope was advanced to the second portion of the duodenum without diff
 
 The major papilla was identified. It appeared normal in position and morphology, with an intact orifice and no surrounding erythema or edema.
 
-The minor papilla was not inspected.
+The minor papilla could not be located.
 
 The ampulla was identified and found to be normal.
 
@@ -37,7 +37,7 @@ Bile duct cannulation was successful.
 
 Contrast was injected under fluoroscopic guidance and cholangiogram was performed. Multiple stones in the distal common bile duct, largest measuring approximately 12 mm.
 
-Adjunct stone therapy was performed due to large stone(s) (largest >10mm), multiple stones/heavy stone burden. Initial extraction was attempted with balloon. Initial stone extraction was partially successful but a large 12mm stone remained.
+Adjunct stone therapy was performed due to large stones (largest 12mm), multiple stones. Initial extraction was attempted with balloon. Initial stone extraction was partially successful but a large 12mm stone remained.
 
 Endoscopic papillary large balloon dilation was performed after sphincterotomy. A CRE balloon balloon was used with target diameter 12mm. Inflation was performed using graded stepwise strategy for 60 seconds. Balloon waist was present and resolved. Overall outcome was adequate papillary orifice enlargement achieved.
 
@@ -54,12 +54,15 @@ Specimens removed: None.
 Complications: There were no immediate complications.
 
 ## IMPRESSIONS
-1. Successful ERCP with biliary sphincterotomy and stone extraction.
+1. Normal major papilla and ampulla.
 2. Multiple stones in the distal common bile duct, largest measuring approximately 12 mm.
-3. Endoscopic papillary large balloon dilation performed with adequate papillary orifice enlargement.
+3. Biliary sphincterotomy performed with good hemostasis.
+4. Endoscopic papillary large balloon dilation performed with adequate papillary orifice enlargement.
+5. All visible stones and sludge were removed.
 
 ## RECOMMENDATIONS
 1. Follow up pathology results.
 2. Finish IV fluids now.
 3. Pain control as needed.
-4. Follow up with referring provider.
+4. Proceed with Cholecystectomy; can remove stent after Cholecystectomy tentatively in 3 months.
+5. Follow up with referring provider.

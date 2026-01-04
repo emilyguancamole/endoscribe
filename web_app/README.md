@@ -87,6 +87,7 @@ python web_app/server.py
 - **WebSocket endpoint** (`/ws/transcribe`): Handles real-time audio streaming and transcription
 - **REST endpoint** (`/api/process`): Processes transcripts and extracts structured data
 - **Health check** (`/health`): System status monitoring
+- **Readiness check** (`/ready`): Ensures services are operational
 
 ### Frontend
 - **Vanilla JavaScript**: MediaRecorder and WebSocket communication
@@ -262,7 +263,7 @@ The WebSocket endpoint (`/ws/transcribe`) uses the following message format:
 **Response:**
 ```json
 {
-  "status": "healthy",
+  "status": "ok",
   "whisper_loaded": true,
   "llm_initialized": true,
   "supported_procedures": ["col", "eus", "ercp", "egd"]

@@ -19,7 +19,7 @@ kill_timeout = "60s"
 [vm]
   #size = "a10" # gpu for local models
   size = "shared-cpu-2x"
-  memory = "4gb"
+  memory = "6gb"
 
 # Persistent volumes for model caching and data storage
 # Note: Volumes must be created with GPU constraints before deployment:
@@ -34,7 +34,7 @@ kill_timeout = "60s"
 [http_service]
   internal_port = 8000
   force_https = true
-  auto_stop_machines = "suspend"   # suspend machines when idle
+  auto_stop_machines = false  # "suspend" suspend machines when idle; false to not autostop
   auto_start_machines = true     # Start machines on incoming requests
   min_machines_running = 1
 
@@ -45,9 +45,14 @@ kill_timeout = "60s"
     hard_limit = 10
     soft_limit = 1
 
+# Make fly restart if health checks fail
+[[services.http_checks]]
+  interval = "15s"
+  timeout = "5s"
+  grace_period = "30s"
+  method = "GET"
+  path = "/health"
+
 # WebSocket support for real-time transcription
 # Fly Proxy will handle WebSocket upgrades automatically
 
-# Note: Health checks removed to prevent keeping machine alive
-# App implements custom idle timeout (60s) for faster scale-down
-# See web_app/server.py for idle shutdown logic

@@ -120,7 +120,6 @@ class ExtractionPlanner:
             group_template['meta']['extraction_group'] = group_name
             group_template['meta']['procedure_type'] = f"{meta.get('procedure_type', 'procedure')}_{group_name}"
             result[group_name] = group_template
-        print("Resulting grouped templates, ExtractionPlanner:\n", result)
         
         return result
     

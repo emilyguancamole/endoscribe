@@ -3,11 +3,9 @@ $extends: fields_base.yaml
 
 # System-level instructions (shared by all ERCP subtypes)
 system_instructions: |
-  I am giving you a transcript from an ERCP procedure. The task is to extract procedure entities. 
+  I am giving you a transcript from an ERCP procedure. The task is to extract procedure entities related to procedure indications and patient history. 
   Make sure you are accurate and complete. The information you extract will be used to fill a structured procedure note template.
   If examples of the template are given, ensure your extracted field fits with that structure. For instance, field "scope_advancement_difficulty_reason" will be used to fill in the template sentence "Scope advancement was challenging due to {scope_advancement_difficulty_reason}", so your answer should be a phrase that fits in that sentence.
-  If examples of valid responses are given, you may also write free text responses outside those examples, unless otherwise specified. Ensure the free text responses have the same grammatical structure. 
-  Unless otherwise specified, default to string type outputs.
   Not all fields may be mentioned in the transcript or applicable for the procedure. Unless explicitly otherwise specified, if you do not know the answer, record "unknown". If it wasn't mentioned or if not applicable, record "none". Do not make up information.
 
 meta:
@@ -77,21 +75,33 @@ field_groups:
         type: string
         prompt_instruction: "Describe social history as sentence"
 
+      - name: malignancy_history
+        type: boolean
+        prompt_instruction: "true if patient has malignant history / indications. false if benign or unknown"
+      
+        # for ercp recs: If stent was placed and patient had indication of chronic pancreatitis/pancreatic duct strictures/pancreatic duct leaks: Repeat ERCP for stent exchange in 3 months 
+      - name: stent_indications_3mo
+        type: boolean
+        prompt_instruction: "true if patient has patient has indication of chronic pancreatitis/pancreatic duct strictures/pancreatic duct leaks"
+      - name: chol_indications
+        type: boolean
+        prompt_instruction: "true if patient has patient has indication of choledocholithiasis"
+
   medications:
     description: "Medications with default"
     report_section: "medications"
     template:  |
-      {{ medications | default_if_unknown('Refer to record of source.') }}
+      {{ medications | sent | default_if_unknown('Refer to record of source.') }}
     fields:
       - name: medications
         type: string
-        prompt_instruction: "If specific medications are mentioned, include them with doses if available, else 'unknown"
+        prompt_instruction: "If specific medications are mentioned, include them with doses if available, else 'unknown'"
 
   monitoring:
     description: "Monitoring with default"
     report_section: "monitoring"
     template: |
-      {{ monitoring | default_if_unknown('Johns Hopkins Standard.') }}
+      {{ monitoring | sent | default_if_unknown('Johns Hopkins Standard.') }}
     fields:
       - name: monitoring
         type: string

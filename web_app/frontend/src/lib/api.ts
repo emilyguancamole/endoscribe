@@ -50,10 +50,10 @@ export interface SaveSessionRequest {
 }
 
 // Health check
-export async function checkHealth(): Promise<HealthResponse> {
-  const response = await fetch('/health');
+export async function checkReady(): Promise<HealthResponse> {
+  const response = await fetch('/ready');
   if (!response.ok) {
-    throw new Error('Health check failed');
+    throw new Error('Readiness check failed');
   }
   return response.json();
 }

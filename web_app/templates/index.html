@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,15 +16,18 @@
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 
     <style>
-        html, body {
+        html,
+        body {
             min-height: 100vh;
         }
+
         .transcript-text {
             white-space: pre-wrap;
             word-wrap: break-word;
         }
     </style>
 </head>
+
 <body class="bg-base-200">
     <!-- Main Container -->
     <div class="container mx-auto p-4 max-w-6xl" x-data="endoscribe()">
@@ -88,7 +92,8 @@
                     <span>Transcription</span>
                     <span x-show="showProcessingTranscription" class="loading loading-dots loading-sm"></span>
                 </h2>
-                <div x-ref="transcriptionContainer" class="bg-base-200 p-4 rounded-lg min-h-[200px] max-h-[400px] overflow-y-auto">
+                <div x-ref="transcriptionContainer"
+                    class="bg-base-200 p-4 rounded-lg min-h-[200px] max-h-[400px] overflow-y-auto">
                     <p x-text="transcriptionDisplay" class="transcript-text text-base-content/70"></p>
                 </div>
 
@@ -98,9 +103,10 @@
                         <span x-show="showProcessing" class="loading loading-spinner"></span>
                         <span x-text="showProcessing ? 'Processing...' : 'Submit for Processing'"></span>
                     </button>
-                    
+
                     <!-- Calculate PEP Risk button (only for ERCP) -->
-                    <button @click="processPEPRisk" x-show="showPEPRiskButton" :disabled="showProcessingPEP" class="btn btn-secondary">
+                    <button @click="processPEPRisk" x-show="showPEPRiskButton" :disabled="showProcessingPEP"
+                        class="btn btn-secondary">
                         <span x-show="showProcessingPEP" class="loading loading-spinner"></span>
                         <span x-text="showProcessingPEP ? 'Calculating...' : 'Calculate PEP Risk'"></span>
                     </button>
@@ -145,8 +151,10 @@
         <!-- Error Display -->
         <div x-show="showError" class="alert alert-error shadow-lg mb-4">
             <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span x-text="errorMessage"></span>
             </div>
@@ -165,8 +173,8 @@
 
     <!-- Health Check on Load -->
     <script>
-        // Check system health on page load
-        fetch('/health')
+        // Check system readiness (not health!) on page load
+        fetch('/ready')
             .then(res => res.json())
             .then(data => {
                 const statusEl = document.getElementById('health-status');
@@ -185,4 +193,5 @@
             });
     </script>
 </body>
+
 </html>

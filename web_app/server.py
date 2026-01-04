@@ -432,10 +432,19 @@ async def home(request: Request):
         # Fallback to legacy template
         return templates.TemplateResponse("index.html", {"request": request})
 
-
-@app.get("/health", response_model=HealthResponse)
+@app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """
+    Liveness check used by Fly to decide whether to keep/restart the VM.
+    """
+    return {
+        "status": "ok",
+        "service": "endoscribe"
+    }
+
+@app.get("/ready", response_model=HealthResponse)
+async def ready_check():
+    """Readiness check"""
     # Check if volumes are accessible in production
     volumes_ok = True
     if os.getenv("FLY_APP_NAME"):
@@ -461,7 +470,7 @@ async def health_check():
         transcription_service=TRANSCRIPTION_CONFIG.service,
         transcription_ready=transcription_ready
     )
-    print("Health check:", res.json())
+    print("Readiness check:", res.json())
     return res
 
 

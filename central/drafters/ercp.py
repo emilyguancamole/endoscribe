@@ -78,43 +78,38 @@ class ERCPDrafter(NoteDrafter):
         
         # Biliary stent recommendations
         biliary_stent = data.get('biliary_stent_type', '').lower()
-        # BILIARY STENTS: 
-        # - Plastic Biliary Stents (sizes: 5F/7F/10F): 
-        #   • 5F: Repeat ERCP in 6-8 weeks for stent removal/replacemen 
-        #   • 7F: Repeat ERCP in 3–4 months for stent removal/replacemen 
-        #   • 10F: Repeat ERCP in 3-4 months for stent removal/replacemen 
-        # - FCSEMS (Fully Covered Metal Biliary Stents): 
-        #   • Benign disease: Repeat ERCP in 6 months for stent removal/replacement 
-        #   • Malignant disease: Repeat ERCP as needed
         if biliary_stent == 'plastic':
             plastic_size = data.get('plastic_biliary_size', '')
             if '5f' in str(plastic_size).lower():
                 rec.append("Repeat ERCP in 6-8 weeks for stent removal/replacement.")
-            elif '7f' in str(plastic_size).lower():
-                rec.append("Repeat ERCP in 3-4 months for stent removal/replacement.")
-            elif '10f' in str(plastic_size).lower():
-                rec.append("Repeat ERCP in 4-5 months for stent removal/replacement.")
+            # '7f', '10f', or unknown:
             else:
-                rec.append("Repeat ERCP for stent removal/replacement as clinically indicated.")
+                rec.append("Repeat ERCP in 3-4 months for stent removal/replacement.")
         
         elif 'metal' in biliary_stent:
             metal_type = data.get('metal_biliary_type', '').lower()
-            if 'fcsems' in metal_type or 'fully covered' in metal_type:
-                rec.append("Repeat ERCP for stent removal/replacement as clinically indicated.") #! temp
-                #??12/27 does this come from indications or?? • Benign disease: Repeat ERCP in 6 months for stent removal/replacement   • Malignant disease: Repeat ERCP as needed 
+            if 'fcsems' in metal_type:
+                if data.get('malignancy_history', False) == True:
+                    rec.append("Repeat ERCP for stent removal/replacement as clinically indicated.")
+                else:
+                    rec.append("Repeat ERCP in 6 months for stent removal/replacement.")
             elif 'ucsems' in metal_type:
-                pass # no routine repeat ercp needed
+                pass # no routine repeat ercp needed #? state?
         
         # Pancreatic stent recommendations
         if data.get('pd_stent_placed'):
             pd_purpose = data.get('pd_stent_purpose', '').lower()
-            if 'prophylaxis' in pd_purpose or 'pep' in pd_purpose:
+            if 'pep_prophylaxis' in pd_purpose:
                 rec.append("AXR in 2-4 weeks to confirm PD stent passage.")
+                # If patient had indication of chronic pancreatitis/pancreatic duct strictures/pancreatic duct leaks: Repeat ERCP for stent exchange in 3 months 
+            elif data.get('stent_indications_3mo', False):
+                rec.append("Repeat ERCP in 3 months for stent exchange.")
             else:
                 rec.append("Repeat ERCP for stent removal/replacement as clinically indicated.")
-        #TODOs - If stent was placed and patient had indication of chronic pancreatitis/pancreatic duct strictures/pancreatic duct leaks: Repeat ERCP for stent exchange in 3 months 
-        # If choledocholithiasis indications: Proceed with Cholecystectomy, can remove stent after Cholecystectomy tentatively in 3 months
-        # Recommendation for EDGE (EUS gastro-gastrostomy + ERCP): “Return in 4 weeks for biliary/pancreatic stent removal (if placed) and GG LAMS removal/GG fistula closure” 
+        if data.get('chol_indications', False):
+            rec.append('Proceed with Cholecystectomy; can remove stent after Cholecystectomy tentatively in 3 months.')
+        
+        #TODO Recommendation for EDGE (EUS gastro-gastrostomy + ERCP): “Return in 4 weeks for biliary/pancreatic stent removal (if placed) and GG LAMS removal/GG fistula closure” 
         
         rec.append("Follow up with referring provider.")
         return rec

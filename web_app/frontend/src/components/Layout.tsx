@@ -12,15 +12,15 @@ export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  // Health check query
+  // Readiness check query
   const { data: healthData } = useQuery({
-    queryKey: ['health'],
+    queryKey: ['ready'],
     queryFn: async () => {
-      const res = await fetch('/health');
-      if (!res.ok) throw new Error('Health check failed');
+      const res = await fetch('/ready');
+      if (!res.ok) throw new Error('Readiness check failed');
       return res.json();
     },
-    refetchInterval: 60000,
+    refetchInterval: 90000,
     retry: 3,
   });
 

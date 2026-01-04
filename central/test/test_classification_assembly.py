@@ -26,7 +26,7 @@ Patient tolerated the procedure well with no immediate complications.
 """,
 
     "stone_extraction_2": """
-This is a 65-year-old female patient here for an ERCP procedure for the evaluation and treatment of choledocholithiasis.She reports a 2-week history of right upper quadrant pain and jaundice. No history of pancreatitis is reported. She's taking aspirin and metformin. Informed consent was obtained. The patient was placed in the prone position. Monitored anesthesia care was provided.
+This is a 65-year-old female patient here for an ERCP procedure for the evaluation and treatment of choledocholithiasis. She's been having right upper quadrant pain and jaundice for around 2 weeks. No history of pancreatitis. She's taking aspirin and metformin. She's in the prone position. Monitored anesthesia care is provided.
 
 A therapeutic duodenoscope was advanced to the second portion of the duodenum.
 The major papilla was identified. There was no periampullary diverticulum.

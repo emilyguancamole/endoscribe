@@ -51,7 +51,7 @@ The demo pipeline will generate a procedure note using the demo data. The output
 
 For example, to generate a note for "ERCP with stone extraction", using the demo data file `0.2stone.json5`, run:
 ```bash
-python templating/demo_ercp_yaml_pipeline.py --proc=ercp_base --module=0.2 --demo_data_json=0.2stone.json5
+python templating/demo/demo_ercp_yaml_pipeline.py --proc=ercp_base --module=0.2 --demo_data_json=0.2stone.json5
 ```
 The terminal will display this:
 ```

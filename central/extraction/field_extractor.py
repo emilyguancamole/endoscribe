@@ -206,19 +206,19 @@ class FieldExtractor:
         
         # Write prompt, model
         prompt_path = self.output_dir / f"generated_{proc_type}_prompt.txt"
-        with open(prompt_path, 'w') as f:
+        with open(prompt_path, 'w', encoding="utf-8") as f:
             f.write(self.prompt_text)
         
         proc_type_clean = self._clean_proc_name(proc_type)
         model_name = f"{proc_type_clean.replace('_', ' ').title().replace(' ', '')}Data"
         model_code = generate_pydantic_model(self.merged_template, model_name)
         model_path = self.output_dir / f"generated_{proc_type}_model.py"
-        with open(model_path, 'w') as f:
+        with open(model_path, 'w', encoding="utf-8") as f:
             f.write(model_code)
         
         # Write drafter template
         drafter_path = self.output_dir / f"generated_{proc_type}_drafter.yaml"
-        with open(drafter_path, 'w') as f:
+        with open(drafter_path, 'w', encoding="utf-8") as f:
             f.write(self.drafter_yaml)
         
         print(f"   Artifacts written to {self.output_dir}")

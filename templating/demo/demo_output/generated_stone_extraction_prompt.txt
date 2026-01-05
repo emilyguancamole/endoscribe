@@ -1,0 +1,152 @@
+I am giving you a transcript from an ERCP procedure. The task is to extract procedure entities, focusing on stone extractions.
+The information you extract will be used to fill a structured procedure note template.
+If examples of the template are given, ensure your extracted field fits with that structure. For instance, field "scope_advancement_difficulty_reason" will be used to fill in the template sentence "Scope advancement was challenging due to {scope_advancement_difficulty_reason}", so your answer should be a phrase that fits in that sentence.
+If examples of valid responses are given, you may also write free text responses outside those examples, unless otherwise specified. Ensure the free text responses have the same grammatical structure. 
+Unless otherwise specified, default to string type outputs.
+Not all fields may be mentioned in the transcript or applicable for the procedure. Unless explicitly otherwise specified, if you do not know the answer, record "unknown". If it wasn't mentioned or if not applicable, record "none". Do not make up information.
+
+The entities you must extract are listed below. Follow the instructions.
+###ENTITIES############################
+duodenoscope_type: duodenoscope type used, e.g. TJF-Q180V, TJF-Q190V, ED-530XT
+grade_of_ercp: ERCP difficulty grade as a integer (1, 2, 3, 4), or -1 if unknown
+pd_cannulation_status: pancreatic duct cannulation status, e.g. 'not attempted', 'successful', 'unsuccessful'
+cannulation_success: if intent was biliary cannulation and bile duct cannulated; true/false
+lactated_ringers: true/false
+rectal_indomethacin: true/false
+successful_completion: true/false
+failed_ercp: true if it was, otherwise false
+scout_film_status: 'normal', 'abnormal', 'not_obtained', or 'unknown' if not mentioned
+scout_film_optional_findings: If scout_film_status was abnormal, describe findings in sentence(s) if mentioned
+scout_film_free_text: Any additional free-text description of scout film as complete sentence(s), else 'none
+scope_advance_difficulty: Record scope advancement as 'with_difficulty', 'without_difficulty', or 'unknown'
+upper_gi_examination_extent: Extent of upper GI exam, e.g. 'without detailed examination', 'with limited examination', 'with detailed examination'
+upper_gi_findings: If upper GI views described, summarize (e.g. 'normal', 'periampullary diverticulum', 'duodenal edema', 'ulcer'); else 'not described'
+major_papilla_status: 'normal', 'abnormal', or 'not visualized'
+major_papilla_abnormal_morphology: If abnormal, describe appearance as 'edematous', 'erythematous', 'scarred'. Otherwise record 'none'
+prior_biliary_sphincterotomy_evidence: true if evidence of prior biliary sphincterotomy is seen; false otherwise
+prior_biliary_sphincterotomy_orifice_patency: If prior sphincterotomy present, describe orifice patency, e.g. patent, particially patent, narrowed stenosed, etc
+papilla_stent_present: true if a plastic or metal stent is seen emerging from the major papilla; false otherwise
+periampullary_diverticulum_present: true if periampullary diverticulum is present; false otherwise
+papilla_diverticulum_loc: If present, describe location of papilla to diverticulum, eg. 'on the rim of the diverticulum'
+major_papilla_free_text: Any additional free-text findings related to the major papilla as complete sentence(s)
+minor_papilla_status: 'normal', 'abnormal', 'not_visualized' if couldn't be located,  'not_inspected' if not inspected
+minor_papilla_morphology: If described, summarize position, morphology, and mucosal changes e.g. 'normal', 'edematous', 'erythematous', 'scarred'
+minor_papilla_prior_sphincterotomy: true if evidence of prior minor papillotomy/sphincterotomy; false otherwise
+minor_papilla_orifice_patency: If prior minor sphincterotomy present, describe orifice patency as 'patent', 'partially_patent', 'narrowed', or 'stenosed'
+minor_papilla_free_text: Any additional free-text findings related to the minor papilla as complete sentence(s); else 'none'
+ampulla_overall_appearance: Describe ampulla: 'normal', 'prominent', 'patulous', 'tumor infiltration', 'prior sphincterotomy evident', 'edematous', 'bleeding', 'pus draining', 'bile draining', 'periampullary diverticulum', 'intradiverticular location', 'evidence of prior ampullectomy/papillectomy', or combinations thereof
+ampulla_pus_present: true if pus is seen draining; false otherwise
+ampulla_active_bleeding: true if active bleeding is described at ampulla; false otherwise
+ampulla_free_text: Any additional ampullary or periampullary details or features as complete sentence(s)
+ampullectomy_performed: true if ampullectomy/papillectomy was performed; false otherwise
+snare_size_mm: Size of snare in mm if reported; -1 if not mentioned or NA
+resection_style: Whether resection was performed 'en bloc' or 'piecemeal'
+energy_settings: Energy device and settings, e.g. 'ERBE Endocut'; 'not specified' if not mentioned
+specimen_retrieval_method: Method used to retrieve specimen (Roth net, snare, forceps, suction trap); 'not specified' if not mentioned
+resection_base_assessment: Description of resection base and margins (e.g. 'no bleeding', 'mild oozing', 'active bleeding', 'no perforation')
+ampullectomy_hemostasis_method: If bleeding occurred, how it was controlled (e.g. dilute epinephrine, soft coagulation, APC, hemoclips); 'none' if no hemostasis required
+sphincterotome_type: Type of sphincterotome used (CleverCut3V, Autotome RX, Dreamtome, Hydratome, Fusion OMNI, other)
+guidewire_type: Guidewire used: 'HydraJag 0.035', 'HydraJag 0.025', 'VisiGlide 2', 'Dreamwire', 'Jagwire', 'Tracer Metro', or 'other'
+bile_duct_cannulation_successful: true/false if successful
+bile_duct_cannulation_difficulty: Describe in a sentence if multiple attempts required and whether inadvertent PD access occurred, e.g. 'Multiple attempts were required without inadvertent pancreatic duct access'
+advanced_cannulation_techniques: If used, describe techniques such as 'double-wire', 'needle-knife precut', 'precut fistulotomy', 'septotomy', or 'through prior sphincterotomy'; else 'none'
+rendezvous_attempted: true/false, if EUS-guided or percutaneous rendezvous was attempted
+rendezvous_result: If rendezvous attempted, indicate 'successful', 'unsuccessful', and route (transgastric/transduodenal)
+pancreatic_duct_cannulation_attempted: 'intentional' if PD cannulation was planned, 'not_attempted_inadvertent' if only inadvertent entry, or 'not_attempted_no_entry'
+pancreatic_duct_cannulation_success: true/false, if selective pancreatic duct access was achieved
+pancreatic_duct_cannulation_technique: If intentional and successful, describe technique (e.g. 'standard wire-guided', 'after precut', 'EUS-guided rendezvous')
+biliary_rendezvous_route: If EUS-guided biliary rendezvous performed, specify 'transgastric' or 'transduodenal' and success; else 'not applicable'
+contrast_injection_performed: 'true' if cholangiogram performed
+cbd_diameter_mm: CBD diameter in mm if reported, -1 if not mentioned
+ihd_status: If the CBD diameter is 6-10 mm, record 'normal'. If larger, record 'mildly dilated', moderately dilated, or 'severely dilated'
+stone_description: If stones present, describe size in mm and location as a sentence. Otherwise 'none'
+stricture_description: If stricture, describe: location (distal/mid/hilar/anastomotic), length, diameter, margins (benign-appearing, malignant, indeterminate) as a sentence. Otherwise 'none'
+non_stone_filling_defects: Describe any other filling defects such as sludge/debris/air bubbles and their locations as a sentence; otherwise 'none'
+bile_leak_location: If bile leak: record location such as 'cystic duct stump', 'duct', 'anastomosis'. Otherwise 'none'
+prior_stent_status: Describe prior stent if present (e.g. 'CBD opacified through prior stent, flow patent/sluggish/occluded'). Otherwise 'none'
+cholangiogram_free_text: Any additional cholangiographic details not captured above as complete sentence(s); else 'none'
+stone_extraction_performed: true/false if stone/sludge extraction performed and/or adjuncts used
+stone_indications: If adjunct stone therapy was performed, record all reasons for it as a string, e.g. 'large stones (largest 9mm) and duct tortuosity'. Not exhaustive list, be specific if possible:
+- giant stones (largest ≥15-20mm)
+- large stones (largest >10mm)
+- multiple stones
+- heavy stone burden
+- distal CBD narrowing/papillary stenosis
+- duct tortuosity/angulation
+- failed balloon sweeps
+
+initial_method: What was used for initial stone extraction attempt, e.g. 'balloon', 'basket', 'combination'
+initial_result_text: Describe as a sentence, initial stone extraction result before any adjunct techniques, e.g. 'Complete clearance was achieved.
+eplbd_performed: true/false if performed; if not mentioned, false
+eplbd_sphinc: If epldb done after sphincterotomy, record 'after sphincterotomy'. If done without sphincterotomy, record 'without sphincterotomy' and the reason why; e.g. 'without sphincterotomy because of bleeding risk'.
+eplbd_balloon_type: Balloon type used
+eplbd_target_diameter: Target diameter in mm
+eplbd_inflation_strategy: 'graded stepwise' or 'single-step'
+eplbd_duration: In seconds, usually 30, 60, 90
+eplbd_waist_resolution: Status of balloon waist during inflation, e.g. 'present and resolved', 'partially resolved', 'persistent'
+eplbd_outcome: 'adequate papillary orifice enlargement achieved', 'partial enlargement', 'inadequate enlargement'
+eplbd_adverse_events: Describe any bleeding, perforation, or other complications in a sentence
+mech_lithotripsy_performed: true/false if performed
+mech_lithotripsy_indication: All reasons mechanical lithotripsy was performed, e.g. large stone, impacted stone, failed balloon
+mech_lithotripsy_basket_system: Type of basket system used, e.g. 'mechanical lithrtripter basket'
+lithotripsy_location: Location of stone where lithotripsy was performed, e.g. distal CBD, hilum
+mech_lithotripsy_stone: Characteristics of stone, e.g. hard/calcified, soft, faceted
+mech_lithotripsy_outcome: Outcome of lithotripsy, e.g. 'Complete fragmentation achieved'
+mech_lithotripsy_basket_impaction: If basket impaction occured, describe impaction type, the rescue performe, and the outcome of rescue in sentences
+mech_lithotripsy_adverse_events: Describe any adverse events from mechanical lithotripsy in a sentence
+chol_lithotripsy_performed: true/false if chololangioscopy-guided lithotripsy performed
+chol_lithotripsy_platform: Cholangioscopy platform used, e.g. 'SpyGlass DS II'
+chol_lithotripsy_modality: Lithotripsy modality used, e.g. 'EHL', 'laser'
+chol_lithotripsy_target_stones: Describe target stones of chololangioscopy-guided lithotripsy, including number, location, size
+chol_lithotripsy_irrigation: true/false if saline irrigation used
+chol_lithotripsy_fragmentation: Outcome of fragmentation, e.g. 'complete', 'partial', 'unsuccessful'
+chol_lithotripsy_debris_clearance: Methods used for debris clearance after lithotripsy, e.g. 'balloon sweeps'
+chol_lithotripsy_details: Describe any additional details about settings or shot counts
+stone_therapy_limitations: Any limitations during stone therapy, e.g. 'poor visualization due to bile/pus/blood'
+duct_clearance_status: Final assessment of duct clearance after stone therapy as 'complete', 'near-complete', 'partial', 'failed'
+duct_clearance_narrative: Describe the findings and management based on the final duct clearance status in sentences, e.g. 'All visible stones and sludge were removed.', 'Small non-obstructing stone remains, expected to pass', 'Failed clearance due to distal narrowing'
+staged_strategy_narrative: If partial/failed clearance, describe in detailed sentences the staged strategy if planned, including indication, stent type/size/position, drainage quality, and plan
+stone_therapy_complications: Complications during adjunct stone therapy, e.g. bleeding, perforation, extravasation, cholangitis worsening
+stone_therapy_bile_drainage_narrative: Describe how and how well bile and contrast drained after stone therapy, e.g. 'Bile and contrast drained well into the duodenum through the papilla.'
+fluoroscopic_img_obtained: true/false if final fluoroscopic image obtained after stone therapy
+pancreatogram_obtained: true if pancreatogram was obtained; false if not
+pancreatogram_overall: Summarize pancreatogram as: 'normal', 'stricture', 'dilation', 'stones', 'filling defect', 'PD leak', 'pancreas divisum', etc.
+main_pd_diameter_head_mm: Main PD diameter at head in mm if given; -1 if not
+main_pd_diameter_body_mm: Main PD diameter at body in mm if given; -1 if not
+main_pd_diameter_tail_mm: Main PD diameter at tail in mm if given; -1 if not
+side_branch_status: Side branch appearance as 'normal', dilated', 'irregular' if described
+pd_stricture_location: If PD stricture present, location (head/body/tail); else 'none'
+pd_pseudocyst_communication: 'true' if communication with pseudocyst was described, else 'false'
+sphincterotomy_type: Type of sphincterotomy. Record 'biliary', 'pancreatic', 'both', or 'none'
+sphincterotome_used: Device used: 'CleverCut3V', 'Autotome RX', 'Dreamtome', 'Hydratome', 'Fusion OMNI', 'needle-knife', 'septotomy', etc.
+incision_direction: Clock-face direction, e.g. '11-12 o'clock', '12-1 o'clock'
+sphincterotomy_extent: Extent of papillotomy as 'small', 'moderate', 'large'
+sphincterotomy_goal_achieved: Goal of sphincterotomy as 'adequate bile flow', 'pancreatic juice', 'guidewire passage', 'stone extraction' was achieved
+biliary_stent_type: If biliary stent placed, record type as 'plastic'/'metal'
+plastic_biliary_size: If plastic stent placed, record diameter, 5F/7F/10F
+plastic_biliary_type: If plastic stent placed, record type, single flap/double flap/barbed
+plastic_biliary_length: If plastic stent placed, record length in cm, e.g. 5/7/9/10/12/15
+metal_biliary_type: If metal stent placed, record coverage as 'FCSEMS' (if fully covered)/ 'PCSEMS' (if partially covered) / 'UCSEMS' (if uncovered)
+metal_biliary_type_features: If metal stent placed, record features such as flared ends/anti-migration fins/retrieval lasso/tapered tip
+metal_biliary_narrative: If metal stent placed, describe its deployment in sentences in the following format, choosing the right findings for fields in square brackets []: 'Deployed [suprapapillary/transpapillary/intraductal above papilla across the [distal CBD stricture/mid CBD/hilar/anastomotic stricture/bile leak site]. Distal end was [2-3 mm beyond papilla/flush with papilla/5-10 mm into duodenum] and proximal end was [xx cm] into [CBD/CHD/right hepatic duct/left hepatic duct/above cystic duct take-off/below cystic duct take-off].'
+metal_biliary_length: If metal stent placed, record length in mm, e.g. 40/60/80/100/120
+pd_stent_placed: true if pancreatic duct stent was placed; false otherwise
+pd_stent_purpose: Purpose of pancreatic stent: 'pep_prophylaxis', 'therapeutic'
+pd_stent_size: If pd stent placed, record diameter, 3F/5F
+pd_stent_type: If pd stent placed, record type, straight/single-pigtail/double-pigtail
+pd_stent_therapy_flaps: If therapeutic pd stent placed, record number of internal flaps: 'single', 'double'
+pd_stent_therapy_narrative: If therapeutic pd stent placed, describe length and positioning as sentence: 'Length was [xx] cm with tip positioned in [head/body/tail] approximately [xx cm] from the orifice.'
+pd_placement_narrative: Describe final pd stent placement in sentences with the following format: 'Final position was [optimal/suboptimal].' If optimal: 'Distal end [at duodenal lumen/just beyond papilla].' If suboptimal: 'The stent was [too proximal/too distal/kinked/not bridging the lesion/partially intramural]. Adjustment was performed using [technique]'
+estimated_blood_loss: Estimated blood loss in ml, as a integer. -1 if not mentioned
+specimens_removed: If specimens were obtained, describe their details/findings
+complications: If there were complications from procedure, describe details/findings as sentence(s)
+impressions: Summarize the most important findings, procedures, and biopsies. Record as a list type field with each item in the list as an impression.
+If there are multiple normal findings, combine them into a single list item for EGD and another for ERCP (for example: "Normal ERCP examination of x, y, z" where x, y, z are different areas with normal ERCP findings). Normal findings do not need to be in the order of examination.
+Do not include scout film results.
+
+recommendations: If the clinician describes specific recommendations for follow-up in the procedure transcript, record the recommendation(s). Record as a list type field with each item in the list as a recommendation. Otherwise leave blank.
+
+###FURTHER INSTRUCTIONS############################
+The transcript may have spelling or transcription mistakes; use your domain expertise of endoscopy to correct them before recording an answer. If there are self-corrections for a finding later in the transcript, include only the most recent correct information. For example, if the transcript has: 'There were no masses or polyps found. But I'm checking again and I now see a 6 mm polyp in the transverse colon.' The second statement is a correction. The actual polyps size in mm you should record is 6.
+Follow the instructions for each field carefully; record none/unknown for unknown/NA fields.
+Return the result as a JSON file. Do not return any additional comments or explanation.

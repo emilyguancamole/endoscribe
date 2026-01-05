@@ -60,7 +60,7 @@ def test_subflow(transcript: str, output_filename: str, yaml_filename: str = '0.
     print(f"Loading single template for test: {yaml_path}")
     # Strip any $extends so module does NOT pull in the base template
     import yaml
-    with open(yaml_path, 'r') as f:
+    with open(yaml_path, 'r', encoding="utf-8") as f:
         raw_cfg = yaml.safe_load(f) or {}
     if '$extends' in raw_cfg:
         del raw_cfg['$extends']
@@ -77,7 +77,7 @@ def test_subflow(transcript: str, output_filename: str, yaml_filename: str = '0.
     # Write extracted data
     out_path = _here / "test" / "test_output" / f"test/{output_filename}"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, 'w') as f:
+    with open(out_path, 'w', encoding="utf-8") as f:
         f.write(str(extracted_data.model_dump()))
     print(f"Wrote LLM-extracted fields to: {out_path}\n")
 
@@ -85,7 +85,7 @@ def test_subflow(transcript: str, output_filename: str, yaml_filename: str = '0.
     print("Generating note...")
     final_note = orchestrator.generate_note(template, extracted_data)
     note_output_path = _here / "test" / "test_output" / f"note_{output_filename}"
-    with open(note_output_path, 'w') as f:
+    with open(note_output_path, 'w', encoding="utf-8") as f:
         f.write(final_note)
     print(f"\nFinal test note written to: {note_output_path}\n")
 

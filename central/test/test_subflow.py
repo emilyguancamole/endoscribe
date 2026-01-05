@@ -53,12 +53,11 @@ Final balloon occlusion cholangiogram show no filling defects.
 def test_subflow(transcript: str, output_filename: str, yaml_filename: str = '0.2_stone_extraction.yaml'):
     """ Test a subflow: single module only. 
     Tests FieldExtractor with one module YAML and drafting"""
-    # Use orchestrator only to obtain a configured LLM client (or adjust to None to use defaults)
     orchestrator = Orchestrator()
     
     yaml_path = Path(_root) / 'templating' / 'prompts' / 'ercp' / 'yaml' / 'modules' / yaml_filename
     print(f"Loading single template for test: {yaml_path}")
-    # Strip any $extends so module does NOT pull in the base template
+    
     import yaml
     with open(yaml_path, 'r', encoding="utf-8") as f:
         raw_cfg = yaml.safe_load(f) or {}
@@ -66,25 +65,38 @@ def test_subflow(transcript: str, output_filename: str, yaml_filename: str = '0.
         del raw_cfg['$extends']
     template = raw_cfg
 
+    # Use shared output directory
+    output_dir = _here / "test_output"
+    
     extractor = FieldExtractor(
         template,
         llm_client=orchestrator.llm_client,
-        output_dir=_here / "test" / "test_output"
+        output_dir=output_dir
     )
     print("\nExtracting fields...")
     extracted_data = extractor.extract_fields(transcript)
 
     # Write extracted data
-    out_path = _here / "test" / "test_output" / f"test/{output_filename}"
+    out_path = output_dir / f"test_{output_filename}"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, 'w', encoding="utf-8") as f:
         f.write(str(extracted_data.model_dump()))
     print(f"Wrote LLM-extracted fields to: {out_path}\n")
 
-    # Generate note using drafter
+    # Generate note using drafter with explicit config path
     print("Generating note...")
-    final_note = orchestrator.generate_note(template, extracted_data)
-    note_output_path = _here / "test" / "test_output" / f"note_{output_filename}"
+    proc_type = template.get('meta', {}).get('procedure_type', 'stone_extraction')
+    drafter_config_path = output_dir / f"generated_{proc_type}_drafter.yaml"
+    
+    from central.drafters.ercp import ERCPDrafter
+    drafter = ERCPDrafter(procedure_type=proc_type)
+    final_note = drafter.render(
+        extracted_data=extracted_data,
+        drafter_config_path=drafter_config_path,
+        format='markdown'
+    )
+    
+    note_output_path = output_dir / f"note_{output_filename}"
     with open(note_output_path, 'w', encoding="utf-8") as f:
         f.write(final_note)
     print(f"\nFinal test note written to: {note_output_path}\n")

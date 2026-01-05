@@ -1,0 +1,47 @@
+meta:
+  module_id: '0.2'
+  procedure_group: ercp
+  procedure_type: stone_extraction
+  title: ERCP Stone Extraction
+  insert_after: cholangiogram
+  extraction_group: stone_management
+prompts:
+  definition_file: prompts/ercp/generated_stone_extraction_prompt.txt
+templates:
+  findings: "{% set _init_ext %}\n{% if stone_extraction_performed %}\n{% if stone_indications\
+    \ | sku %}Adjunct stone therapy was performed due to {{ stone_indications }}.\
+    \ {% endif %}\n{% if initial_method | sku %}Initial extraction was attempted with\
+    \ {{ initial_method | default('balloon') }}.\n{% if initial_result_text %}{{initial_result_text}}{%\
+    \ endif %}\n{% endif %}\n{% endif %}\n{% endset %}\n{{ _init_ext | replace('\\\
+    n', ' ') | replace('  ', ' ') | trim }}\n\n{% set _eplbd %}\n{% if eplbd_performed\
+    \ %}Endoscopic papillary large balloon dilation was performed{% if eplbd_sphinc\
+    \ | sku %} {{ eplbd_sphinc }}{%endif%}. \n{%if eplbd_balloon_type %}\nA {{ eplbd_balloon_type\
+    \ }} balloon was used {%if eplbd_target_diameter | sku%}with target diameter {{\
+    \ eplbd_target_diameter }}mm{%endif%}. \n{%endif%}\nInflation was performed using\
+    \ {{ eplbd_inflation_strategy }} strategy for {{ eplbd_duration }} seconds. \n\
+    {% if eplbd_waist_resolution %}Balloon waist was {{ eplbd_waist_resolution }}.\
+    \ {% endif %}\n{% if eplbd_outcome %}Overall outcome was {{ eplbd_outcome }}.\
+    \ {% endif %}\n{% if eplbd_adverse_events |sku%}Immediate adverse events: {{ eplbd_adverse_events\
+    \ }} {% endif %}\n{% endif %}\n{% endset %}\n{{ _eplbd | replace('\\n', ' ') |\
+    \ replace('  ', ' ') | trim }}\n\n{% if mech_lithotripsy_performed %}\n  Mechanical\
+    \ lithotripsy was performed due to {{ mech_lithotripsy_indication }}.\n  {% if\
+    \ mech_lithotripsy_basket_system | sku%}Basket system: {{ mech_lithotripsy_basket_system\
+    \ }}.{% endif %}\n  {% if lithotripsy_location %}Location: {{ lithotripsy_location\
+    \ }}.{% endif %}\n  {% if mech_lithotripsy_stone | sku%}Stone characteristics:\
+    \ {{ mech_lithotripsy_stone }}.{% endif %}\n  {% if mech_lithotripsy_outcome |\
+    \ sku %}Lithotripsy outcome: {{ mech_lithotripsy_outcome }}.\n  {% if mech_lithotripsy_basket_impaction\
+    \ | sku %}Basket impaction occurred: {{ mech_lithotripsy_basket_impaction }}.{%\
+    \ endif %}\n  {% if mech_lithotripsy_adverse_events | sku %}Adverse events: {{\
+    \ mech_lithotripsy_adverse_events }}.{% endif %}\n  {% endif %}\n{% endif %}\n\
+    \n{% if stone_therapy_limitations | sku %}Limitations: {{stone_therapy_limitations\
+    \ | sent}}\n{% endif %}\n{% if duct_clearance_status%}Final assessment of duct\
+    \ clearance: {{ duct_clearance_status }}.\n{% endif %}\n{% if duct_clearance_narrative\
+    \ | sku %}{{ duct_clearance_narrative | sent }}{% endif %}{% if duct_clearance_status\
+    \ in ['partial', 'failed'] and staged_strategy_narrative | sku %}{{ staged_strategy_narrative\
+    \ | sent }}\n{% endif %}\n{% if stone_therapy_complications | sku %}Complications\
+    \ during adjunct stone therapy included {{ stone_therapy_complications }}.\n \
+    \ {% if stone_therapy_complications in ['bleeding'] %}TODO{% endif %}\n  {% if\
+    \ stone_therapy_complications in ['performation', 'extravasation'] %}TODO{% endif\
+    \ %}\n{% endif %}\n{% if stone_therapy_bile_drainage_narrative | sku %} {{ stone_therapy_bile_drainage_narrative\
+    \ }}\n{% endif %}\n{% if fluoroscopic_img_obtained %}A final fluoroscopic image\
+    \ was obtained for confirmation.{% endif %}"

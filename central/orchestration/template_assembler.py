@@ -32,7 +32,7 @@ class TemplateAssembler:
             template_dir: Root directory for YAML templates (defaults to prompts/)
         """
         if template_dir is None:
-            template_dir = _root / "prompts"
+            template_dir = _root / "templating" / "prompts"
         self.template_dir = Path(template_dir)
         self.base_template_cache = {}
         self.module_cache = {}
@@ -195,3 +195,4 @@ class TemplateAssembler:
             result[eg_name].append(fg_name)
         
         return result
+    

@@ -48,7 +48,8 @@ Final balloon occlusion cholangiogram show no filling defects.
 """
 }
 
-def test_flow(transcript: str):    
+def test_full_flow(transcript: str, output_filename: str = "test_note.txt"):
+
     orchestrator = Orchestrator()
     result = orchestrator.process_transcript(transcript) # full pipeline
     print("\n" + "=" * 80)
@@ -56,16 +57,14 @@ def test_flow(transcript: str):
     classification = result['classification']
     print(f"Base Template: {classification.base_template}")
     print(f"\nKey Findings:")
-    for key, value in classification.key_findings.items():
-        print(f"  {key}: {value}")
-    
+
     print("\n" + "=" * 80)
     print("ASSEMBLED TEMPLATE")
     merged = result['merged_template']
     print(f"Procedure Group: {merged['meta']['procedure_group']}")
     print(f"Active Modules: {merged['meta'].get('active_modules', [])}")
     # Write generated note
-    output_path = _here/"test_ercp_final_note.txt"
+    output_path = _here / f"test/{output_filename}"
     with open(output_path, 'w') as f:
         f.write(result['final_note'])
     print(f"\nRendered test procedure note written to: {output_path}\n")
@@ -74,19 +73,15 @@ def test_flow(transcript: str):
 
 
 if __name__ == "__main__":
-    """ python central/test/test_classification_assembly.py """
+    """ python central/test/test_full_flow.py """
     try:
         test_name = "stone_extraction_2"
+        
         print(f"TEST FOR {test_name} \n"+"="*60)
-        result1 = test_flow(TEST_TRANSCRIPTS[test_name])
+        output_filename = f"test_full_{test_name}.txt"
+        result1 = test_full_flow(TEST_TRANSCRIPTS[test_name], output_filename)
     except Exception as e:
         print(f"\n FAIL: Stone extraction test failed: {e}")
         import traceback
         traceback.print_exc()
     
-    # try:
-    #     result2 = test_simple_diagnostic()
-    # except Exception as e:
-    #     print(f"\n FAIL: Simple diagnostic test failed: {e}")
-    #     import traceback
-    #     traceback.print_exc()

@@ -1,0 +1,19 @@
+# conda
+pydantic
+pandas
+numpy
+openai
+python-dotenv
+
+# pip
+soundfile
+pydub
+librosa
+spacy
+negspacy
+python-multipart
+
+python-docx
+jinja2
+pyyaml
+pyjson5

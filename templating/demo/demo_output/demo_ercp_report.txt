@@ -1,24 +1,6 @@
 == HEADER ==
 
-EXAM DATE: Jan 03, 2026
-
-== INDICATIONS ==
-
-58-year-old female patient is here for an ERCP procedure for recurrent bile duct stones.
-
-== HISTORY ==
-
-The patient reports 1 month history of recurrent bile duct stones.
-Intermittent right upper quadrant pain for one month.
-No history of jaundice is reported unless otherwise specified.Cholecystectomy 2 years ago. No relevant family history. Patient has smoked for ten years.
-
-== MEDICATIONS ==
-
-Refer to record of source.
-
-== MONITORING ==
-
-Cardiac and pulse oximetry monitoring
+EXAM DATE: Jan 04, 2026
 
 == DESCRIPTION_OF_PROCEDURE ==
 

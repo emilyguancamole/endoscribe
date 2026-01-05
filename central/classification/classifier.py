@@ -15,10 +15,7 @@ class ProcedureClassification(BaseModel):
     procedure_type: str = "ercp"
     base_template: str = "ercp/base"
     active_modules: List[str] = Field(default_factory=list)
-    key_findings: Dict = Field(default_factory=dict)
     reasoning: str = ""
-    confidence_scores: Dict[str, float] = Field(default_factory=dict)
-
 
 class ProcedureClassifier:
     """Classifies procedures and identifies applicable modules"""
@@ -53,8 +50,8 @@ class ProcedureClassifier:
             - 5.1 Benign Biliary Stricture
             - N/A (leave blank)
             '''
-        classification_prompt = f"""Analyze this ERCP procedure transcript and identify:
-1. Which adjunct modules were used? Choose all that apply:
+        classification_prompt = f"""Analyze this ERCP procedure transcript and identify key maneuvers and findings:
+1. Which maneuvers were performed? Choose the number code(s) for all that apply:
    - 0.1: Difficult biliary cannulation
    - 0.2: Stone extraction
    - 0.3: Cholangioscopy
@@ -62,24 +59,11 @@ class ProcedureClassifier:
    - 0.5: Hemostasis
    - 0.6: Perforation/extravasation
 
-
-
-3. Key findings:
-   - Stone size (if applicable)
-   - Whether lithotripsy was used
-   - Whether cholangioscopy was used
-   - Whether complications occurred
+Do this by analyzing the procedure information. Use both indications of the procedure and actual maneuvers performed.
 
 Return your analysis in JSON format, e.g:
 {{
   "active_modules": ["0.2", "0.4"],
-  "key_findings": {{
-    "stone_present": true,
-    "stone_size_mm": 8,
-    "mechanical_lithotripsy_performed": false,
-    "cholangioscopy_performed": false,
-    "stent_placed": true
-  }},
   "reasoning": "Brief explanation of classification"
 }}
 
@@ -99,7 +83,6 @@ Transcript:
             procedure_type="ercp",
             base_template="ercp/base",
             active_modules=all_modules,
-            key_findings=classification_data.get("key_findings", {}),
             reasoning=classification_data.get("reasoning", ""),
             confidence_scores=classification_data.get("confidence_scores", {})
         )

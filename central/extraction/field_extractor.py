@@ -113,7 +113,6 @@ class FieldExtractor:
         ]
         response = self.llm_client.chat_llm(messages)
         extracted_data = self._validate_pydantic(response)
-        print(f"   Extracted fields:", extracted_data.model_dump())
         return extracted_data
     
     def _merge_extraction_models(self, pass_results: Dict[str, BaseModel]) -> BaseModel:

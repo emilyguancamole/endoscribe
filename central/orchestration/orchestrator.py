@@ -12,7 +12,6 @@ from central.orchestration.template_assembler import TemplateAssembler
 from central.orchestration.extraction_planner import ExtractionPlanner
 from central.extraction.field_extractor import FieldExtractor
 from central.drafters.ercp import ERCPDrafter
-from templating.generate_from_fields import build_report_sections
 from llm.client import LLMClient
 
 
@@ -39,7 +38,7 @@ class Orchestrator:
             enable_multipass: Whether to use multipass extraction (default True)
         """
         if template_dir is None:
-            template_dir = _root / "prompts"
+            template_dir = _root / "templating" / "prompts"
         
         self.template_dir = Path(template_dir)
         self.llm_client = llm_client or LLMClient.from_config(config_name)
@@ -63,8 +62,7 @@ class Orchestrator:
         
         print("Classifying procedure type...")
         classification = self.classifier.classify_procedure(transcript)
-        print(f"   Modules: {classification.active_modules}")
-        print(f"   Reasoning: {classification.reasoning}")
+        print(f"   Classification: {classification}")
         
         print("\nAssembling template...")
         merged_template = self.assembler.assemble_template(classification)
@@ -93,7 +91,7 @@ class Orchestrator:
         
         # Generate note using drafter
         print("\nGenerating note...")
-        final_note = self._generate_note(merged_template, extracted_data)
+        final_note = self.generate_note(merged_template, extracted_data)
         
         return {
             'classification': classification,
@@ -113,7 +111,7 @@ class Orchestrator:
             count += len(fg_config.get('fields', []))
         return count
     
-    def _generate_note(
+    def generate_note(
         self, 
         merged_template: Dict[str, Any],
         extracted_data: BaseModel,

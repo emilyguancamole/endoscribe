@@ -1,44 +1,6 @@
 # EndoScribe Technical Reference
 up-to-date (mostly) as of: 12/13/25
 
-# 1/3/26 deprecated
-_root/results/ folder - llm extractions only - need to rework how i save intermediate results with my updated pipeline
-_root/processors - moved functionality into central/ for ercp
-models/ ?? maybe pep is still relevant
-
-# Manual EndoScribe Pipeline
-```bash
-# Generate artifacts from fields.yaml
-python templating/generate_from_fields.py prompts/ercp/yaml/fields_base.yaml
-  # This outputs: LLM prompt (generated_{proc}_prompt.txt), drafter model (generated_{proc}.yaml), data model (generated_{proc}_model.py))
-
-  # Test the generated template with dummy data:
-  python templating/demo_ercp_yaml_pipeline.py # default to ercp_base
-  # Select by procedure_type or module_id
-  python templating/demo_ercp_yaml_pipeline.py --proc=stone_extraction --demo_data_json=0.2stone.json5
-  # Give direct path to yaml
-  python templating/demo_ercp_yaml_pipeline.py prompts/ercp/yaml/modules/0.2_stone_extraction.yaml
-
-# Transcribe audio file(s)
-  python -m transcription.transcription_service --procedure_type=ercp --audio_files transcription/recordings/ercp/pdstone/pdstone01.wav transcription/recordings/ercp/pdstone/pdstone02.wav
-    --service=[azure,whisperx]
-    # defaults: --service=azure --save_filename=transcription/results/ercp/{service}_trs.csv
-    
-
-# LLM Extraction
-python main.py --procedure_type=ercp --transcripts_fp=azure_trs.csv --output_filename=azure_ext --files_to_process bdstone01 bdstone02
-  # This outputs: transcription/results/ercp/azure_ext.csv 
-
-# Drafter
-python drafter.py --procedure=ercp --pred_csv=azure_ext.csv --output_dir=drafters/results/ercp/templated --samples_to_process bdstone01 
-  # This outputs: 
-    # drafted .docx files: drafters/results/ercp/templated/{sample}.docx
-    # package JSON files for reviewer: drafters/results/ercp/templated/{sample}_package.json
-
-# Reviewer
-# TODO
-```
-
 # TECH DETAILS
 # YAML Field-to-Report Pipeline
 
@@ -141,3 +103,43 @@ In `reviewer.py`:
 - Uses `_extract_json(response_text)` to try to find a JSON substring in the LLM output. Loads JSON and runs _basic_validate_schema(parsed) to ensure minimal fields. If failure, writes raw response to `<package>_reviewer_raw.txt` and raises an error. Otherwise writes `<package>_reviewer.json`.
 
 TODO re-draft the note?? how to integrate with drafter?
+
+
+
+# 1/3/26 deprecated
+_root/results/ folder - llm extractions only - need to rework how i save intermediate results with my updated pipeline
+_root/processors - moved functionality into central/ for ercp
+models/ ?? maybe pep is still relevant
+
+# Manual EndoScribe Pipeline
+```bash
+# Generate artifacts from fields.yaml
+python templating/generate_from_fields.py prompts/ercp/yaml/fields_base.yaml
+  # This outputs: LLM prompt (generated_{proc}_prompt.txt), drafter model (generated_{proc}.yaml), data model (generated_{proc}_model.py))
+
+  # Test the generated template with dummy data:
+  python templating/demo_ercp_yaml_pipeline.py # default to ercp_base
+  # Select by procedure_type or module_id
+  python templating/demo_ercp_yaml_pipeline.py --proc=stone_extraction --demo_data_json=0.2stone.json5
+  # Give direct path to yaml
+  python templating/demo_ercp_yaml_pipeline.py prompts/ercp/yaml/modules/0.2_stone_extraction.yaml
+
+# Transcribe audio file(s)
+  python -m transcription.transcription_service --procedure_type=ercp --audio_files transcription/recordings/ercp/pdstone/pdstone01.wav transcription/recordings/ercp/pdstone/pdstone02.wav
+    --service=[azure,whisperx]
+    # defaults: --service=azure --save_filename=transcription/results/ercp/{service}_trs.csv
+    
+
+# LLM Extraction
+python main.py --procedure_type=ercp --transcripts_fp=azure_trs.csv --output_filename=azure_ext --files_to_process bdstone01 bdstone02
+  # This outputs: transcription/results/ercp/azure_ext.csv 
+
+# Drafter
+python drafter.py --procedure=ercp --pred_csv=azure_ext.csv --output_dir=drafters/results/ercp/templated --samples_to_process bdstone01 
+  # This outputs: 
+    # drafted .docx files: drafters/results/ercp/templated/{sample}.docx
+    # package JSON files for reviewer: drafters/results/ercp/templated/{sample}_package.json
+
+# Reviewer
+# TODO
+```

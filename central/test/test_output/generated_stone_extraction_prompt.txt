@@ -1,13 +1,21 @@
+I am giving you a transcript from an ERCP procedure. The task is to extract procedure entities, focusing on stone extractions.
+The information you extract will be used to fill a structured procedure note template.
+If examples of the template are given, ensure your extracted field fits with that structure. For instance, field "scope_advancement_difficulty_reason" will be used to fill in the template sentence "Scope advancement was challenging due to {scope_advancement_difficulty_reason}", so your answer should be a phrase that fits in that sentence.
+If examples of valid responses are given, you may also write free text responses outside those examples, unless otherwise specified. Ensure the free text responses have the same grammatical structure. 
+Unless otherwise specified, default to string type outputs.
+Not all fields may be mentioned in the transcript or applicable for the procedure. Unless explicitly otherwise specified, if you do not know the answer, record "unknown". If it wasn't mentioned or if not applicable, record "none". Do not make up information.
+
 The entities you must extract are listed below. Follow the instructions.
 ###ENTITIES############################
 stone_extraction_performed: true/false if stone/sludge extraction performed and/or adjuncts used
-stone_indications: If adjunct stone therapy was performed, record all reasons for it, e.g.
-- 'giant stone(s)' (if largest ≥15-20mm)
-- 'large stone(s)' (if largest >10mm)
-- 'multiple stones/heavy stone burden'
-- 'distal CBD narrowing/papillary stenosis'
-- 'duct tortuosity/angulation'
-- 'failed balloon sweeps/failed basket extraction'
+stone_indications: If adjunct stone therapy was performed, record all reasons for it as a string, e.g. 'large stones (largest 9mm) and duct tortuosity'. Not exhaustive list, be specific if possible:
+- giant stones (largest ≥15-20mm)
+- large stones (largest >10mm)
+- multiple stones
+- heavy stone burden
+- distal CBD narrowing/papillary stenosis
+- duct tortuosity/angulation
+- failed balloon sweeps
 
 initial_method: What was used for initial stone extraction attempt, e.g. 'balloon', 'basket', 'combination'
 initial_result_text: Describe as a sentence, initial stone extraction result before any adjunct techniques, e.g. 'Complete clearance was achieved.
@@ -45,5 +53,6 @@ stone_therapy_bile_drainage_narrative: Describe how and how well bile and contra
 fluoroscopic_img_obtained: true/false if final fluoroscopic image obtained after stone therapy
 
 ###FURTHER INSTRUCTIONS############################
-If the transcript contains spelling mistakes, use your domain expertise of endoscopy to correct them in your report. If there are self-corrections for a finding later in the transcript, include only the most recent correct information. For example, if the transcript has: 'There were no masses or polyps found. But I'm checking again and I now see a 6 mm polyp in the transverse colon.' The second statement is a correction, since polyps were later found. The actual polyps size in mm you should record is 6.
+The transcript may have spelling or transcription mistakes; use your domain expertise of endoscopy to correct them before recording an answer. If there are self-corrections for a finding later in the transcript, include only the most recent correct information. For example, if the transcript has: 'There were no masses or polyps found. But I'm checking again and I now see a 6 mm polyp in the transverse colon.' The second statement is a correction. The actual polyps size in mm you should record is 6.
+Follow the instructions for each field carefully; record none/unknown for unknown/NA fields.
 Return the result as a JSON file. Do not return any additional comments or explanation.

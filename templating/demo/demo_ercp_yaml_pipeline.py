@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 _here = Path(__file__).parent
-_root = _here.parent
+_root = _here.parent.parent
 sys.path.insert(0, str(_root))
 
 from templating.generate_from_fields import (
@@ -48,7 +48,7 @@ def demo():
     args = parser.parse_args()
     print("Procedure type:", args.proc)
     # Search for matching fields YAML under prompts/ercp/yaml
-    yaml_root = _root / 'prompts' / 'ercp' / 'yaml'
+    yaml_root = _root / 'templating' / 'prompts' / 'ercp' / 'yaml'
     fields_path = None
     config = None
 
@@ -68,18 +68,18 @@ def demo():
 
     # Fallback to base fields if nothing matched
     if fields_path is None:
-        fields_path = _root / 'prompts' / 'ercp' / 'yaml' / 'fields_base.yaml'
+        fields_path = yaml_root / 'fields_base.yaml'
         config = load_fields_config(str(fields_path))
 
     # If modules specified, merge them into base
     if args.modules:
         module_ids = [m.strip() for m in args.modules.split(',') if m.strip()]
         # ensure base_config is the base
-        base_path = _root / 'prompts' / 'ercp' / 'yaml' / 'fields_base.yaml'
+        base_path = yaml_root / 'fields_base.yaml'
         base_config = load_fields_config(str(base_path))
         for mid in module_ids:
             # find module file by id
-            modules_dir = _root / 'prompts' / 'ercp' / 'yaml' / 'modules'
+            modules_dir = yaml_root / 'modules'
             mod_file = None
             if modules_dir.exists():
                 matches = list(modules_dir.glob(f"{mid}_*.yaml"))
@@ -178,5 +178,8 @@ def demo():
     print(f"\nRendered test procedure note written to: {output_path}\n")
 
 if __name__ == "__main__":
-    ''' To run demo: python templating/demo_ercp_yaml_pipeline.py'''
+    ''' 
+    To run demo: 
+    python templating/demo/demo_ercp_yaml_pipeline.py
+    '''
     demo()
